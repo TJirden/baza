@@ -1,14 +1,22 @@
 package cringe.baza.bot.service;
 
+import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.PhotoSize;
 import com.pengrad.telegrambot.model.Update;
+import com.pengrad.telegrambot.request.GetFile;
 import com.pengrad.telegrambot.request.SendMessage;
+import com.pengrad.telegrambot.response.GetFileResponse;
 import cringe.baza.bot.command.Command;
+import cringe.baza.bot.imaginator.ImageManager;
 import cringe.baza.bot.model.UserState;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import javax.imageio.ImageIO;
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.net.URL;
 import java.util.List;
 
 @Slf4j
@@ -17,6 +25,8 @@ import java.util.List;
 public class UpdateProcessor {
     private final List<Command> commands;
     private final UserSessionService sessionService;
+    private final TelegramBot bot;
+    private final ImageManager imageManager;
 
     public SendMessage processUpdate(Update update) {
         long chatId = update.message().chat().id();
@@ -31,23 +41,45 @@ public class UpdateProcessor {
         long chatId = update.message().chat().id();
 
         if (update.message().photo() == null || update.message().photo().length == 0) {
-            return new SendMessage(chatId, "Пожалуйста, отправьте картинку с подписью");
+            return new SendMessage(chatId, "Ошибка: необходимо отправить изображение");
         }
 
-        String caption = update.message().caption();
-
+        String description = update.message().caption();
         PhotoSize[] photos = update.message().photo();
-        if (photos.length != 1){
-            return  new SendMessage(chatId, "Одно фото за раз");
+        PhotoSize largestPhoto = photos[photos.length - 1];
+
+        try {
+            GetFile getFile = new GetFile(largestPhoto.fileId());
+            GetFileResponse response = bot.execute(getFile);
+
+            if (!response.isOk()) {
+                log.error("Failed to get file: {}", response.description());
+                return new SendMessage(chatId, "Ошибка: не удалось загрузить файл");
+            }
+
+            String filePath = response.file().filePath();
+            String fileUrl = String.format("https://api.telegram.org/file/bot%s/%s", bot.getToken(), filePath);
+
+            BufferedImage image = ImageIO.read(new URL(fileUrl));
+
+            if (image == null) {
+                return new SendMessage(chatId, "Ошибка: не удалось прочитать изображение");
+            }
+
+            String imageId = imageManager.saveImage(image, description, chatId);
+
+            sessionService.setUserState(chatId, UserState.DEFAULT);
+
+            String responseMessage = description != null && !description.isEmpty()
+                    ? String.format("Изображение сохранено. ID: %s\nОписание: %s", imageId, description)
+                    : String.format("Изображение сохранено. ID: %s", imageId);
+
+            return new SendMessage(chatId, responseMessage);
+
+        } catch (Exception e) {
+            log.error("Error saving image", e);
+            return new SendMessage(chatId, "Ошибка: не удалось сохранить изображение");
         }
-
-        // TODO: Здесь будет логика сохранения картинки
-
-        sessionService.setUserState(chatId, UserState.DEFAULT);
-
-        String response = "Картинка сохранена, подпись:" + caption;
-
-        return new SendMessage(chatId, response);
     }
 
 
