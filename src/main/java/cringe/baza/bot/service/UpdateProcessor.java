@@ -3,8 +3,10 @@ package cringe.baza.bot.service;
 import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.PhotoSize;
 import com.pengrad.telegrambot.model.Update;
+import com.pengrad.telegrambot.request.BaseRequest;
 import com.pengrad.telegrambot.request.GetFile;
 import com.pengrad.telegrambot.request.SendMessage;
+import com.pengrad.telegrambot.request.SendPhoto;
 import com.pengrad.telegrambot.response.GetFileResponse;
 import cringe.baza.bot.command.Command;
 import cringe.baza.bot.imaginator.ImageManager;
@@ -28,10 +30,10 @@ public class UpdateProcessor {
     private final TelegramBot bot;
     private final ImageManager imageManager;
 
-    public SendMessage processUpdate(Update update) {
+    public BaseRequest<?,?> processUpdate(Update update) {
         long chatId = update.message().chat().id();
         UserState currentState = sessionService.getUserState(chatId);
-        if (currentState == UserState.AWAITING_SAVE_IMAGE) {
+        if (currentState != UserState.AWAITING_SAVE_IMAGE) {
             return processImageSave(update);
         }
         return processCommand(update);
@@ -83,7 +85,7 @@ public class UpdateProcessor {
     }
 
 
-    private SendMessage processCommand(Update update) {
+    private BaseRequest<?,?> processCommand(Update update) {
         long chatId = update.message().chat().id();
         String text = update.message().text();
 

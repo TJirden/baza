@@ -1,7 +1,9 @@
 package cringe.baza.bot.command;
 
 import com.pengrad.telegrambot.model.Update;
+import com.pengrad.telegrambot.request.BaseRequest;
 import com.pengrad.telegrambot.request.SendMessage;
+import com.pengrad.telegrambot.request.SendPhoto;
 
 public interface Command {
 
@@ -11,7 +13,7 @@ public interface Command {
     String description();
 
     /** Обработка входящего обновления */
-    SendMessage handle(Update update);
+    BaseRequest<?,?> handle(Update update);
 
     /** Проверяет, подходит ли данное обновление этой команде */
     default boolean supports(String text) {
