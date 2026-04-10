@@ -15,17 +15,20 @@ public class UserSessionService {
     private final Map<Long, String> tempData = new ConcurrentHashMap<>();
 
     public UserState getUserState(Long chatId) {
-        return userStates.getOrDefault(chatId, UserState.DEFAULT);
+        UserState state = userStates.getOrDefault(chatId, UserState.DEFAULT);
+        log.info("Запрошено состояние пользователя {}: {}", chatId, state);
+        return state;
     }
 
     public void setUserState(Long chatId, UserState state) {
         if (state == UserState.DEFAULT) {
             userStates.remove(chatId);
             tempData.remove(chatId);
+            log.info("Состояние пользователя {} сброшено до DEFAULT", chatId);
         } else {
             userStates.put(chatId, state);
+            log.info("Установлено состояние {} для пользователя {}", state, chatId);
         }
-        log.debug("User {} state changed to {}", chatId, state);
     }
 
     public void setTempData(Long chatId, String data) {
@@ -33,7 +36,8 @@ public class UserSessionService {
     }
 
     public String getTempData(Long chatId) {
-        return tempData.get(chatId);
+        String data = tempData.get(chatId);
+        return data;
     }
 
     public void clearTempData(Long chatId) {

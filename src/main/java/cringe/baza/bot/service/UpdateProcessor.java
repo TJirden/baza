@@ -33,7 +33,8 @@ public class UpdateProcessor {
     public BaseRequest<?,?> processUpdate(Update update) {
         long chatId = update.message().chat().id();
         UserState currentState = sessionService.getUserState(chatId);
-        if (currentState != UserState.AWAITING_SAVE_IMAGE) {
+
+        if (currentState == UserState.AWAITING_SAVE_IMAGE) {
             return processImageSave(update);
         }
         return processCommand(update);
@@ -41,8 +42,10 @@ public class UpdateProcessor {
 
     private SendMessage processImageSave(Update update) {
         long chatId = update.message().chat().id();
+        log.info("Обработка изображения от чата с id: {}",chatId);
 
         if (update.message().photo() == null || update.message().photo().length == 0) {
+            log.warn("Пользователь {} отправил не изображение в режиме сохранения", chatId);
             return new SendMessage(chatId, "Ошибка: необходимо отправить изображение");
         }
 
@@ -55,7 +58,7 @@ public class UpdateProcessor {
             GetFileResponse response = bot.execute(getFile);
 
             if (!response.isOk()) {
-                log.error("Failed to get file: {}", response.description());
+                log.error("Ошибка получения файла из Telegram: {}", response.description());
                 return new SendMessage(chatId, "Ошибка: не удалось загрузить файл");
             }
 
@@ -65,12 +68,15 @@ public class UpdateProcessor {
             BufferedImage image = ImageIO.read(new URL(fileUrl));
 
             if (image == null) {
+                log.error("Не удалось прочитать изображение для пользователя {}", chatId);
                 return new SendMessage(chatId, "Ошибка: не удалось прочитать изображение");
             }
 
             String imageId = imageManager.saveImage(image, description, chatId);
 
             sessionService.setUserState(chatId, UserState.DEFAULT);
+
+            log.info("Пользователь {} сохранил изображение, ID: {}", chatId, imageId);
 
             String responseMessage = description != null && !description.isEmpty()
                     ? String.format("Изображение сохранено. ID: %s\nОписание: %s", imageId, description)
@@ -79,11 +85,10 @@ public class UpdateProcessor {
             return new SendMessage(chatId, responseMessage);
 
         } catch (Exception e) {
-            log.error("Error saving image", e);
+            log.error("Критическая ошибка при сохранении изображения для пользователя {}: {}", chatId, e.getMessage());
             return new SendMessage(chatId, "Ошибка: не удалось сохранить изображение");
         }
     }
-
 
     private BaseRequest<?,?> processCommand(Update update) {
         long chatId = update.message().chat().id();
@@ -91,13 +96,11 @@ public class UpdateProcessor {
 
         for (Command command : commands) {
             if (command.supports(text)) {
-                log.info("Обработана команда: command=/{}, chatId={}, text={}", command.command(), chatId, text);
                 return command.handle(update);
             }
         }
 
-        log.warn("Получена неизвестная команда: chatId={}, text={}", chatId, text);
+        log.warn("Получена неизвестная команда от пользователя {}: {}", chatId, text);
         return new SendMessage(chatId, "Неизвестная команда. Используй /help для списка команд.");
     }
 }
-

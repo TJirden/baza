@@ -40,7 +40,7 @@ public class BotUpdateListener implements UpdatesListener {
     public int process(List<Update> updates) {
         for (Update update : updates) {
             try {
-                if (update.message() == null || update.message().text() == null) {
+                if (update.message() == null) {
                     continue;
                 }
 
