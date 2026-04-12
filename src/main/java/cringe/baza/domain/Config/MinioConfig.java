@@ -20,10 +20,13 @@ public class MinioConfig {
     @Value("${minio.secure}")
     private boolean secure;
 
+    @Value("${minio.port}")
+    private int port;
+
     @Bean
     public MinioClient minioClient() {
         return MinioClient.builder()
-                .endpoint(endpoint, 9000, secure)
+                .endpoint(endpoint, port, secure)
                 .credentials(accessKey, secretKey)
                 .build();
     }
