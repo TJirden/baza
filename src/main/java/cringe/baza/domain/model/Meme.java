@@ -1,4 +1,6 @@
 package cringe.baza.domain.model;
 
-public record Meme() {
+import java.awt.image.BufferedImage;
+
+public record Meme(BufferedImage image, String description, long chatId) {
 }
