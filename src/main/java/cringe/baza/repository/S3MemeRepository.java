@@ -1,6 +1,7 @@
 package cringe.baza.repository;
 
-import cringe.baza.domain.model.Meme;
+import cringe.baza.model.Meme;
+import cringe.baza.model.MemeRepository;
 import io.minio.*;
 import io.minio.errors.ErrorResponseException;
 import io.minio.messages.Item;
