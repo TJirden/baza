@@ -1,4 +1,4 @@
-package cringe.baza.domain.Initialization;
+package cringe.baza.repository.inititialization;
 
 import io.minio.BucketExistsArgs;
 import io.minio.MakeBucketArgs;

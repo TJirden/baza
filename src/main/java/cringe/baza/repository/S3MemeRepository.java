@@ -1,4 +1,4 @@
-package cringe.baza.domain.repository;
+package cringe.baza.repository;
 
 import cringe.baza.domain.model.Meme;
 import io.minio.*;
