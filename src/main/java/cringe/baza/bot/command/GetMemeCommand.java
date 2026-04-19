@@ -4,8 +4,8 @@ import com.pengrad.telegrambot.model.Update;
 import com.pengrad.telegrambot.request.BaseRequest;
 import com.pengrad.telegrambot.request.SendMessage;
 import com.pengrad.telegrambot.request.SendPhoto;
-import cringe.baza.bot.imaginator.BasicImageManager;
-import cringe.baza.bot.imaginator.Meme;
+import cringe.baza.model.Meme;
+import cringe.baza.model.MemeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -18,7 +18,7 @@ import java.util.Optional;
 @Component
 public class GetMemeCommand implements Command {
 
-    private final BasicImageManager imageManager;
+    private final MemeRepository memeRepository;
 
     @Override
     public String command() {
@@ -38,13 +38,13 @@ public class GetMemeCommand implements Command {
         String memeId = extractMemeId(messageText);
 
         if (memeId == null || memeId.isEmpty()) {
-            return new SendPhoto(chatId, "Нужно указать ID мема. Пример: /getmeme 123");
+            return new SendMessage(chatId, "Нужно указать ID мема. Пример: /getmeme 123");
         }
 
-        Optional<Meme> memeOptional = imageManager.getMeme(memeId);
+        Optional<Meme> memeOptional = memeRepository.get(memeId);
 
         if (memeOptional.isEmpty()) {
-            return new SendPhoto(chatId, "Мем с ID " + memeId + " не найден");
+            return new SendMessage(chatId, "Мем с ID " + memeId + " не найден");
         }
 
         Meme meme = memeOptional.get();

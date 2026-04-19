@@ -6,20 +6,20 @@ import com.pengrad.telegrambot.model.Update;
 import com.pengrad.telegrambot.request.BaseRequest;
 import com.pengrad.telegrambot.request.GetFile;
 import com.pengrad.telegrambot.request.SendMessage;
-import com.pengrad.telegrambot.request.SendPhoto;
 import com.pengrad.telegrambot.response.GetFileResponse;
 import cringe.baza.bot.command.Command;
-import cringe.baza.bot.imaginator.ImageManager;
 import cringe.baza.bot.model.UserState;
+import cringe.baza.model.Meme;
+import cringe.baza.model.MemeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import javax.imageio.ImageIO;
-import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.net.URL;
 import java.util.List;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -28,7 +28,7 @@ public class UpdateProcessor {
     private final List<Command> commands;
     private final UserSessionService sessionService;
     private final TelegramBot bot;
-    private final ImageManager imageManager;
+    private final MemeRepository memeRepository;
 
     public BaseRequest<?,?> processUpdate(Update update) {
         long chatId = update.message().chat().id();
@@ -72,7 +72,8 @@ public class UpdateProcessor {
                 return new SendMessage(chatId, "Ошибка: не удалось прочитать изображение");
             }
 
-            String imageId = imageManager.saveImage(image, description, chatId);
+            String imageId = UUID.randomUUID().toString();
+            memeRepository.put(imageId,new Meme(image, description, chatId));
 
             sessionService.setUserState(chatId, UserState.DEFAULT);
 

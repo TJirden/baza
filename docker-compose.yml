@@ -1,17 +1,4 @@
 services:
-  postgres:
-    image: postgres:16
-    container_name: baza_postgres
-    environment:
-      POSTGRES_DB: baza
-      POSTGRES_USER: baza_user
-      POSTGRES_PASSWORD: baza_password
-    ports:
-      - "5432:5432"
-    volumes:
-      - ./postgres-data:/var/lib/postgresql/data
-    restart: unless-stopped
-    network_mode: bridge
 
   minio:
     image: minio/minio:latest
