@@ -14,8 +14,8 @@ public class ClearCommand implements Command {
 
     private final MemeProcessor memeProcessor;
 
-    @Value("${bot.admin.id}")
-    private long adminId;
+    @Value("${bot.admin.password}")
+    private String password;
 
     @Override
     public String command() {
@@ -31,7 +31,7 @@ public class ClearCommand implements Command {
     public BaseRequest<?, ?> handle(Update update) {
         long chatId = update.message().chat().id();
 
-        if (chatId != adminId) {
+        if (!extractText(update.message().text()).equals(password)) {
             return new SendMessage(chatId, "Нуб, ты не можешь это сделать");
         }
 
