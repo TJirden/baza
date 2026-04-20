@@ -10,14 +10,14 @@ import com.pengrad.telegrambot.response.GetFileResponse;
 import cringe.baza.bot.command.Command;
 import cringe.baza.bot.model.UserState;
 import cringe.baza.model.Meme;
-import cringe.baza.model.MemeRepository;
+import cringe.baza.processor.MemeProcessor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
-import java.net.URL;
+import java.net.URI;
 import java.util.List;
 import java.util.UUID;
 
@@ -27,8 +27,8 @@ import java.util.UUID;
 public class UpdateProcessor {
     private final List<Command> commands;
     private final UserSessionService sessionService;
-    private final TelegramBot bot;
-    private final MemeRepository memeRepository;
+    private final TelegramFileService fileService;
+    private final MemeProcessor memeProcessor;
 
     public BaseRequest<?,?> processUpdate(Update update) {
         long chatId = update.message().chat().id();
@@ -42,48 +42,24 @@ public class UpdateProcessor {
 
     private SendMessage processImageSave(Update update) {
         long chatId = update.message().chat().id();
-        log.info("Обработка изображения от чата с id: {}",chatId);
+        String description = update.message().caption();
 
-        if (update.message().photo() == null || update.message().photo().length == 0) {
-            log.warn("Пользователь {} отправил не изображение в режиме сохранения", chatId);
-            return new SendMessage(chatId, "Ошибка: необходимо отправить изображение");
+        if (description == null || description.isBlank()) {
+            return new SendMessage(chatId, "Пожалуйста, добавь описание к фото (в подписи), чтобы я мог его найти!");
         }
 
-        String description = update.message().caption();
-        PhotoSize[] photos = update.message().photo();
-        PhotoSize largestPhoto = photos[photos.length - 1];
-
         try {
-            GetFile getFile = new GetFile(largestPhoto.fileId());
-            GetFileResponse response = bot.execute(getFile);
-
-            if (!response.isOk()) {
-                log.error("Ошибка получения файла из Telegram: {}", response.description());
-                return new SendMessage(chatId, "Ошибка: не удалось загрузить файл");
-            }
-
-            String filePath = response.file().filePath();
-            String fileUrl = String.format("https://api.telegram.org/file/bot%s/%s", bot.getToken(), filePath);
-
-            BufferedImage image = ImageIO.read(new URL(fileUrl));
-
+            BufferedImage image = fileService.downloadImage(update.message().photo());
             if (image == null) {
-                log.error("Не удалось прочитать изображение для пользователя {}", chatId);
-                return new SendMessage(chatId, "Ошибка: не удалось прочитать изображение");
+                return new SendMessage(chatId, "Ошибка: отправьте фото");
             }
 
-            String imageId = UUID.randomUUID().toString();
-            memeRepository.put(imageId,new Meme(image, description, chatId));
+            String imageId = memeProcessor.save(new Meme(image, description, chatId));
 
             sessionService.setUserState(chatId, UserState.DEFAULT);
 
-            log.info("Пользователь {} сохранил изображение, ID: {}", chatId, imageId);
-
-            String responseMessage = description != null && !description.isEmpty()
-                    ? String.format("Изображение сохранено. ID: %s\nОписание: %s", imageId, description)
-                    : String.format("Изображение сохранено. ID: %s", imageId);
-
-            return new SendMessage(chatId, responseMessage);
+            String text = "Мем сохранен! ID: " + imageId + "\nОписание: " + description;
+            return new SendMessage(chatId, text);
 
         } catch (Exception e) {
             log.error("Критическая ошибка при сохранении изображения для пользователя {}: {}", chatId, e.getMessage());
