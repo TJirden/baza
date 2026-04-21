@@ -1,8 +1,12 @@
 package cringe.baza.bot.service;
 
 import com.pengrad.telegrambot.TelegramBot;
+import com.pengrad.telegrambot.model.InlineQuery;
 import com.pengrad.telegrambot.model.PhotoSize;
 import com.pengrad.telegrambot.model.Update;
+import com.pengrad.telegrambot.model.request.InlineQueryResultCachedPhoto;
+import com.pengrad.telegrambot.model.request.InlineQueryResultPhoto;
+import com.pengrad.telegrambot.request.AnswerInlineQuery;
 import com.pengrad.telegrambot.request.BaseRequest;
 import com.pengrad.telegrambot.request.GetFile;
 import com.pengrad.telegrambot.request.SendMessage;
@@ -18,6 +22,7 @@ import org.springframework.stereotype.Service;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.net.URI;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
@@ -30,9 +35,14 @@ public class UpdateProcessor {
     private final TelegramFileService fileService;
     private final MemeProcessor memeProcessor;
 
-    public BaseRequest<?,?> processUpdate(Update update) {
+    public BaseRequest<?, ?> processUpdate(Update update) {
+        if (update.inlineQuery() != null) {
+            return handleInlineQuery(update.inlineQuery());
+        }
+
         long chatId = update.message().chat().id();
         UserState currentState = sessionService.getUserState(chatId);
+
 
         if (currentState == UserState.AWAITING_SAVE_IMAGE) {
             return processImageSave(update);
@@ -42,6 +52,10 @@ public class UpdateProcessor {
 
     private SendMessage processImageSave(Update update) {
         long chatId = update.message().chat().id();
+        if (update.message().photo() == null || update.message().photo().length == 0) {
+            sessionService.setUserState(chatId, UserState.DEFAULT);
+            return new SendMessage(chatId, "Ошибка: я не вижу фото в твоем сообщении. Сбрасываю состояние");
+        }
         String description = update.message().caption();
 
         if (description == null || description.isBlank()) {
@@ -50,11 +64,9 @@ public class UpdateProcessor {
 
         try {
             BufferedImage image = fileService.downloadImage(update.message().photo());
-            if (image == null) {
-                return new SendMessage(chatId, "Ошибка: отправьте фото");
-            }
+            String fileId = fileService.getImageFileId(update.message().photo());
 
-            String imageId = memeProcessor.save(new Meme(image, description, chatId));
+            String imageId = memeProcessor.save(new Meme(image, description, fileId));
 
             sessionService.setUserState(chatId, UserState.DEFAULT);
 
@@ -63,11 +75,12 @@ public class UpdateProcessor {
 
         } catch (Exception e) {
             log.error("Критическая ошибка при сохранении изображения для пользователя {}: {}", chatId, e.getMessage());
-            return new SendMessage(chatId, "Ошибка: не удалось сохранить изображение");
+            sessionService.setUserState(chatId, UserState.DEFAULT);
+            return new SendMessage(chatId, "Ошибка: не удалось сохранить изображение, cбрасываю состояние");
         }
     }
 
-    private BaseRequest<?,?> processCommand(Update update) {
+    private BaseRequest<?, ?> processCommand(Update update) {
         long chatId = update.message().chat().id();
         String text = update.message().text();
 
@@ -79,5 +92,31 @@ public class UpdateProcessor {
 
         log.warn("Получена неизвестная команда от пользователя {}: {}", chatId, text);
         return new SendMessage(chatId, "Неизвестная команда. Используй /help для списка команд.");
+    }
+
+    private AnswerInlineQuery handleInlineQuery(InlineQuery inlineQuery) {
+        String query = inlineQuery.query();
+        if (query == null || query.isBlank()) {
+            return new AnswerInlineQuery(inlineQuery.id());
+        }
+
+        try {
+            List<String> fileIds = memeProcessor.getFileIdsByDescription(query, 50);
+
+            InlineQueryResultCachedPhoto[] results = fileIds.stream()
+                    .map(fileId -> {
+                        String resultId = UUID.randomUUID().toString();
+                        return new InlineQueryResultCachedPhoto(resultId, fileId);
+                    })
+                    .toArray(InlineQueryResultCachedPhoto[]::new);
+
+            return new AnswerInlineQuery(inlineQuery.id(), results)
+                    .cacheTime(0)
+                    .isPersonal(true);
+
+        } catch (Exception e) {
+            log.error("Inline search error: {}", e.getMessage());
+            return new AnswerInlineQuery(inlineQuery.id());
+        }
     }
 }

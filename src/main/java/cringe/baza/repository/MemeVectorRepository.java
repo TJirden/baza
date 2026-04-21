@@ -7,10 +7,8 @@ import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.stereotype.Repository;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 @Repository
 @RequiredArgsConstructor
@@ -19,12 +17,12 @@ public class MemeVectorRepository implements IdRepository {
     private final VectorStore vectorStore;
 
     @Override
-    public void save(String id, String description, long chatId) {
+    public void save(String id, String description, String chatId) {
         Document document = new Document(
                 id,
                 description,
                 Map.of(
-                        "chatId", chatId
+                        "fileId", chatId
                 )
         );
         vectorStore.add(List.of(document));
@@ -38,10 +36,24 @@ public class MemeVectorRepository implements IdRepository {
                 .similarityThreshold(0.5)
                 .build();
 
-        return Optional.ofNullable(vectorStore.similaritySearch(request))
-                .orElseGet(Collections::emptyList)
+        return vectorStore.similaritySearch(request)
                 .stream()
                 .map(Document::getId)
+                .toList();
+    }
+
+    @Override
+    public List<String> findSimilarFileIds(String query, int limit) {
+        SearchRequest request = SearchRequest.builder()
+                .query(query)
+                .topK(limit)
+                .similarityThreshold(0.5)
+                .build();
+
+        return vectorStore.similaritySearch(request)
+                .stream()
+                .map(doc -> (String) doc.getMetadata().get("fileId"))
+                .filter(fileId -> fileId != null && !fileId.isBlank())
                 .toList();
     }
 
@@ -52,6 +64,6 @@ public class MemeVectorRepository implements IdRepository {
 
     @Override
     public void clear() {
-        vectorStore.delete("chatId >= 0");
+        vectorStore.delete("fileId != ''");
     }
 }

@@ -30,4 +30,9 @@ public class TelegramFileService {
             throw new RuntimeException("Failed to download image", e);
         }
     }
+
+    public String getImageFileId(PhotoSize[] photos) {
+        if (photos == null || photos.length == 0) return null;
+        return photos[photos.length - 1].fileId();
+    }
 }

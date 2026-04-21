@@ -22,7 +22,7 @@ public class MemeProcessor {
      */
     public String save(Meme meme){
         String id = UUID.randomUUID().toString();
-        idRepository.save(id, meme.description(), meme.chatId());
+        idRepository.save(id, meme.description(), meme.fileId());
         try {
             memeRepository.put(id, meme);
         } catch (Exception e) {
@@ -42,6 +42,13 @@ public class MemeProcessor {
                 .map(memeRepository::get)
                 .flatMap(Optional::stream)
                 .toList();
+    }
+
+    /**
+     * Поиск списка Telegram File ID по описанию для Inline Mode
+     */
+    public List<String> getFileIdsByDescription(String description, int limit) {
+        return idRepository.findSimilarFileIds(description, limit);
     }
 
     /**
