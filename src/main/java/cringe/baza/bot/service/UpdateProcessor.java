@@ -1,25 +1,30 @@
 package cringe.baza.bot.service;
 
 import com.pengrad.telegrambot.TelegramBot;
+import com.pengrad.telegrambot.model.InlineQuery;
 import com.pengrad.telegrambot.model.PhotoSize;
 import com.pengrad.telegrambot.model.Update;
+import com.pengrad.telegrambot.model.request.InlineQueryResultCachedPhoto;
+import com.pengrad.telegrambot.model.request.InlineQueryResultPhoto;
+import com.pengrad.telegrambot.request.AnswerInlineQuery;
 import com.pengrad.telegrambot.request.BaseRequest;
 import com.pengrad.telegrambot.request.GetFile;
 import com.pengrad.telegrambot.request.SendMessage;
-import com.pengrad.telegrambot.request.SendPhoto;
 import com.pengrad.telegrambot.response.GetFileResponse;
 import cringe.baza.bot.command.Command;
-import cringe.baza.bot.imaginator.ImageManager;
 import cringe.baza.bot.model.UserState;
+import cringe.baza.model.Meme;
+import cringe.baza.processor.MemeProcessor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import javax.imageio.ImageIO;
-import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.net.URL;
+import java.net.URI;
+import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -27,12 +32,17 @@ import java.util.List;
 public class UpdateProcessor {
     private final List<Command> commands;
     private final UserSessionService sessionService;
-    private final TelegramBot bot;
-    private final ImageManager imageManager;
+    private final TelegramFileService fileService;
+    private final MemeProcessor memeProcessor;
 
-    public BaseRequest<?,?> processUpdate(Update update) {
+    public BaseRequest<?, ?> processUpdate(Update update) {
+        if (update.inlineQuery() != null) {
+            return handleInlineQuery(update.inlineQuery());
+        }
+
         long chatId = update.message().chat().id();
         UserState currentState = sessionService.getUserState(chatId);
+
 
         if (currentState == UserState.AWAITING_SAVE_IMAGE) {
             return processImageSave(update);
@@ -42,55 +52,35 @@ public class UpdateProcessor {
 
     private SendMessage processImageSave(Update update) {
         long chatId = update.message().chat().id();
-        log.info("Обработка изображения от чата с id: {}",chatId);
-
         if (update.message().photo() == null || update.message().photo().length == 0) {
-            log.warn("Пользователь {} отправил не изображение в режиме сохранения", chatId);
-            return new SendMessage(chatId, "Ошибка: необходимо отправить изображение");
+            sessionService.setUserState(chatId, UserState.DEFAULT);
+            return new SendMessage(chatId, "Ошибка: я не вижу фото в твоем сообщении. Сбрасываю состояние");
+        }
+        String description = update.message().caption();
+
+        if (description == null || description.isBlank()) {
+            return new SendMessage(chatId, "Пожалуйста, добавь описание к фото (в подписи), чтобы я мог его найти!");
         }
 
-        String description = update.message().caption();
-        PhotoSize[] photos = update.message().photo();
-        PhotoSize largestPhoto = photos[photos.length - 1];
-
         try {
-            GetFile getFile = new GetFile(largestPhoto.fileId());
-            GetFileResponse response = bot.execute(getFile);
+            BufferedImage image = fileService.downloadImage(update.message().photo());
+            String fileId = fileService.getImageFileId(update.message().photo());
 
-            if (!response.isOk()) {
-                log.error("Ошибка получения файла из Telegram: {}", response.description());
-                return new SendMessage(chatId, "Ошибка: не удалось загрузить файл");
-            }
-
-            String filePath = response.file().filePath();
-            String fileUrl = String.format("https://api.telegram.org/file/bot%s/%s", bot.getToken(), filePath);
-
-            BufferedImage image = ImageIO.read(new URL(fileUrl));
-
-            if (image == null) {
-                log.error("Не удалось прочитать изображение для пользователя {}", chatId);
-                return new SendMessage(chatId, "Ошибка: не удалось прочитать изображение");
-            }
-
-            String imageId = imageManager.saveImage(image, description, chatId);
+            String imageId = memeProcessor.save(new Meme(image, description, fileId));
 
             sessionService.setUserState(chatId, UserState.DEFAULT);
 
-            log.info("Пользователь {} сохранил изображение, ID: {}", chatId, imageId);
-
-            String responseMessage = description != null && !description.isEmpty()
-                    ? String.format("Изображение сохранено. ID: %s\nОписание: %s", imageId, description)
-                    : String.format("Изображение сохранено. ID: %s", imageId);
-
-            return new SendMessage(chatId, responseMessage);
+            String text = "Мем сохранен! ID: " + imageId + "\nОписание: " + description;
+            return new SendMessage(chatId, text);
 
         } catch (Exception e) {
             log.error("Критическая ошибка при сохранении изображения для пользователя {}: {}", chatId, e.getMessage());
-            return new SendMessage(chatId, "Ошибка: не удалось сохранить изображение");
+            sessionService.setUserState(chatId, UserState.DEFAULT);
+            return new SendMessage(chatId, "Ошибка: не удалось сохранить изображение, cбрасываю состояние");
         }
     }
 
-    private BaseRequest<?,?> processCommand(Update update) {
+    private BaseRequest<?, ?> processCommand(Update update) {
         long chatId = update.message().chat().id();
         String text = update.message().text();
 
@@ -102,5 +92,31 @@ public class UpdateProcessor {
 
         log.warn("Получена неизвестная команда от пользователя {}: {}", chatId, text);
         return new SendMessage(chatId, "Неизвестная команда. Используй /help для списка команд.");
+    }
+
+    private AnswerInlineQuery handleInlineQuery(InlineQuery inlineQuery) {
+        String query = inlineQuery.query();
+        if (query == null || query.isBlank()) {
+            return new AnswerInlineQuery(inlineQuery.id());
+        }
+
+        try {
+            List<String> fileIds = memeProcessor.getFileIdsByDescription(query, 50);
+
+            InlineQueryResultCachedPhoto[] results = fileIds.stream()
+                    .map(fileId -> {
+                        String resultId = UUID.randomUUID().toString();
+                        return new InlineQueryResultCachedPhoto(resultId, fileId);
+                    })
+                    .toArray(InlineQueryResultCachedPhoto[]::new);
+
+            return new AnswerInlineQuery(inlineQuery.id(), results)
+                    .cacheTime(0)
+                    .isPersonal(true);
+
+        } catch (Exception e) {
+            log.error("Inline search error: {}", e.getMessage());
+            return new AnswerInlineQuery(inlineQuery.id());
+        }
     }
 }

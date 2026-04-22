@@ -25,4 +25,15 @@ public interface Command {
                 || text.startsWith("/" + command() + " ")
                 || text.startsWith("/" + command() + "@");
     }
+
+    default String extractText(String text) {
+        String withoutCommand = text.replaceFirst("(?i)/" + command() + "(?:@\\S+)?", "").trim();
+
+        if (withoutCommand.isEmpty()) {
+            return null;
+        }
+
+        String[] parts = withoutCommand.split("\\s+");
+        return parts[0].trim();
+    }
 }

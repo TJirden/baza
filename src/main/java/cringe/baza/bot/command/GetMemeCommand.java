@@ -4,9 +4,11 @@ import com.pengrad.telegrambot.model.Update;
 import com.pengrad.telegrambot.request.BaseRequest;
 import com.pengrad.telegrambot.request.SendMessage;
 import com.pengrad.telegrambot.request.SendPhoto;
-import cringe.baza.bot.imaginator.BasicImageManager;
-import cringe.baza.bot.imaginator.Meme;
+import cringe.baza.model.Meme;
+import cringe.baza.processor.MemeProcessor;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import javax.imageio.ImageIO;
@@ -16,9 +18,10 @@ import java.util.Optional;
 
 @RequiredArgsConstructor
 @Component
+@Slf4j
 public class GetMemeCommand implements Command {
 
-    private final BasicImageManager imageManager;
+    private final MemeProcessor memeProcessor;
 
     @Override
     public String command() {
@@ -35,16 +38,16 @@ public class GetMemeCommand implements Command {
         long chatId = update.message().chat().id();
         String messageText = update.message().text();
 
-        String memeId = extractMemeId(messageText);
+        String memeId = extractText(messageText);
 
         if (memeId == null || memeId.isEmpty()) {
-            return new SendPhoto(chatId, "Нужно указать ID мема. Пример: /getmeme 123");
+            return new SendMessage(chatId, "Нужно указать ID мема. Пример: /getmeme 123");
         }
 
-        Optional<Meme> memeOptional = imageManager.getMeme(memeId);
+        Optional<Meme> memeOptional = memeProcessor.getMemeById(memeId);
 
         if (memeOptional.isEmpty()) {
-            return new SendPhoto(chatId, "Мем с ID " + memeId + " не найден");
+            return new SendMessage(chatId, "Мем с ID " + memeId + " не найден");
         }
 
         Meme meme = memeOptional.get();
@@ -62,16 +65,5 @@ public class GetMemeCommand implements Command {
         } catch (IOException e) {
             return new SendMessage(chatId, "Ошибка при загрузке изображения");
         }
-    }
-
-    private String extractMemeId(String text) {
-        String withoutCommand = text.replaceFirst("(?i)/" + command() + "(?:@\\S+)?", "").trim();
-
-        if (withoutCommand.isEmpty()) {
-            return null;
-        }
-
-        String[] parts = withoutCommand.split("\\s+");
-        return parts[0].trim();
     }
 }

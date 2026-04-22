@@ -8,7 +8,7 @@ import io.minio.messages.Item;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Repository;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -19,7 +19,7 @@ import java.util.Map;
 import java.util.Optional;
 
 @Slf4j
-@Service
+@Repository
 public class S3MemeRepository implements MemeRepository {
 
     @Autowired
@@ -42,7 +42,7 @@ public class S3MemeRepository implements MemeRepository {
 
             Map<String, String> userMetadata = Map.of(
                     "description", meme.description(),
-                    "chatId", String.valueOf(meme.chatId()),
+                    "fileId", String.valueOf(meme.fileId()),
                     "imageFormat", IMAGE_FORMAT
             );
 
@@ -88,9 +88,9 @@ public class S3MemeRepository implements MemeRepository {
                 }
 
                 String description = stat.userMetadata().getOrDefault("description", "");
-                long chatId = Long.parseLong(stat.userMetadata().getOrDefault("chatId", "0"));
+                String fileId = stat.userMetadata().getOrDefault("fileId", "0");
 
-                Meme meme = new Meme(image, description, chatId);
+                Meme meme = new Meme(image, description, fileId);
                 return Optional.of(meme);
             }
 

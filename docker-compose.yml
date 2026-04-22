@@ -1,18 +1,4 @@
 services:
-  postgres:
-    image: postgres:16
-    container_name: baza_postgres
-    environment:
-      POSTGRES_DB: baza
-      POSTGRES_USER: baza_user
-      POSTGRES_PASSWORD: baza_password
-    ports:
-      - "5432:5432"
-    volumes:
-      - ./postgres-data:/var/lib/postgresql/data
-    restart: unless-stopped
-    network_mode: bridge
-
   minio:
     image: minio/minio:latest
     container_name: baza_minio
@@ -27,3 +13,27 @@ services:
       - ./minio-data:/data
     restart: unless-stopped
     network_mode: bridge
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    network_mode: bridge
+    ports:
+      - "11434:11434"
+    volumes:
+      - ./ollama_data:/root/.ollama
+    restart: unless-stopped
+
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: baza_postgres
+    network_mode: bridge
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: baza_db
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped

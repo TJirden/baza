@@ -40,17 +40,16 @@ public class BotUpdateListener implements UpdatesListener {
     public int process(List<Update> updates) {
         for (Update update : updates) {
             try {
-                if (update.message() == null) {
-                    continue;
-                }
-
                 BaseRequest<?,?> message = updateProcessor.processUpdate(update);
 
                 if (message != null) {
-                    bot.execute(message);
-                    log.info(
-                            "Отправлен ответ пользователю: chatId={}",
-                            message.getParameters().get("chat_id"));
+                    var response = bot.execute(message);
+
+                    if (!response.isOk()) {
+                        log.error("Ошибка от Telegram API: {} - {}", response.errorCode(), response.description());
+                    } else {
+                        log.info("Успешно выполнен запрос: {}", message.getClass().getSimpleName());
+                    }
                 }
 
             } catch (Exception e) {
