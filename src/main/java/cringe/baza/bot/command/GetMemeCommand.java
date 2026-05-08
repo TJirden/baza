@@ -7,13 +7,9 @@ import com.pengrad.telegrambot.request.SendPhoto;
 import cringe.baza.model.Meme;
 import cringe.baza.processor.MemeProcessor;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.log4j.Log4j;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import javax.imageio.ImageIO;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.util.Optional;
 
 @RequiredArgsConstructor
@@ -52,18 +48,12 @@ public class GetMemeCommand implements Command {
 
         Meme meme = memeOptional.get();
 
-        try {
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            ImageIO.write(meme.image(), "png", baos);
-            byte[] imageBytes = baos.toByteArray();
-
-            SendPhoto sendPhoto = new SendPhoto(chatId, imageBytes);
+        SendPhoto sendPhoto = new SendPhoto(chatId, meme.fileId());
+        
+        if (meme.description() != null && !meme.description().isBlank()) {
             sendPhoto.caption(meme.description());
-
-            return sendPhoto;
-
-        } catch (IOException e) {
-            return new SendMessage(chatId, "Ошибка при загрузке изображения");
         }
+
+        return sendPhoto;
     }
 }

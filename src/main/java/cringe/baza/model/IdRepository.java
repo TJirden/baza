@@ -1,6 +1,7 @@
 package cringe.baza.model;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface IdRepository {
     /**
@@ -21,4 +22,6 @@ public interface IdRepository {
     void delete(String id);
 
     void clear();
+
+    Optional<Meme> findById(String id);
 }

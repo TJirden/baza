@@ -63,10 +63,9 @@ public class UpdateProcessor {
         }
 
         try {
-            BufferedImage image = fileService.downloadImage(update.message().photo());
             String fileId = fileService.getImageFileId(update.message().photo());
 
-            String imageId = memeProcessor.save(new Meme(image, description, fileId));
+            String imageId = memeProcessor.save(new Meme(description, fileId));
 
             sessionService.setUserState(chatId, UserState.DEFAULT);
 

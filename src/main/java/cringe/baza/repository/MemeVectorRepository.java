@@ -9,12 +9,18 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import cringe.baza.model.Meme;
+import org.springframework.jdbc.core.JdbcTemplate;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Repository
 @RequiredArgsConstructor
 public class MemeVectorRepository implements IdRepository {
 
     private final VectorStore vectorStore;
+    private final JdbcTemplate jdbcTemplate;
+    private final ObjectMapper objectMapper;
 
     @Override
     public void save(String id, String description, String chatId) {
@@ -65,5 +71,27 @@ public class MemeVectorRepository implements IdRepository {
     @Override
     public void clear() {
         vectorStore.delete("fileId != ''");
+    }
+
+    @Override
+    public Optional<Meme> findById(String id) {
+        try {
+            return Optional.ofNullable(jdbcTemplate.queryForObject(
+                    "SELECT content, metadata FROM vector_store WHERE id = ?::uuid",
+                    (rs, rowNum) -> {
+                        String content = rs.getString("content");
+                        String metadataStr = rs.getString("metadata");
+                        try {
+                            Map<String, Object> metadata = objectMapper.readValue(metadataStr, Map.class);
+                            return new Meme(content, (String) metadata.get("fileId"));
+                        } catch (Exception e) {
+                            return new Meme(content, "");
+                        }
+                    },
+                    id
+            ));
+        } catch (Exception e) {
+            return Optional.empty();
+        }
     }
 }

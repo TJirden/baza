@@ -1,9 +1,7 @@
 package cringe.baza.bot.command;
 
 import com.pengrad.telegrambot.model.Update;
-import com.pengrad.telegrambot.model.request.InputMediaPhoto;
 import com.pengrad.telegrambot.request.BaseRequest;
-import com.pengrad.telegrambot.request.SendMediaGroup;
 import com.pengrad.telegrambot.request.SendMessage;
 import com.pengrad.telegrambot.request.SendPhoto;
 import cringe.baza.model.Meme;
@@ -12,11 +10,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import javax.imageio.ImageIO;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 
 @Slf4j
@@ -51,27 +44,12 @@ public class FindMemeCommand implements Command {
             return new SendMessage(chatId, "Ничего не нашлось по запросу: " + query);
         }
 
+        SendPhoto sendPhoto = new SendPhoto(chatId, meme.get().fileId());
 
-        try {
-            byte[] imageBytes = toByteArray(meme.get().image());
-
-            SendPhoto sendPhoto = new SendPhoto(chatId, imageBytes);
-
-            if (meme.get().description() != null) {
-                sendPhoto.caption(meme.get().description());
-            }
-
-            return sendPhoto;
-
-        } catch (IOException e) {
-            log.error("Ошибка при чтении изображения мема: {}", meme.get().description(), e);
-            return new SendMessage(chatId, "Произошла ошибка при загрузке изображения.");
+        if (meme.get().description() != null && !meme.get().description().isBlank()) {
+            sendPhoto.caption(meme.get().description());
         }
-    }
 
-    private byte[] toByteArray(java.awt.image.BufferedImage image) throws IOException {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        ImageIO.write(image, "png", baos);
-        return baos.toByteArray();
+        return sendPhoto;
     }
 }

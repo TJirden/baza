@@ -41,7 +41,6 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-configuration-processor")
 	compileOnly("org.projectlombok:lombok")
     runtimeOnly("org.postgresql:postgresql")
-    implementation("io.minio:minio:8.6.0")
     implementation("com.github.pengrad:java-telegram-bot-api:9.6.0")
 	annotationProcessor("org.projectlombok:lombok")
 	testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")

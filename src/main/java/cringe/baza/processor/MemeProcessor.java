@@ -2,7 +2,6 @@ package cringe.baza.processor;
 
 import cringe.baza.model.IdRepository;
 import cringe.baza.model.Meme;
-import cringe.baza.model.MemeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -14,7 +13,6 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class MemeProcessor {
 
-    private final MemeRepository memeRepository;
     private final IdRepository idRepository;
 
     /**
@@ -23,12 +21,6 @@ public class MemeProcessor {
     public String save(Meme meme){
         String id = UUID.randomUUID().toString();
         idRepository.save(id, meme.description(), meme.fileId());
-        try {
-            memeRepository.put(id, meme);
-        } catch (Exception e) {
-            idRepository.delete(id);
-            throw e;
-        }
         return id;
     }
 
@@ -39,7 +31,7 @@ public class MemeProcessor {
         List<String> ids = idRepository.findSimilarIds(description, limit);
 
         return ids.stream()
-                .map(memeRepository::get)
+                .map(idRepository::findById)
                 .flatMap(Optional::stream)
                 .toList();
     }
@@ -61,14 +53,14 @@ public class MemeProcessor {
             return Optional.empty();
         }
 
-        return memeRepository.get(ids.getFirst());
+        return idRepository.findById(ids.getFirst());
     }
 
     /**
      * Получение конкретного мема по его ID
      */
     public Optional<Meme> getMemeById(String id) {
-        return memeRepository.get(id);
+        return idRepository.findById(id);
     }
 
     /**
@@ -76,7 +68,7 @@ public class MemeProcessor {
      */
     public int clearAllData() {
         idRepository.clear();
-        return memeRepository.clear();
+        return 1;
     }
 
 }
