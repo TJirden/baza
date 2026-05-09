@@ -69,11 +69,6 @@ public class MemeVectorRepository implements IdRepository {
     }
 
     @Override
-    public void clear() {
-        vectorStore.delete("fileId != ''");
-    }
-
-    @Override
     public Optional<Meme> findById(String id) {
         try {
             return Optional.ofNullable(jdbcTemplate.queryForObject(

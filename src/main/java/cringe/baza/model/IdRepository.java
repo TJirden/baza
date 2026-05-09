@@ -21,7 +21,5 @@ public interface IdRepository {
      */
     void delete(String id);
 
-    void clear();
-
     Optional<Meme> findById(String id);
 }

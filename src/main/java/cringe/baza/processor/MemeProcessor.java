@@ -63,12 +63,23 @@ public class MemeProcessor {
         return idRepository.findById(id);
     }
 
-    /**
-     * @return количество удаленных мемов
-     */
-    public int clearAllData() {
-        idRepository.clear();
-        return 1;
+    public boolean delete(String id) {
+        if (idRepository.findById(id).isPresent()) {
+            idRepository.delete(id);
+            return true;
+        }
+        return false;
     }
 
+    public boolean update(String id, String newDescription) {
+        Optional<Meme> memeOpt = idRepository.findById(id);
+        if (memeOpt.isEmpty()) {
+            return false;
+        }
+
+        Meme meme = memeOpt.get();
+        idRepository.delete(id);
+        idRepository.save(id, newDescription, meme.fileId());
+        return true;
+    }
 }
