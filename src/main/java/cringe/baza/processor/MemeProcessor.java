@@ -20,15 +20,15 @@ public class MemeProcessor {
      */
     public String save(Meme meme){
         String id = UUID.randomUUID().toString();
-        idRepository.save(id, meme.description(), meme.fileId());
+        idRepository.save(id, meme);
         return id;
     }
 
     /**
      * Поиск мемов по смыслу описания (семантический поиск)
      */
-    public List<Meme> getMemesByDescription(String description, int limit) {
-        List<String> ids = idRepository.findSimilarIds(description, limit);
+    public List<Meme> getMemesByDescription(String description, int limit, Long userId, List<Long> userGroupIds) {
+        List<String> ids = idRepository.findSimilarIds(description, limit, userId, userGroupIds);
 
         return ids.stream()
                 .map(idRepository::findById)
@@ -39,15 +39,15 @@ public class MemeProcessor {
     /**
      * Поиск списка Telegram File ID по описанию для Inline Mode
      */
-    public List<String> getFileIdsByDescription(String description, int limit) {
-        return idRepository.findSimilarFileIds(description, limit);
+    public List<String> getFileIdsByDescription(String description, int limit, Long userId, List<Long> userGroupIds) {
+        return idRepository.findSimilarFileIds(description, limit, userId, userGroupIds);
     }
 
     /**
      * Поиск одного наиболее подходящего мема по смыслу описания
      */
-    public Optional<Meme> getSingleMemeByDescription(String description) {
-        List<String> ids = idRepository.findSimilarIds(description, 1);
+    public Optional<Meme> getSingleMemeByDescription(String description, Long userId, List<Long> userGroupIds) {
+        List<String> ids = idRepository.findSimilarIds(description, 1, userId, userGroupIds);
 
         if (ids.isEmpty()) {
             return Optional.empty();
@@ -79,7 +79,7 @@ public class MemeProcessor {
 
         Meme meme = memeOpt.get();
         idRepository.delete(id);
-        idRepository.save(id, newDescription, meme.fileId());
+        idRepository.save(id, new Meme(newDescription, meme.fileId(), meme.ownerId(), meme.visibility(), meme.groupIds()));
         return true;
     }
 }

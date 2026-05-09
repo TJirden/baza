@@ -1,4 +1,6 @@
 package cringe.baza.model;
 
-public record Meme(String description, String fileId) {
+import java.util.List;
+
+public record Meme(String description, String fileId, Long ownerId, String visibility, List<Long> groupIds) {
 }

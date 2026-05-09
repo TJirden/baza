@@ -7,12 +7,14 @@ import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.stereotype.Repository;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import cringe.baza.model.Meme;
 import org.springframework.jdbc.core.JdbcTemplate;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.ArrayList;
 
 @Repository
 @RequiredArgsConstructor
@@ -23,23 +25,44 @@ public class MemeVectorRepository implements IdRepository {
     private final ObjectMapper objectMapper;
 
     @Override
-    public void save(String id, String description, String chatId) {
-        Document document = new Document(
-                id,
-                description,
-                Map.of(
-                        "fileId", chatId
-                )
-        );
+    public void save(String id, Meme meme) {
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("fileId", meme.fileId());
+        if (meme.ownerId() != null) {
+            metadata.put("ownerId", meme.ownerId());
+        }
+        if (meme.visibility() != null) {
+            metadata.put("visibility", meme.visibility());
+        }
+        if (meme.groupIds() != null) {
+            for (Long groupId : meme.groupIds()) {
+                metadata.put("group_" + groupId, true);
+            }
+        }
+
+        Document document = new Document(id, meme.description(), metadata);
         vectorStore.add(List.of(document));
     }
 
+    private String buildFilterExpression(Long userId, List<Long> userGroupIds) {
+        StringBuilder filter = new StringBuilder();
+        filter.append(String.format("visibility == 'PUBLIC' || ownerId == %d", userId));
+
+        if (userGroupIds != null && !userGroupIds.isEmpty()) {
+            for (Long groupId : userGroupIds) {
+                filter.append(String.format(" || group_%d == true", groupId));
+            }
+        }
+        return filter.toString();
+    }
+
     @Override
-    public List<String> findSimilarIds(String query, int limit) {
+    public List<String> findSimilarIds(String query, int limit, Long userId, List<Long> userGroupIds) {
         SearchRequest request = SearchRequest.builder()
                 .query(query)
                 .topK(limit)
                 .similarityThreshold(0.5)
+                .filterExpression(buildFilterExpression(userId, userGroupIds))
                 .build();
 
         return vectorStore.similaritySearch(request)
@@ -49,11 +72,12 @@ public class MemeVectorRepository implements IdRepository {
     }
 
     @Override
-    public List<String> findSimilarFileIds(String query, int limit) {
+    public List<String> findSimilarFileIds(String query, int limit, Long userId, List<Long> userGroupIds) {
         SearchRequest request = SearchRequest.builder()
                 .query(query)
                 .topK(limit)
                 .similarityThreshold(0.5)
+                .filterExpression(buildFilterExpression(userId, userGroupIds))
                 .build();
 
         return vectorStore.similaritySearch(request)
@@ -78,9 +102,22 @@ public class MemeVectorRepository implements IdRepository {
                         String metadataStr = rs.getString("metadata");
                         try {
                             Map<String, Object> metadata = objectMapper.readValue(metadataStr, Map.class);
-                            return new Meme(content, (String) metadata.get("fileId"));
+                            String fileId = (String) metadata.get("fileId");
+                            Long ownerId = metadata.containsKey("ownerId") ? ((Number) metadata.get("ownerId")).longValue() : null;
+                            String visibility = (String) metadata.get("visibility");
+                            
+                            List<Long> groupIds = new ArrayList<>();
+                            for (String key : metadata.keySet()) {
+                                if (key.startsWith("group_") && Boolean.TRUE.equals(metadata.get(key))) {
+                                    try {
+                                        groupIds.add(Long.parseLong(key.substring(6)));
+                                    } catch (NumberFormatException ignored) {}
+                                }
+                            }
+                            
+                            return new Meme(content, fileId, ownerId, visibility, groupIds);
                         } catch (Exception e) {
-                            return new Meme(content, "");
+                            return new Meme(content, "", null, "PRIVATE", new ArrayList<>());
                         }
                     },
                     id

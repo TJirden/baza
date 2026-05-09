@@ -4,6 +4,7 @@ import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.InlineQuery;
 import com.pengrad.telegrambot.model.PhotoSize;
 import com.pengrad.telegrambot.model.Update;
+import com.pengrad.telegrambot.model.User;
 import com.pengrad.telegrambot.model.request.InlineQueryResultCachedPhoto;
 import com.pengrad.telegrambot.model.request.InlineQueryResultPhoto;
 import com.pengrad.telegrambot.request.AnswerInlineQuery;
@@ -19,12 +20,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
-import java.net.URI;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -32,12 +32,23 @@ import java.util.UUID;
 public class UpdateProcessor {
     private final List<Command> commands;
     private final UserSessionService sessionService;
+    
     private final TelegramFileService fileService;
     private final MemeProcessor memeProcessor;
+    private final TelegramUserService userService;
 
     public BaseRequest<?, ?> processUpdate(Update update) {
         if (update.inlineQuery() != null) {
+            User tgUser = update.inlineQuery().from();
+            if (tgUser != null) {
+                userService.getOrCreateUser(tgUser.id(), tgUser.username(), tgUser.firstName());
+            }
             return handleInlineQuery(update.inlineQuery());
+        }
+
+        if (update.message() != null && update.message().from() != null) {
+            User tgUser = update.message().from();
+            userService.getOrCreateUser(tgUser.id(), tgUser.username(), tgUser.firstName());
         }
 
         long chatId = update.message().chat().id();
@@ -52,6 +63,7 @@ public class UpdateProcessor {
 
     private SendMessage processImageSave(Update update) {
         long chatId = update.message().chat().id();
+        long userId = update.message().from().id();
         if (update.message().photo() == null || update.message().photo().length == 0) {
             sessionService.setUserState(chatId, UserState.DEFAULT);
             return new SendMessage(chatId, "Ошибка: я не вижу фото в твоем сообщении. Сбрасываю состояние");
@@ -64,12 +76,30 @@ public class UpdateProcessor {
 
         try {
             String fileId = fileService.getImageFileId(update.message().photo());
+            
+            String visibilityContext = sessionService.getTempData(chatId);
+            String visibility = "PUBLIC";
+            List<Long> groupIds = new ArrayList<>();
+            
+            if (visibilityContext != null) {
+                if (visibilityContext.startsWith("GROUP:")) {
+                    visibility = "GROUP";
+                    String[] parts = visibilityContext.substring(6).split(",");
+                    for (String part : parts) {
+                        try {
+                            groupIds.add(Long.parseLong(part));
+                        } catch (NumberFormatException ignored) {}
+                    }
+                } else {
+                    visibility = visibilityContext;
+                }
+            }
 
-            String imageId = memeProcessor.save(new Meme(description, fileId));
+            String imageId = memeProcessor.save(new Meme(description, fileId, userId, visibility, groupIds));
 
             sessionService.setUserState(chatId, UserState.DEFAULT);
 
-            String text = "Мем сохранен! ID: " + imageId + "\nОписание: " + description;
+            String text = "Мем сохранен! ID: " + imageId + "\nОписание: " + description + "\nДоступ: " + visibility;
             return new SendMessage(chatId, text);
 
         } catch (Exception e) {
@@ -100,7 +130,9 @@ public class UpdateProcessor {
         }
 
         try {
-            List<String> fileIds = memeProcessor.getFileIdsByDescription(query, 50);
+            long userId = inlineQuery.from().id();
+            List<Long> userGroupIds = userService.getUserGroupIds(userId);
+            List<String> fileIds = memeProcessor.getFileIdsByDescription(query, 50, userId, userGroupIds);
 
             InlineQueryResultCachedPhoto[] results = fileIds.stream()
                     .map(fileId -> {

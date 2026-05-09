@@ -6,10 +6,12 @@ import com.pengrad.telegrambot.request.SendMessage;
 import com.pengrad.telegrambot.request.SendPhoto;
 import cringe.baza.model.Meme;
 import cringe.baza.processor.MemeProcessor;
+import cringe.baza.bot.service.TelegramUserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Optional;
 
 @Slf4j
@@ -18,6 +20,7 @@ import java.util.Optional;
 public class FindMemeCommand implements Command {
 
     private final MemeProcessor memeProcessor;
+    private final TelegramUserService userService;
 
     @Override
     public String command() {
@@ -32,13 +35,15 @@ public class FindMemeCommand implements Command {
     @Override
     public BaseRequest<?, ?> handle(Update update) {
         long chatId = update.message().chat().id();
+        long userId = update.message().from().id();
         String query = extractText(update.message().text());
 
         if (query == null || query.isBlank()) {
             return new SendMessage(chatId, "Введите поисковый запрос. Пример: /find пёс");
         }
 
-        Optional<Meme> meme = memeProcessor.getSingleMemeByDescription(query);
+        List<Long> userGroupIds = userService.getUserGroupIds(userId);
+        Optional<Meme> meme = memeProcessor.getSingleMemeByDescription(query, userId, userGroupIds);
 
         if (meme.isEmpty()) {
             return new SendMessage(chatId, "Ничего не нашлось по запросу: " + query);
