@@ -29,7 +29,7 @@ public class MemeVectorRepository implements IdRepository {
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("fileId", meme.fileId());
         if (meme.ownerId() != null) {
-            metadata.put("ownerId", meme.ownerId());
+            metadata.put("ownerId", String.valueOf(meme.ownerId()));
         }
         if (meme.visibility() != null) {
             metadata.put("visibility", meme.visibility());
@@ -46,7 +46,7 @@ public class MemeVectorRepository implements IdRepository {
 
     private String buildFilterExpression(Long userId, List<Long> userGroupIds) {
         StringBuilder filter = new StringBuilder();
-        filter.append(String.format("visibility == 'PUBLIC' || ownerId == %d", userId));
+        filter.append(String.format("visibility == 'PUBLIC' || ownerId == '%d'", userId));
 
         if (userGroupIds != null && !userGroupIds.isEmpty()) {
             for (Long groupId : userGroupIds) {
@@ -103,7 +103,7 @@ public class MemeVectorRepository implements IdRepository {
                         try {
                             Map<String, Object> metadata = objectMapper.readValue(metadataStr, Map.class);
                             String fileId = (String) metadata.get("fileId");
-                            Long ownerId = metadata.containsKey("ownerId") ? ((Number) metadata.get("ownerId")).longValue() : null;
+                            Long ownerId = metadata.containsKey("ownerId") ? Long.parseLong(String.valueOf(metadata.get("ownerId"))) : null;
                             String visibility = (String) metadata.get("visibility");
                             
                             List<Long> groupIds = new ArrayList<>();
