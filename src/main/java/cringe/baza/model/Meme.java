@@ -1,6 +1,6 @@
 package cringe.baza.model;
 
-import java.awt.image.BufferedImage;
+import java.util.List;
 
-public record Meme(BufferedImage image, String description, String fileId) {
+public record Meme(String id, String description, String fileId, Long ownerId, String visibility, List<Long> groupIds) {
 }
