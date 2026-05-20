@@ -23,20 +23,20 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class MemeGroup {
-  @Id
-  @GeneratedValue(strategy = GenerationType.IDENTITY)
-  private Long id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-  private String name;
+    private String name;
 
-  @ManyToOne
-  @JoinColumn(name = "owner_id")
-  private TelegramUser owner;
+    @ManyToOne
+    @JoinColumn(name = "owner_id")
+    private TelegramUser owner;
 
-  @ManyToMany
-  @JoinTable(
-      name = "group_members",
-      joinColumns = @JoinColumn(name = "group_id"),
-      inverseJoinColumns = @JoinColumn(name = "user_id"))
-  private Set<TelegramUser> members = new HashSet<>();
+    @ManyToMany
+    @JoinTable(
+            name = "group_members",
+            joinColumns = @JoinColumn(name = "group_id"),
+            inverseJoinColumns = @JoinColumn(name = "user_id"))
+    private Set<TelegramUser> members = new HashSet<>();
 }

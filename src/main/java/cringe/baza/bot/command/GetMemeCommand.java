@@ -16,43 +16,43 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class GetMemeCommand implements Command {
 
-  private final MemeProcessor memeProcessor;
+    private final MemeProcessor memeProcessor;
 
-  @Override
-  public String command() {
-    return "getmeme";
-  }
-
-  @Override
-  public String description() {
-    return "Получить мем по ID";
-  }
-
-  @Override
-  public BaseRequest<?, ?> handle(Update update) {
-    long chatId = update.message().chat().id();
-    String messageText = update.message().text();
-
-    String memeId = extractText(messageText);
-
-    if (memeId == null || memeId.isEmpty()) {
-      return new SendMessage(chatId, "Нужно указать ID мема. Пример: /getmeme 123");
+    @Override
+    public String command() {
+        return "getmeme";
     }
 
-    Optional<Meme> memeOptional = memeProcessor.getMemeById(memeId);
-
-    if (memeOptional.isEmpty()) {
-      return new SendMessage(chatId, "Мем с ID " + memeId + " не найден");
+    @Override
+    public String description() {
+        return "Получить мем по ID";
     }
 
-    Meme meme = memeOptional.get();
+    @Override
+    public BaseRequest<?, ?> handle(Update update) {
+        long chatId = update.message().chat().id();
+        String messageText = update.message().text();
 
-    SendPhoto sendPhoto = new SendPhoto(chatId, meme.fileId());
+        String memeId = extractText(messageText);
 
-    if (meme.description() != null && !meme.description().isBlank()) {
-      sendPhoto.caption(meme.description());
+        if (memeId == null || memeId.isEmpty()) {
+            return new SendMessage(chatId, "Нужно указать ID мема. Пример: /getmeme 123");
+        }
+
+        Optional<Meme> memeOptional = memeProcessor.getMemeById(memeId);
+
+        if (memeOptional.isEmpty()) {
+            return new SendMessage(chatId, "Мем с ID " + memeId + " не найден");
+        }
+
+        Meme meme = memeOptional.get();
+
+        SendPhoto sendPhoto = new SendPhoto(chatId, meme.fileId());
+
+        if (meme.description() != null && !meme.description().isBlank()) {
+            sendPhoto.caption(meme.description());
+        }
+
+        return sendPhoto;
     }
-
-    return sendPhoto;
-  }
 }

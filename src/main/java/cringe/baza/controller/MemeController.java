@@ -19,35 +19,33 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class MemeController {
 
-  private final MemeProcessor memeProcessor;
-  private final TelegramFileService fileService;
-  private final TelegramUserService userService;
+    private final MemeProcessor memeProcessor;
+    private final TelegramFileService fileService;
+    private final TelegramUserService userService;
 
-  @GetMapping("/search")
-  public List<Meme> search(
-      @RequestParam String q,
-      @RequestParam(defaultValue = "20") int limit,
-      @RequestParam(required = false) Long userId) {
+    @GetMapping("/search")
+    public List<Meme> search(
+            @RequestParam String q,
+            @RequestParam(defaultValue = "20") int limit,
+            @RequestParam(required = false) Long userId) {
 
-    List<Long> groupIds = new ArrayList<>();
-    if (userId != null) {
-      TelegramUser user = userService.getOrCreateUser(userId, null, null);
+        List<Long> groupIds = new ArrayList<>();
+        if (userId != null) {
+            TelegramUser user = userService.getOrCreateUser(userId, null, null);
+        }
+
+        return memeProcessor.getMemesByDescription(q, limit, userId, groupIds);
     }
 
-    return memeProcessor.getMemesByDescription(q, limit, userId, groupIds);
-  }
+    @GetMapping("/image/{fileId}")
+    public ResponseEntity<InputStreamResource> getImage(@PathVariable String fileId) {
+        try {
+            InputStream is = fileService.downloadFile(fileId);
+            if (is == null) return ResponseEntity.notFound().build();
 
-  @GetMapping("/image/{fileId}")
-  public ResponseEntity<InputStreamResource> getImage(@PathVariable String fileId) {
-    try {
-      InputStream is = fileService.downloadFile(fileId);
-      if (is == null) return ResponseEntity.notFound().build();
-
-      return ResponseEntity.ok()
-          .contentType(MediaType.IMAGE_JPEG)
-          .body(new InputStreamResource(is));
-    } catch (Exception e) {
-      return ResponseEntity.internalServerError().build();
+            return ResponseEntity.ok().contentType(MediaType.IMAGE_JPEG).body(new InputStreamResource(is));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
     }
-  }
 }

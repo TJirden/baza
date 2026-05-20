@@ -18,44 +18,44 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class BotUpdateListener implements UpdatesListener {
 
-  private final TelegramBot bot;
-  private final List<Command> commands;
-  private final UpdateProcessor updateProcessor;
+    private final TelegramBot bot;
+    private final List<Command> commands;
+    private final UpdateProcessor updateProcessor;
 
-  private BotCommand[] botCommands;
+    private BotCommand[] botCommands;
 
-  @PostConstruct
-  public void init() {
-    botCommands =
-        commands.stream()
-            .map(cmd -> new BotCommand("/" + cmd.command(), cmd.description()))
-            .toArray(BotCommand[]::new);
+    @PostConstruct
+    public void init() {
+        botCommands = commands.stream()
+                .map(cmd -> new BotCommand("/" + cmd.command(), cmd.description()))
+                .toArray(BotCommand[]::new);
 
-    bot.execute(new SetMyCommands(botCommands));
-    bot.setUpdatesListener(this);
-  }
-
-  @Override
-  public int process(List<Update> updates) {
-    for (Update update : updates) {
-      try {
-        BaseRequest<?, ?> message = updateProcessor.processUpdate(update);
-
-        if (message != null) {
-          var response = bot.execute(message);
-
-          if (!response.isOk()) {
-            log.error(
-                "Ошибка от Telegram API: {} - {}", response.errorCode(), response.description());
-          } else {
-            log.info("Успешно выполнен запрос: {}", message.getClass().getSimpleName());
-          }
-        }
-
-      } catch (Exception e) {
-        log.error("Ошибка обработки обновления: updateId={}", update.updateId(), e);
-      }
+        bot.execute(new SetMyCommands(botCommands));
+        bot.setUpdatesListener(this);
     }
-    return CONFIRMED_UPDATES_ALL;
-  }
+
+    @Override
+    public int process(List<Update> updates) {
+        for (Update update : updates) {
+            try {
+                BaseRequest<?, ?> message = updateProcessor.processUpdate(update);
+
+                if (message != null) {
+                    var response = bot.execute(message);
+
+                    if (!response.isOk()) {
+                        log.error("Ошибка от Telegram API: {} - {}", response.errorCode(), response.description());
+                    } else {
+                        log.info(
+                                "Успешно выполнен запрос: {}",
+                                message.getClass().getSimpleName());
+                    }
+                }
+
+            } catch (Exception e) {
+                log.error("Ошибка обработки обновления: updateId={}", update.updateId(), e);
+            }
+        }
+        return CONFIRMED_UPDATES_ALL;
+    }
 }

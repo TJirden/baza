@@ -18,42 +18,42 @@ import org.springframework.stereotype.Component;
 @Component
 public class FindMemeCommand implements Command {
 
-  private final MemeProcessor memeProcessor;
-  private final TelegramUserService userService;
+    private final MemeProcessor memeProcessor;
+    private final TelegramUserService userService;
 
-  @Override
-  public String command() {
-    return "find";
-  }
-
-  @Override
-  public String description() {
-    return "Найти мемы по описанию. Пример: /find грустный кот";
-  }
-
-  @Override
-  public BaseRequest<?, ?> handle(Update update) {
-    long chatId = update.message().chat().id();
-    long userId = update.message().from().id();
-    String query = extractText(update.message().text());
-
-    if (query == null || query.isBlank()) {
-      return new SendMessage(chatId, "Введите поисковый запрос. Пример: /find пёс");
+    @Override
+    public String command() {
+        return "find";
     }
 
-    List<Long> userGroupIds = userService.getUserGroupIds(userId);
-    Optional<Meme> meme = memeProcessor.getSingleMemeByDescription(query, userId, userGroupIds);
-
-    if (meme.isEmpty()) {
-      return new SendMessage(chatId, "Ничего не нашлось по запросу: " + query);
+    @Override
+    public String description() {
+        return "Найти мемы по описанию. Пример: /find грустный кот";
     }
 
-    SendPhoto sendPhoto = new SendPhoto(chatId, meme.get().fileId());
+    @Override
+    public BaseRequest<?, ?> handle(Update update) {
+        long chatId = update.message().chat().id();
+        long userId = update.message().from().id();
+        String query = extractText(update.message().text());
 
-    if (meme.get().description() != null && !meme.get().description().isBlank()) {
-      sendPhoto.caption(meme.get().description());
+        if (query == null || query.isBlank()) {
+            return new SendMessage(chatId, "Введите поисковый запрос. Пример: /find пёс");
+        }
+
+        List<Long> userGroupIds = userService.getUserGroupIds(userId);
+        Optional<Meme> meme = memeProcessor.getSingleMemeByDescription(query, userId, userGroupIds);
+
+        if (meme.isEmpty()) {
+            return new SendMessage(chatId, "Ничего не нашлось по запросу: " + query);
+        }
+
+        SendPhoto sendPhoto = new SendPhoto(chatId, meme.get().fileId());
+
+        if (meme.get().description() != null && !meme.get().description().isBlank()) {
+            sendPhoto.caption(meme.get().description());
+        }
+
+        return sendPhoto;
     }
-
-    return sendPhoto;
-  }
 }
