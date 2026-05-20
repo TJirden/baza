@@ -95,7 +95,7 @@ public class UpdateProcessor {
                 }
             }
 
-            String imageId = memeProcessor.save(new Meme(description, fileId, userId, visibility, groupIds));
+            String imageId = memeProcessor.save(new Meme(null, description, fileId, userId, visibility, groupIds));
 
             sessionService.setUserState(chatId, UserState.DEFAULT);
 

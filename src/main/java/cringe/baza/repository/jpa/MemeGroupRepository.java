@@ -11,4 +11,5 @@ import java.util.List;
 public interface MemeGroupRepository extends JpaRepository<MemeGroup, Long> {
     List<MemeGroup> findByMembersContains(TelegramUser member);
     List<MemeGroup> findByOwner(TelegramUser owner);
+    List<MemeGroup> findByNameContainingIgnoreCase(String name);
 }

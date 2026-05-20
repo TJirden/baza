@@ -19,9 +19,21 @@ public class MemeProcessor {
      * @return id мема
      */
     public String save(Meme meme){
-        String id = UUID.randomUUID().toString();
-        idRepository.save(id, meme);
+        String id = meme.id() != null ? meme.id() : UUID.randomUUID().toString();
+        Meme memeWithId = new Meme(id, meme.description(), meme.fileId(), meme.ownerId(), meme.visibility(), meme.groupIds());
+        idRepository.save(id, memeWithId);
         return id;
+    }
+
+    public List<Meme> getAll(int limit, int offset) {
+        if (idRepository instanceof cringe.baza.repository.MemeVectorRepository repo) {
+            return repo.findAll(limit, offset).stream()
+                    .map(row -> row.get("id").toString())
+                    .map(idRepository::findById)
+                    .flatMap(Optional::stream)
+                    .toList();
+        }
+        return List.of();
     }
 
     /**
@@ -41,6 +53,10 @@ public class MemeProcessor {
      */
     public List<String> getFileIdsByDescription(String description, int limit, Long userId, List<Long> userGroupIds) {
         return idRepository.findSimilarFileIds(description, limit, userId, userGroupIds);
+    }
+
+    public List<Meme> searchWithIds(String query, int limit, Long userId, List<Long> userGroupIds) {
+        return getMemesByDescription(query, limit, userId, userGroupIds);
     }
 
     /**
@@ -79,7 +95,7 @@ public class MemeProcessor {
 
         Meme meme = memeOpt.get();
         idRepository.delete(id);
-        idRepository.save(id, new Meme(newDescription, meme.fileId(), meme.ownerId(), meme.visibility(), meme.groupIds()));
+        idRepository.save(id, new Meme(id, newDescription, meme.fileId(), meme.ownerId(), meme.visibility(), meme.groupIds()));
         return true;
     }
 }

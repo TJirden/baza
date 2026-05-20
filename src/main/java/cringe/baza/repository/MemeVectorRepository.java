@@ -44,9 +44,20 @@ public class MemeVectorRepository implements IdRepository {
         vectorStore.add(List.of(document));
     }
 
+    public List<Map<String, Object>> findAll(int limit, int offset) {
+        return jdbcTemplate.queryForList(
+                "SELECT id, content, metadata FROM vector_store ORDER BY id LIMIT ? OFFSET ?",
+                limit, offset
+        );
+    }
+
     private String buildFilterExpression(Long userId, List<Long> userGroupIds) {
         StringBuilder filter = new StringBuilder();
-        filter.append(String.format("visibility == 'PUBLIC' || ownerId == '%d'", userId));
+        filter.append("visibility == 'PUBLIC'");
+
+        if (userId != null) {
+            filter.append(String.format(" || ownerId == '%d'", userId));
+        }
 
         if (userGroupIds != null && !userGroupIds.isEmpty()) {
             for (Long groupId : userGroupIds) {
@@ -115,9 +126,9 @@ public class MemeVectorRepository implements IdRepository {
                                 }
                             }
                             
-                            return new Meme(content, fileId, ownerId, visibility, groupIds);
+                            return new Meme(id, content, fileId, ownerId, visibility, groupIds);
                         } catch (Exception e) {
-                            return new Meme(content, "", null, "PRIVATE", new ArrayList<>());
+                            return null;
                         }
                     },
                     id
