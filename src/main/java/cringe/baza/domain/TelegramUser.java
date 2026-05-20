@@ -18,11 +18,12 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class TelegramUser {
-  @Id private Long id; // Telegram User ID
+    @Id
+    private Long id; // Telegram User ID
 
-  private String username;
-  private String firstName;
+    private String username;
+    private String firstName;
 
-  @ManyToMany(mappedBy = "members")
-  private Set<MemeGroup> groups = new HashSet<>();
+    @ManyToMany(mappedBy = "members")
+    private Set<MemeGroup> groups = new HashSet<>();
 }

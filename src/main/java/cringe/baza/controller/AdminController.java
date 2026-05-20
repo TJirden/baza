@@ -16,65 +16,64 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class AdminController {
 
-  private final TelegramUserRepository userRepository;
-  private final MemeGroupRepository groupRepository;
-  private final MemeProcessor memeProcessor;
+    private final TelegramUserRepository userRepository;
+    private final MemeGroupRepository groupRepository;
+    private final MemeProcessor memeProcessor;
 
-  @GetMapping("/memes")
-  public List<Meme> listMemes(
-      @RequestParam(defaultValue = "50") int limit, @RequestParam(defaultValue = "0") int offset) {
-    return memeProcessor.getAll(limit, offset);
-  }
-
-  @DeleteMapping("/memes/{id}")
-  public ResponseEntity<Void> deleteMeme(@PathVariable String id) {
-    if (memeProcessor.delete(id)) {
-      return ResponseEntity.ok().build();
+    @GetMapping("/memes")
+    public List<Meme> listMemes(
+            @RequestParam(defaultValue = "50") int limit, @RequestParam(defaultValue = "0") int offset) {
+        return memeProcessor.getAll(limit, offset);
     }
-    return ResponseEntity.notFound().build();
-  }
 
-  @PatchMapping("/memes/{id}")
-  public ResponseEntity<Void> updateMeme(
-      @PathVariable String id, @RequestBody String newDescription) {
-    if (memeProcessor.update(id, newDescription)) {
-      return ResponseEntity.ok().build();
+    @DeleteMapping("/memes/{id}")
+    public ResponseEntity<Void> deleteMeme(@PathVariable String id) {
+        if (memeProcessor.delete(id)) {
+            return ResponseEntity.ok().build();
+        }
+        return ResponseEntity.notFound().build();
     }
-    return ResponseEntity.notFound().build();
-  }
 
-  @GetMapping("/users")
-  public List<TelegramUser> listUsers() {
-    return userRepository.findAll();
-  }
+    @PatchMapping("/memes/{id}")
+    public ResponseEntity<Void> updateMeme(@PathVariable String id, @RequestBody String newDescription) {
+        if (memeProcessor.update(id, newDescription)) {
+            return ResponseEntity.ok().build();
+        }
+        return ResponseEntity.notFound().build();
+    }
 
-  @GetMapping("/groups")
-  public List<MemeGroup> listGroups() {
-    return groupRepository.findAll();
-  }
+    @GetMapping("/users")
+    public List<TelegramUser> listUsers() {
+        return userRepository.findAll();
+    }
 
-  @DeleteMapping("/users/{id}")
-  public void deleteUser(@PathVariable Long id) {
-    userRepository.deleteById(id);
-  }
+    @GetMapping("/groups")
+    public List<MemeGroup> listGroups() {
+        return groupRepository.findAll();
+    }
 
-  @DeleteMapping("/groups/{id}")
-  public void deleteGroup(@PathVariable Long id) {
-    groupRepository.deleteById(id);
-  }
+    @DeleteMapping("/users/{id}")
+    public void deleteUser(@PathVariable Long id) {
+        userRepository.deleteById(id);
+    }
 
-  @GetMapping("/memes/search")
-  public List<Meme> searchMemes(@RequestParam String q) {
-    return memeProcessor.searchWithIds(q, 50, null, null);
-  }
+    @DeleteMapping("/groups/{id}")
+    public void deleteGroup(@PathVariable Long id) {
+        groupRepository.deleteById(id);
+    }
 
-  @GetMapping("/users/search")
-  public List<TelegramUser> searchUsers(@RequestParam String q) {
-    return userRepository.findByUsernameContainingIgnoreCaseOrFirstNameContainingIgnoreCase(q, q);
-  }
+    @GetMapping("/memes/search")
+    public List<Meme> searchMemes(@RequestParam String q) {
+        return memeProcessor.searchWithIds(q, 50, null, null);
+    }
 
-  @GetMapping("/groups/search")
-  public List<MemeGroup> searchGroups(@RequestParam String q) {
-    return groupRepository.findByNameContainingIgnoreCase(q);
-  }
+    @GetMapping("/users/search")
+    public List<TelegramUser> searchUsers(@RequestParam String q) {
+        return userRepository.findByUsernameContainingIgnoreCaseOrFirstNameContainingIgnoreCase(q, q);
+    }
+
+    @GetMapping("/groups/search")
+    public List<MemeGroup> searchGroups(@RequestParam String q) {
+        return groupRepository.findByNameContainingIgnoreCase(q);
+    }
 }

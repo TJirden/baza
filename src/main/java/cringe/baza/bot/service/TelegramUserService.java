@@ -14,31 +14,28 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class TelegramUserService {
 
-  private final TelegramUserRepository userRepository;
-  private final MemeGroupRepository groupRepository;
+    private final TelegramUserRepository userRepository;
+    private final MemeGroupRepository groupRepository;
 
-  @Transactional
-  public TelegramUser getOrCreateUser(Long id, String username, String firstName) {
-    return userRepository
-        .findById(id)
-        .orElseGet(
-            () -> {
-              TelegramUser newUser = new TelegramUser();
-              newUser.setId(id);
-              newUser.setUsername(username);
-              newUser.setFirstName(firstName);
-              return userRepository.save(newUser);
-            });
-  }
-
-  @Transactional(readOnly = true)
-  public List<Long> getUserGroupIds(Long userId) {
-    Optional<TelegramUser> userOpt = userRepository.findById(userId);
-    if (userOpt.isEmpty()) {
-      return List.of();
+    @Transactional
+    public TelegramUser getOrCreateUser(Long id, String username, String firstName) {
+        return userRepository.findById(id).orElseGet(() -> {
+            TelegramUser newUser = new TelegramUser();
+            newUser.setId(id);
+            newUser.setUsername(username);
+            newUser.setFirstName(firstName);
+            return userRepository.save(newUser);
+        });
     }
-    return groupRepository.findByMembersContains(userOpt.get()).stream()
-        .map(MemeGroup::getId)
-        .toList();
-  }
+
+    @Transactional(readOnly = true)
+    public List<Long> getUserGroupIds(Long userId) {
+        Optional<TelegramUser> userOpt = userRepository.findById(userId);
+        if (userOpt.isEmpty()) {
+            return List.of();
+        }
+        return groupRepository.findByMembersContains(userOpt.get()).stream()
+                .map(MemeGroup::getId)
+                .toList();
+    }
 }
