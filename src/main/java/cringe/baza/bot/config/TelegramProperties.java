@@ -20,17 +20,12 @@ import org.springframework.validation.annotation.Validated;
 @NoArgsConstructor
 public class TelegramProperties {
 
-    @NotEmpty
-    @URL
-    private String url;
+  @NotEmpty @URL private String url;
 
-    @NotEmpty
-    private String token;
+  @NotEmpty private String token;
 
-    @DurationUnit(ChronoUnit.MILLIS)
-    private Duration updateListenerSleep = Duration.ofSeconds(1);
+  @DurationUnit(ChronoUnit.MILLIS)
+  private Duration updateListenerSleep = Duration.ofSeconds(1);
 
-    private boolean debug;
+  private boolean debug;
 }
-
-

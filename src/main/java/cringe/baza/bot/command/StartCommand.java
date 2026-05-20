@@ -10,22 +10,22 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 @Component
 public class StartCommand implements Command {
-    private final UserSessionService sessionService;
+  private final UserSessionService sessionService;
 
-    @Override
-    public String command() {
-        return "start";
-    }
+  @Override
+  public String command() {
+    return "start";
+  }
 
-    @Override
-    public String description() {
-        return "Старт!";
-    }
+  @Override
+  public String description() {
+    return "Старт!";
+  }
 
-    @Override
-    public SendMessage handle(Update update) {
-        long chatId = update.message().chat().id();
-        sessionService.setUserState(chatId, UserState.DEFAULT);
-        return new SendMessage(chatId, "Привет базированным!");
-    }
+  @Override
+  public SendMessage handle(Update update) {
+    long chatId = update.message().chat().id();
+    sessionService.setUserState(chatId, UserState.DEFAULT);
+    return new SendMessage(chatId, "Привет базированным!");
+  }
 }

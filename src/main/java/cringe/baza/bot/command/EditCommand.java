@@ -11,41 +11,42 @@ import org.springframework.stereotype.Component;
 @Component
 public class EditCommand implements Command {
 
-    private final MemeProcessor memeProcessor;
+  private final MemeProcessor memeProcessor;
 
-    @Override
-    public String command() {
-        return "edit";
+  @Override
+  public String command() {
+    return "edit";
+  }
+
+  @Override
+  public String description() {
+    return "Изменить описание мема. Пример: /edit 12345 новое описание";
+  }
+
+  @Override
+  public BaseRequest<?, ?> handle(Update update) {
+    long chatId = update.message().chat().id();
+    String text = extractText(update.message().text());
+
+    if (text == null || text.isBlank()) {
+      return new SendMessage(chatId, "Использование: /edit {id} {новое описание}");
     }
 
-    @Override
-    public String description() {
-        return "Изменить описание мема. Пример: /edit 12345 новое описание";
+    String[] parts = text.split("\\s+", 2);
+    if (parts.length < 2) {
+      return new SendMessage(
+          chatId, "Необходимо указать новое описание. Пример: /edit 12345 смешной кот");
     }
 
-    @Override
-    public BaseRequest<?, ?> handle(Update update) {
-        long chatId = update.message().chat().id();
-        String text = extractText(update.message().text());
+    String memeId = parts[0];
+    String newDescription = parts[1];
 
-        if (text == null || text.isBlank()) {
-            return new SendMessage(chatId, "Использование: /edit {id} {новое описание}");
-        }
+    boolean updated = memeProcessor.update(memeId, newDescription);
 
-        String[] parts = text.split("\\s+", 2);
-        if (parts.length < 2) {
-            return new SendMessage(chatId, "Необходимо указать новое описание. Пример: /edit 12345 смешной кот");
-        }
-
-        String memeId = parts[0];
-        String newDescription = parts[1];
-
-        boolean updated = memeProcessor.update(memeId, newDescription);
-
-        if (updated) {
-            return new SendMessage(chatId, "Описание мема успешно обновлено.");
-        } else {
-            return new SendMessage(chatId, "Мем с ID " + memeId + " не найден.");
-        }
+    if (updated) {
+      return new SendMessage(chatId, "Описание мема успешно обновлено.");
+    } else {
+      return new SendMessage(chatId, "Мем с ID " + memeId + " не найден.");
     }
+  }
 }
