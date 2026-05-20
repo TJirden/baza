@@ -2,38 +2,36 @@ package cringe.baza.bot.command;
 
 import com.pengrad.telegrambot.model.Update;
 import com.pengrad.telegrambot.request.BaseRequest;
-import com.pengrad.telegrambot.request.SendMessage;
-import com.pengrad.telegrambot.request.SendPhoto;
 
 public interface Command {
 
-    /** Имя команды без "/" */
-    String command();
+  /** Имя команды без "/" */
+  String command();
 
-    String description();
+  String description();
 
-    /** Обработка входящего обновления */
-    BaseRequest<?,?> handle(Update update);
+  /** Обработка входящего обновления */
+  BaseRequest<?, ?> handle(Update update);
 
-    /** Проверяет, подходит ли данное обновление этой команде */
-    default boolean supports(String text) {
-        if (text == null) {
-            return false;
-        }
-
-        return text.equals("/" + command())
-                || text.startsWith("/" + command() + " ")
-                || text.startsWith("/" + command() + "@");
+  /** Проверяет, подходит ли данное обновление этой команде */
+  default boolean supports(String text) {
+    if (text == null) {
+      return false;
     }
 
-    default String extractText(String text) {
-        String withoutCommand = text.replaceFirst("(?i)/" + command() + "(?:@\\S+)?", "").trim();
+    return text.equals("/" + command())
+        || text.startsWith("/" + command() + " ")
+        || text.startsWith("/" + command() + "@");
+  }
 
-        if (withoutCommand.isEmpty()) {
-            return null;
-        }
+  default String extractText(String text) {
+    String withoutCommand = text.replaceFirst("(?i)/" + command() + "(?:@\\S+)?", "").trim();
 
-        String[] parts = withoutCommand.split("\\s+");
-        return parts[0].trim();
+    if (withoutCommand.isEmpty()) {
+      return null;
     }
+
+    String[] parts = withoutCommand.split("\\s+");
+    return parts[0].trim();
+  }
 }
