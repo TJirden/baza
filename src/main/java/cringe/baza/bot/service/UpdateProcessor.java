@@ -1,5 +1,6 @@
 package cringe.baza.bot.service;
 
+import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.InlineQuery;
 import com.pengrad.telegrambot.model.Update;
 import com.pengrad.telegrambot.model.User;
@@ -7,6 +8,7 @@ import com.pengrad.telegrambot.model.request.InlineQueryResultCachedPhoto;
 import com.pengrad.telegrambot.request.AnswerInlineQuery;
 import com.pengrad.telegrambot.request.BaseRequest;
 import com.pengrad.telegrambot.request.SendMessage;
+import com.pengrad.telegrambot.response.SendResponse;
 import cringe.baza.bot.command.Command;
 import cringe.baza.bot.model.UserState;
 import cringe.baza.model.Meme;
@@ -29,6 +31,8 @@ public class UpdateProcessor {
     private final TelegramFileService fileService;
     private final MemeProcessor memeProcessor;
     private final TelegramUserService userService;
+    private final TelegramBot bot;
+    private final AsyncMemeService asyncMemeService;
 
     public BaseRequest<?, ?> processUpdate(Update update) {
         if (update.inlineQuery() != null) {
@@ -68,37 +72,30 @@ public class UpdateProcessor {
         }
 
         try {
-            String fileId = fileService.getImageFileId(update.message().photo());
-            
-            String visibilityContext = sessionService.getTempData(chatId);
-            String visibility = "PUBLIC";
-            List<Long> groupIds = new ArrayList<>();
-            
-            if (visibilityContext != null) {
-                if (visibilityContext.startsWith("GROUP:")) {
-                    visibility = "GROUP";
-                    String[] parts = visibilityContext.substring(6).split(",");
-                    for (String part : parts) {
-                        try {
-                            groupIds.add(Long.parseLong(part));
-                        } catch (NumberFormatException ignored) {}
-                    }
-                } else {
-                    visibility = visibilityContext;
-                }
+            SendResponse response = bot.execute(new SendMessage(chatId, "Получаю мем и индексирую..."));
+            if (response == null || !response.isOk()) {
+                log.error("Не удалось отправить промежуточное сообщение в Telegram для chatId={}", chatId);
+                sessionService.setUserState(chatId, UserState.DEFAULT);
+                return new SendMessage(chatId, "Ошибка: не удалось запустить процесс сохранения мема.");
             }
 
-            String imageId = memeProcessor.save(new Meme(null, description, fileId, userId, visibility, groupIds));
-
+            String visibilityContext = sessionService.getTempData(chatId);
             sessionService.setUserState(chatId, UserState.DEFAULT);
 
-            String text = "Мем сохранен! ID: " + imageId + "\nОписание: " + description + "\nДоступ: " + visibility;
-            return new SendMessage(chatId, text);
+            asyncMemeService.processAndSaveMemeAsync(
+                    chatId,
+                    userId,
+                    update.message().photo(),
+                    description,
+                    visibilityContext,
+                    response.message().messageId()
+            );
 
+            return null;
         } catch (Exception e) {
-            log.error("Критическая ошибка при сохранении изображения для пользователя {}: {}", chatId, e.getMessage());
+            log.error("Критическая ошибка при запуске асинхронного сохранения для пользователя {}: {}", chatId, e.getMessage());
             sessionService.setUserState(chatId, UserState.DEFAULT);
-            return new SendMessage(chatId, "Ошибка: не удалось сохранить изображение, cбрасываю состояние");
+            return new SendMessage(chatId, "Ошибка: произошел сбой при сохранении мема.");
         }
     }
 
