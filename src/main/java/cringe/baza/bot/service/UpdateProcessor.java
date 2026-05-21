@@ -63,10 +63,6 @@ public class UpdateProcessor {
         }
         String description = update.message().caption();
 
-        if (description == null || description.isBlank()) {
-            return new SendMessage(chatId, "Пожалуйста, добавь описание к фото (в подписи), чтобы я мог его найти!");
-        }
-
         try {
             SendResponse response = bot.execute(new SendMessage(chatId, "Получаю мем и индексирую..."));
             if (response == null || !response.isOk()) {

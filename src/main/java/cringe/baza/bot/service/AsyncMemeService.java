@@ -21,6 +21,7 @@ public class AsyncMemeService {
     private final TelegramBot bot;
     private final MemeProcessor memeProcessor;
     private final TelegramFileService fileService;
+    private final MemeAnalyzerService memeAnalyzerService;
 
     @Async("memeAsyncExecutor")
     public void processAndSaveMemeAsync(
@@ -56,7 +57,26 @@ public class AsyncMemeService {
                 }
             }
 
-            String imageId = memeProcessor.save(new Meme(null, description, fileId, userId, visibility, groupIds));
+            String finalDescription;
+
+            if (description == null || description.isBlank()) {
+                bot.execute(new EditMessageText(chatId, messageIdToEdit, "🤖 Анализирую изображение с помощью ИИ..."));
+                finalDescription = memeAnalyzerService.analyzeMeme(fileId);
+            } else {
+                bot.execute(new EditMessageText(
+                        chatId, messageIdToEdit, "💾 Сохраняю и обогащаю описание с помощью ИИ..."));
+                try {
+                    String aiTags = memeAnalyzerService.analyzeMeme(fileId);
+                    finalDescription = description + "\n\n[ИИ-Теги]: " + aiTags;
+                } catch (Exception e) {
+                    log.warn(
+                            "Не удалось обогатить мем с помощью ИИ, сохраняю оригинальное описание: {}",
+                            e.getMessage());
+                    finalDescription = description;
+                }
+            }
+
+            String imageId = memeProcessor.save(new Meme(null, finalDescription, fileId, userId, visibility, groupIds));
             log.info("Мем успешно сохранен в фоне. ID: {}", imageId);
 
             String text = "*Мем успешно сохранен!*\n\n"
@@ -64,7 +84,7 @@ public class AsyncMemeService {
                     + imageId
                     + "`\n"
                     + "*Описание*: "
-                    + description
+                    + finalDescription
                     + "\n"
                     + "*Доступ*: "
                     + visibility;
