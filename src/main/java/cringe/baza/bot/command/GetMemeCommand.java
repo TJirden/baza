@@ -1,6 +1,8 @@
 package cringe.baza.bot.command;
 
 import com.pengrad.telegrambot.model.Update;
+import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
+import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import com.pengrad.telegrambot.request.BaseRequest;
 import com.pengrad.telegrambot.request.SendMessage;
 import com.pengrad.telegrambot.request.SendPhoto;
@@ -52,6 +54,9 @@ public class GetMemeCommand implements Command {
         if (meme.description() != null && !meme.description().isBlank()) {
             sendPhoto.caption(meme.description());
         }
+
+        sendPhoto.replyMarkup(new InlineKeyboardMarkup(
+                new InlineKeyboardButton("Пожаловаться 🚨").callbackData("report:" + meme.id())));
 
         return sendPhoto;
     }

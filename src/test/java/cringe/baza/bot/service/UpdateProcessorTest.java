@@ -46,6 +46,9 @@ class UpdateProcessorTest {
     @Mock
     private AsyncMemeService asyncMemeService;
 
+    @Mock
+    private MemeModerationService moderationService;
+
     @InjectMocks
     private UpdateProcessor updateProcessor;
 
@@ -147,5 +150,31 @@ class UpdateProcessorTest {
         verify(sessionService).setUserState(100L, UserState.DEFAULT);
         verify(asyncMemeService)
                 .processAndSaveMemeAsync(eq(100L), eq(200L), eq(photo), eq("Funny dog"), eq("PUBLIC"), eq(777));
+    }
+
+    @Test
+    void processUpdate_CallbackQuery_ReportMeme() {
+        // Arrange
+        Update update = mock(Update.class);
+        com.pengrad.telegrambot.model.CallbackQuery callbackQuery =
+                mock(com.pengrad.telegrambot.model.CallbackQuery.class);
+        User user = mock(User.class);
+
+        when(update.callbackQuery()).thenReturn(callbackQuery);
+        when(callbackQuery.from()).thenReturn(user);
+        when(user.id()).thenReturn(555L);
+        when(callbackQuery.data()).thenReturn("report:meme-123");
+        when(callbackQuery.id()).thenReturn("cb-id");
+
+        when(moderationService.reportMeme("meme-123", 555L))
+                .thenReturn(new MemeModerationService.ReportResult("REPORT_ADDED", 1L));
+
+        // Act
+        com.pengrad.telegrambot.request.AnswerCallbackQuery result =
+                (com.pengrad.telegrambot.request.AnswerCallbackQuery) updateProcessor.processUpdate(update);
+
+        // Assert
+        assertNotNull(result);
+        verify(moderationService).reportMeme("meme-123", 555L);
     }
 }

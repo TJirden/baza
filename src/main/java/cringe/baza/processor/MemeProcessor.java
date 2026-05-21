@@ -79,6 +79,14 @@ public class MemeProcessor {
         return false;
     }
 
+    public boolean quarantine(String id) {
+        if (idRepository.findById(id).isPresent()) {
+            idRepository.quarantine(id);
+            return true;
+        }
+        return false;
+    }
+
     public boolean update(String id, String newDescription) {
         Optional<Meme> memeOpt = idRepository.findById(id);
         if (memeOpt.isEmpty()) {

@@ -1,16 +1,21 @@
 package cringe.baza.bot.service;
 
 import com.pengrad.telegrambot.TelegramBot;
+import com.pengrad.telegrambot.model.CallbackQuery;
 import com.pengrad.telegrambot.model.InlineQuery;
 import com.pengrad.telegrambot.model.Update;
 import com.pengrad.telegrambot.model.User;
+import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
+import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import com.pengrad.telegrambot.model.request.InlineQueryResultCachedPhoto;
+import com.pengrad.telegrambot.request.AnswerCallbackQuery;
 import com.pengrad.telegrambot.request.AnswerInlineQuery;
 import com.pengrad.telegrambot.request.BaseRequest;
 import com.pengrad.telegrambot.request.SendMessage;
 import com.pengrad.telegrambot.response.SendResponse;
 import cringe.baza.bot.command.Command;
 import cringe.baza.bot.model.UserState;
+import cringe.baza.model.Meme;
 import cringe.baza.processor.MemeProcessor;
 import java.util.List;
 import java.util.UUID;
@@ -30,8 +35,17 @@ public class UpdateProcessor {
     private final TelegramUserService userService;
     private final TelegramBot bot;
     private final AsyncMemeService asyncMemeService;
+    private final MemeModerationService moderationService;
 
     public BaseRequest<?, ?> processUpdate(Update update) {
+        if (update.callbackQuery() != null) {
+            User tgUser = update.callbackQuery().from();
+            if (tgUser != null) {
+                userService.getOrCreateUser(tgUser.id(), tgUser.username(), tgUser.firstName());
+            }
+            return handleCallbackQuery(update.callbackQuery());
+        }
+
         if (update.inlineQuery() != null) {
             User tgUser = update.inlineQuery().from();
             if (tgUser != null) {
@@ -116,12 +130,16 @@ public class UpdateProcessor {
         try {
             long userId = inlineQuery.from().id();
             List<Long> userGroupIds = userService.getUserGroupIds(userId);
-            List<String> fileIds = memeProcessor.getFileIdsByDescription(query, 50, userId, userGroupIds);
+            List<Meme> memes = memeProcessor.getMemesByDescription(query, 50, userId, userGroupIds);
 
-            InlineQueryResultCachedPhoto[] results = fileIds.stream()
-                    .map(fileId -> {
+            InlineQueryResultCachedPhoto[] results = memes.stream()
+                    .map(meme -> {
                         String resultId = UUID.randomUUID().toString();
-                        return new InlineQueryResultCachedPhoto(resultId, fileId);
+                        InlineQueryResultCachedPhoto photoResult =
+                                new InlineQueryResultCachedPhoto(resultId, meme.fileId());
+                        photoResult.replyMarkup(new InlineKeyboardMarkup(
+                                new InlineKeyboardButton("Пожаловаться 🚨").callbackData("report:" + meme.id())));
+                        return photoResult;
                     })
                     .toArray(InlineQueryResultCachedPhoto[]::new);
 
@@ -131,5 +149,34 @@ public class UpdateProcessor {
             log.error("Inline search error: {}", e.getMessage());
             return new AnswerInlineQuery(inlineQuery.id());
         }
+    }
+
+    private BaseRequest<?, ?> handleCallbackQuery(CallbackQuery callbackQuery) {
+        String data = callbackQuery.data();
+        if (data != null && data.startsWith("report:")) {
+            String memeId = data.substring(7);
+            Long userId = callbackQuery.from().id();
+
+            MemeModerationService.ReportResult result = moderationService.reportMeme(memeId, userId);
+
+            String status = result.status();
+            long count = result.currentReports();
+
+            if ("ALREADY_REPORTED".equals(status)) {
+                return new AnswerCallbackQuery(callbackQuery.id())
+                        .text("Вы уже жаловались на этот мем!")
+                        .showAlert(true);
+            } else if ("QUARANTINED".equals(status)) {
+                return new AnswerCallbackQuery(callbackQuery.id())
+                        .text("Мем заблокирован и отправлен на модерацию из-за жалоб!")
+                        .showAlert(true);
+            } else {
+                return new AnswerCallbackQuery(callbackQuery.id())
+                        .text("Жалоба принята. Всего жалоб на мем: " + count + "/3")
+                        .showAlert(true);
+            }
+        }
+
+        return new AnswerCallbackQuery(callbackQuery.id());
     }
 }

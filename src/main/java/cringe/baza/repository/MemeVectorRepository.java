@@ -121,6 +121,16 @@ public class MemeVectorRepository implements IdRepository {
     }
 
     @Override
+    public void quarantine(String id) {
+        vectorStore.delete(List.of(id));
+        memeModerationRepository.findById(id).ifPresent(m -> {
+            m.setStatus("QUARANTINED");
+            m.setModerationReason("Жалобы пользователей");
+            memeModerationRepository.save(m);
+        });
+    }
+
+    @Override
     public Optional<Meme> findById(String id) {
         return memeModerationRepository
                 .findById(id)
