@@ -4,7 +4,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import lombok.AllArgsConstructor;
+import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -14,7 +14,6 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-@AllArgsConstructor
 public class MemeModeration {
 
     @Id
@@ -33,4 +32,26 @@ public class MemeModeration {
 
     @Column(length = 1000)
     private String moderationReason;
+
+    private LocalDateTime createdAt = LocalDateTime.now();
+
+    public MemeModeration(
+            String id,
+            String fileId,
+            String description,
+            Long ownerId,
+            String visibility,
+            String groupIds,
+            String status,
+            String moderationReason) {
+        this.id = id;
+        this.fileId = fileId;
+        this.description = description;
+        this.ownerId = ownerId;
+        this.visibility = visibility;
+        this.groupIds = groupIds;
+        this.status = status;
+        this.moderationReason = moderationReason;
+        this.createdAt = LocalDateTime.now();
+    }
 }
