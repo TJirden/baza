@@ -36,12 +36,7 @@ public class MemeAnalyzerService {
             Resource imageResource = new ByteArrayResource(imageBytes);
 
             UserMessage userMessage = UserMessage.builder()
-                    .text(
-                            "Ты — ИИ-помощник по анализу и тегированию мемов. Опиши это изображение: "
-                                    + "1. Опиши происходящее на картинке (персонажи, эмоции, объекты). "
-                                    + "2. Дословно распознай весь текст, написанный на изображении. "
-                                    + "3. Напиши ключевые слова/теги для поиска. "
-                                    + "Будь лаконичен (2-4 предложения). Ответ напиши СТРОГО на русском языке. Не добавляй лишних вводных фраз.")
+                    .text("Describe what is happening in this image in detail. Extract any visible text exactly.")
                     .media(new Media(MimeTypeUtils.IMAGE_JPEG, imageResource))
                     .build();
 
@@ -49,7 +44,7 @@ public class MemeAnalyzerService {
             var response = chatModel.call(new Prompt(List.of(userMessage)));
             String aiDescription = response.getResult().getOutput().getText();
             log.info("Анализ мема ИИ успешно завершен: {}", aiDescription);
-            return aiDescription;
+            return aiDescription != null ? aiDescription.trim() : "";
         } catch (Exception e) {
             log.error("Ошибка при анализе мема через ИИ: {}", e.getMessage(), e);
             throw new RuntimeException("Ошибка ИИ при анализе изображения: " + e.getMessage(), e);
@@ -66,11 +61,11 @@ public class MemeAnalyzerService {
             Resource imageResource = new ByteArrayResource(imageBytes);
 
             UserMessage userMessage = UserMessage.builder()
-                    .text("Ты — ИИ-модератор мемов. Оцени, безопасен ли данный мем. "
-                            + "Критерии блокировки: откровенная эротика/нагота (NSFW), сильная жестокость, тяжелые оскорбления, разжигание ненависти или пропаганда вредных веществ. "
-                            + "Ответь СТРОГО в следующем формате:\n"
-                            + "SAFE: <TRUE или FALSE>\n"
-                            + "REASON: <краткая причина на русском языке в случае FALSE, иначе пусто>")
+                    .text("You are an AI meme moderator. Assess if this meme is safe. "
+                            + "Block criteria: explicit erotica/nudity (NSFW), violence, severe insults, hate speech, or drug/illegal substance promotion. "
+                            + "Respond STRICTLY in this format:\n"
+                            + "SAFE: <TRUE or FALSE>\n"
+                            + "REASON: <short reason for block in English if FALSE, otherwise empty>")
                     .media(new Media(MimeTypeUtils.IMAGE_JPEG, imageResource))
                     .build();
 

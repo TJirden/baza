@@ -106,12 +106,16 @@ public class AsyncMemeService {
     private String getFinalDescription(long chatId, int messageIdToEdit, String fileId, String description) {
         if (description == null || description.isBlank()) {
             bot.execute(new EditMessageText(chatId, messageIdToEdit, "Анализирую изображение с помощью ИИ..."));
-            return memeAnalyzerService.analyzeMeme(fileId);
+            String aiDesc = memeAnalyzerService.analyzeMeme(fileId);
+            return (aiDesc != null && !aiDesc.isBlank()) ? aiDesc : "Без описания";
         } else {
             bot.execute(new EditMessageText(chatId, messageIdToEdit, "Сохраняю и обогащаю описание с помощью ИИ..."));
             try {
                 String aiTags = memeAnalyzerService.analyzeMeme(fileId);
-                return description + "\n\n[ИИ-Теги]: " + aiTags;
+                if (aiTags != null && !aiTags.isBlank()) {
+                    return description + "\n\n[ИИ-Теги]: " + aiTags;
+                }
+                return description;
             } catch (Exception e) {
                 log.warn("Не удалось обогатить мем с помощью ИИ, сохраняю оригинальное описание: {}", e.getMessage());
                 return description;
