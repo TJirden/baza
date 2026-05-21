@@ -134,4 +134,25 @@ public class MemeVectorRepository implements IdRepository {
             return Optional.empty();
         }
     }
+
+    /**
+     * Ищет в векторной БД мем с высокой семантической схожестью.
+     * Возвращает ID мема-дубликата, если он найден.
+     */
+    public Optional<String> findDuplicateMemeId(String description, double similarityThreshold) {
+        try {
+            SearchRequest request = SearchRequest.builder()
+                    .query(description)
+                    .topK(1)
+                    .similarityThreshold(similarityThreshold)
+                    .build();
+
+            List<Document> results = vectorStore.similaritySearch(request);
+            if (results != null && !results.isEmpty()) {
+                return Optional.of(results.get(0).getId());
+            }
+        } catch (Exception e) {
+        }
+        return Optional.empty();
+    }
 }
