@@ -1,6 +1,8 @@
 package cringe.baza.controller;
 
+import cringe.baza.bot.service.MemeModerationService;
 import cringe.baza.domain.MemeGroup;
+import cringe.baza.domain.MemeModeration;
 import cringe.baza.domain.TelegramUser;
 import cringe.baza.model.Meme;
 import cringe.baza.processor.MemeProcessor;
@@ -19,6 +21,7 @@ public class AdminController {
     private final TelegramUserRepository userRepository;
     private final MemeGroupRepository groupRepository;
     private final MemeProcessor memeProcessor;
+    private final MemeModerationService moderationService;
 
     @GetMapping("/memes")
     public List<Meme> listMemes(
@@ -75,5 +78,27 @@ public class AdminController {
     @GetMapping("/groups/search")
     public List<MemeGroup> searchGroups(@RequestParam String q) {
         return groupRepository.findByNameContainingIgnoreCase(q);
+    }
+
+    @GetMapping("/moderation")
+    public List<MemeModeration> getQuarantined() {
+        return moderationService.getQuarantinedMemes();
+    }
+
+    @PostMapping("/moderation/{id}/approve")
+    public ResponseEntity<Void> approveQuarantined(@PathVariable String id) {
+        if (moderationService.approveMeme(id)) {
+            return ResponseEntity.ok().build();
+        }
+        return ResponseEntity.notFound().build();
+    }
+
+    @PostMapping("/moderation/{id}/reject")
+    public ResponseEntity<Void> rejectQuarantined(
+            @PathVariable String id, @RequestBody(required = false) String reason) {
+        if (moderationService.rejectMeme(id, reason)) {
+            return ResponseEntity.ok().build();
+        }
+        return ResponseEntity.notFound().build();
     }
 }

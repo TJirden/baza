@@ -37,11 +37,12 @@
     
     <div class="nav">
         <button class="nav-btn active" id="btn-memes" onclick="showTab('memes')">Мемы</button>
+        <button class="nav-btn" id="btn-moderation" onclick="showTab('moderation')">Карантин</button>
         <button class="nav-btn" id="btn-users" onclick="showTab('users')">Пользователи</button>
         <button class="nav-btn" id="btn-groups" onclick="showTab('groups')">Группы</button>
     </div>
 
-    <div class="search-bar">
+    <div class="search-bar" id="search-bar-container">
         <input type="text" id="admin-search" placeholder="Поиск в текущей вкладке..." onkeypress="if(event.key==='Enter') performSearch()">
         <button onclick="performSearch()">Найти</button>
         <button onclick="clearSearch()" style="background:#888">Сброс</button>
@@ -49,6 +50,10 @@
 
     <div id="memes-tab">
         <div id="memes-grid" class="grid"></div>
+    </div>
+
+    <div id="moderation-tab" class="hidden">
+        <div id="moderation-grid" class="grid"></div>
     </div>
 
     <div id="users-tab" class="hidden">
@@ -74,21 +79,30 @@
             document.getElementById('btn-' + tab).classList.add('active');
             
             document.getElementById('memes-tab').classList.add('hidden');
+            document.getElementById('moderation-tab').classList.add('hidden');
             document.getElementById('users-tab').classList.add('hidden');
             document.getElementById('groups-tab').classList.add('hidden');
             document.getElementById(tab + '-tab').classList.remove('hidden');
             
+            const searchBar = document.getElementById('search-bar-container');
+            if (tab === 'users' || tab === 'groups' || tab === 'moderation') {
+                searchBar.classList.add('hidden');
+            } else {
+                searchBar.classList.remove('hidden');
+            }
+
             document.getElementById('admin-search').value = '';
             loadData(tab);
         }
 
         async function loadData(tab, query = '') {
-            const container = document.getElementById(tab === 'memes' ? 'memes-grid' : tab + '-body');
-            container.innerHTML = tab === 'memes' ? 'Загрузка...' : '<tr><td colspan="4">Загрузка...</td></tr>';
+            const container = document.getElementById(tab === 'memes' || tab === 'moderation' ? tab + '-grid' : tab + '-body');
+            container.innerHTML = tab === 'memes' || tab === 'moderation' ? 'Загрузка...' : '<tr><td colspan="4">Загрузка...</td></tr>';
             
-            const url = query 
-                ? `/api/admin/${tab}/search?q=${encodeURIComponent(query)}` 
-                : `/api/admin/${tab}`;
+            let url = `/api/admin/${tab}`;
+            if (tab === 'memes' && query) {
+                url = `/api/admin/memes/search?q=${encodeURIComponent(query)}`;
+            }
             
             try {
                 const response = await fetch(url);
@@ -96,7 +110,7 @@
                 container.innerHTML = '';
                 
                 if (data.length === 0) {
-                    container.innerHTML = tab === 'memes' ? 'Ничего не найдено' : '<tr><td colspan="4">Ничего не найдено</td></tr>';
+                    container.innerHTML = tab === 'memes' || tab === 'moderation' ? 'Ничего не найдено' : '<tr><td colspan="4">Ничего не найдено</td></tr>';
                     return;
                 }
 
@@ -106,7 +120,7 @@
                         card.className = 'card';
                         card.innerHTML = `
                             <img src="/api/memes/image/${meme.fileId}" alt="meme">
-                            <div class="desc">${meme.description}</div>
+                            <div class="desc">${escapeHtml(meme.description)}</div>
                             <div class="meta">ID: ${meme.id} | Owner: ${meme.ownerId}</div>
                             <div class="actions">
                                 <button class="btn btn-edit" onclick="editMeme('${meme.id}', '${meme.description.replace(/'/g, "\\'")}')">Edit</button>
@@ -114,17 +128,32 @@
                             </div>`;
                         container.appendChild(card);
                     });
+                } else if (tab === 'moderation') {
+                    data.forEach(m => {
+                        const card = document.createElement('div');
+                        card.className = 'card';
+                        card.innerHTML = `
+                            <img src="/api/memes/image/${m.fileId}" alt="quarantined meme">
+                            <div class="desc">${escapeHtml(m.description)}</div>
+                            <div class="meta" style="color: #e74c3c; font-weight: bold; margin-bottom: 10px;">Причина: ${escapeHtml(m.moderationReason)}</div>
+                            <div class="meta">ID: ${m.id} | Owner: ${m.ownerId}</div>
+                            <div class="actions">
+                                <button class="btn" style="background: #2ecc71; color: white; margin-right: 5px;" onclick="approveMeme('${m.id}')">Approve</button>
+                                <button class="btn btn-delete" onclick="rejectMeme('${m.id}')">Reject</button>
+                            </div>`;
+                        container.appendChild(card);
+                    });
                 } else if (tab === 'users') {
                     data.forEach(u => {
                         const row = document.createElement('tr');
-                        row.innerHTML = `<td>${u.id}</td><td>${u.username}</td><td>${u.firstName}</td>
+                        row.innerHTML = `<td>${u.id}</td><td>${escapeHtml(u.username || 'N/A')}</td><td>${escapeHtml(u.firstName || 'N/A')}</td>
                             <td><button class="btn btn-delete" onclick="deleteItem('users', '${u.id}')">Del</button></td>`;
                         container.appendChild(row);
                     });
                 } else if (tab === 'groups') {
                     data.forEach(g => {
                         const row = document.createElement('tr');
-                        row.innerHTML = `<td>${g.id}</td><td>${g.name}</td><td>${g.owner ? g.owner.username : 'N/A'}</td>
+                        row.innerHTML = `<td>${g.id}</td><td>${escapeHtml(g.name)}</td><td>${g.owner ? escapeHtml(g.owner.username) : 'N/A'}</td>
                             <td><button class="btn btn-delete" onclick="deleteItem('groups', '${g.id}')">Del</button></td>`;
                         container.appendChild(row);
                     });
@@ -145,7 +174,7 @@
         async function deleteItem(type, id) {
             if (!confirm('Удалить?')) return;
             await fetch(`/api/admin/${type}/${id}`, { method: 'DELETE' });
-            performSearch();
+            loadData(currentTab);
         }
 
         async function editMeme(id, oldDesc) {
@@ -155,7 +184,44 @@
                 method: 'PATCH',
                 body: desc
             });
-            performSearch();
+            loadData(currentTab);
+        }
+
+        async function approveMeme(id) {
+            if (!confirm('Одобрить мем?')) return;
+            const res = await fetch(`/api/admin/moderation/${id}/approve`, { method: 'POST' });
+            if (res.ok) {
+                loadData('moderation');
+            } else {
+                alert('Не удалось одобрить мем.');
+            }
+        }
+
+        async function rejectMeme(id) {
+            const reason = prompt('Укажите причину отклонения мема:', 'Нарушение правил сообщества');
+            if (reason === null) return;
+            const res = await fetch(`/api/admin/moderation/${id}/reject`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: reason
+            });
+            if (res.ok) {
+                loadData('moderation');
+            } else {
+                alert('Не удалось отклонить мем.');
+            }
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
         }
 
         loadData('memes');

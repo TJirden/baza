@@ -15,5 +15,8 @@ public interface IdRepository {
     /** Удаляет векторное представление мема из индекса. */
     void delete(String id);
 
+    /** Удаляет вектор из индекса и переводит запись БД в статус QUARANTINED. */
+    void quarantine(String id);
+
     Optional<Meme> findById(String id);
 }
