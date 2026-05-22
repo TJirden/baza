@@ -56,7 +56,8 @@ class AsyncMemeServiceTest {
         int messageIdToEdit = 500;
 
         when(fileService.getImageFileId(photo)).thenReturn("file-123");
-        when(memeAnalyzerService.analyzeMeme("file-123")).thenReturn("puppy playing tag");
+        when(memeAnalyzerService.analyzeMemeDetails("file-123"))
+                .thenReturn(new MemeAnalyzerService.MemeAnalysis("puppy text ocr", "puppy playing tag"));
         when(memeAnalyzerService.checkCensorship("file-123"))
                 .thenReturn(new MemeAnalyzerService.CensorshipResult(true, ""));
         when(memeVectorRepository.findDuplicateMemeId(anyString(), anyDouble())).thenReturn(Optional.empty());
@@ -74,6 +75,7 @@ class AsyncMemeServiceTest {
         assertEquals("PUBLIC", savedMeme.visibility());
         assertEquals(userId, savedMeme.ownerId());
         assertEquals("Cute puppy\n\n[ИИ-Теги]: puppy playing tag", savedMeme.description());
+        assertEquals("puppy text ocr", savedMeme.ocrText());
         assertEquals(0, savedMeme.groupIds().size());
 
         ArgumentCaptor<MemeModeration> moderationCaptor = ArgumentCaptor.forClass(MemeModeration.class);
@@ -96,7 +98,8 @@ class AsyncMemeServiceTest {
         int messageIdToEdit = 500;
 
         when(fileService.getImageFileId(photo)).thenReturn("file-123");
-        when(memeAnalyzerService.analyzeMeme("file-123")).thenReturn("AI generated description of a cat");
+        when(memeAnalyzerService.analyzeMemeDetails("file-123"))
+                .thenReturn(new MemeAnalyzerService.MemeAnalysis("cat text ocr", "AI generated description of a cat"));
         when(memeAnalyzerService.checkCensorship("file-123"))
                 .thenReturn(new MemeAnalyzerService.CensorshipResult(true, ""));
         when(memeVectorRepository.findDuplicateMemeId(anyString(), anyDouble())).thenReturn(Optional.empty());
@@ -113,6 +116,7 @@ class AsyncMemeServiceTest {
         assertEquals("file-123", savedMeme.fileId());
         assertEquals("PUBLIC", savedMeme.visibility());
         assertEquals("AI generated description of a cat", savedMeme.description());
+        assertEquals("cat text ocr", savedMeme.ocrText());
 
         verify(bot, atLeastOnce()).execute(any(EditMessageText.class));
     }
@@ -128,7 +132,7 @@ class AsyncMemeServiceTest {
         int messageIdToEdit = 500;
 
         when(fileService.getImageFileId(photo)).thenReturn("file-123");
-        when(memeAnalyzerService.analyzeMeme("file-123")).thenThrow(new RuntimeException("Ollama offline"));
+        when(memeAnalyzerService.analyzeMemeDetails("file-123")).thenThrow(new RuntimeException("Ollama offline"));
         when(memeAnalyzerService.checkCensorship("file-123"))
                 .thenReturn(new MemeAnalyzerService.CensorshipResult(true, ""));
         when(memeVectorRepository.findDuplicateMemeId(anyString(), anyDouble())).thenReturn(Optional.empty());
@@ -144,6 +148,7 @@ class AsyncMemeServiceTest {
         Meme savedMeme = memeCaptor.getValue();
         assertEquals("file-123", savedMeme.fileId());
         assertEquals("Cute puppy", savedMeme.description());
+        assertEquals("", savedMeme.ocrText());
 
         verify(bot, atLeastOnce()).execute(any(EditMessageText.class));
     }
@@ -159,7 +164,8 @@ class AsyncMemeServiceTest {
         int messageIdToEdit = 500;
 
         when(fileService.getImageFileId(photo)).thenReturn("file-456");
-        when(memeAnalyzerService.analyzeMeme("file-456")).thenReturn("cat jumping around");
+        when(memeAnalyzerService.analyzeMemeDetails("file-456"))
+                .thenReturn(new MemeAnalyzerService.MemeAnalysis("cat text ocr", "cat jumping around"));
         when(memeAnalyzerService.checkCensorship("file-456"))
                 .thenReturn(new MemeAnalyzerService.CensorshipResult(true, ""));
         when(memeVectorRepository.findDuplicateMemeId(anyString(), anyDouble())).thenReturn(Optional.empty());
@@ -177,6 +183,7 @@ class AsyncMemeServiceTest {
         assertEquals("GROUP", savedMeme.visibility());
         assertEquals(List.of(10L, 20L), savedMeme.groupIds());
         assertEquals("Funny cat\n\n[ИИ-Теги]: cat jumping around", savedMeme.description());
+        assertEquals("cat text ocr", savedMeme.ocrText());
 
         verify(bot, atLeastOnce()).execute(any(EditMessageText.class));
     }
@@ -192,7 +199,8 @@ class AsyncMemeServiceTest {
         int messageIdToEdit = 500;
 
         when(fileService.getImageFileId(photo)).thenReturn("file-unsafe");
-        when(memeAnalyzerService.analyzeMeme("file-unsafe")).thenReturn("unsafe image contents");
+        when(memeAnalyzerService.analyzeMemeDetails("file-unsafe"))
+                .thenReturn(new MemeAnalyzerService.MemeAnalysis("unsafe text ocr", "unsafe image contents"));
         when(memeAnalyzerService.checkCensorship("file-unsafe"))
                 .thenReturn(new MemeAnalyzerService.CensorshipResult(false, "Подозрение на NSFW"));
 
@@ -208,6 +216,7 @@ class AsyncMemeServiceTest {
         MemeModeration moderation = moderationCaptor.getValue();
         assertEquals("QUARANTINED", moderation.getStatus());
         assertEquals("ИИ-цензура: Подозрение на NSFW", moderation.getModerationReason());
+        assertEquals("unsafe text ocr", moderation.getOcrText());
 
         verify(bot, atLeastOnce()).execute(any(EditMessageText.class));
     }
@@ -223,7 +232,9 @@ class AsyncMemeServiceTest {
         int messageIdToEdit = 500;
 
         when(fileService.getImageFileId(photo)).thenReturn("file-duplicate");
-        when(memeAnalyzerService.analyzeMeme("file-duplicate")).thenReturn("duplicate content description");
+        when(memeAnalyzerService.analyzeMemeDetails("file-duplicate"))
+                .thenReturn(
+                        new MemeAnalyzerService.MemeAnalysis("duplicate text ocr", "duplicate content description"));
         when(memeAnalyzerService.checkCensorship("file-duplicate"))
                 .thenReturn(new MemeAnalyzerService.CensorshipResult(true, ""));
         when(memeVectorRepository.findDuplicateMemeId(anyString(), anyDouble()))
@@ -241,6 +252,7 @@ class AsyncMemeServiceTest {
         MemeModeration moderation = moderationCaptor.getValue();
         assertEquals("QUARANTINED", moderation.getStatus());
         assertEquals("Дубликат мема: existing-meme-id-999", moderation.getModerationReason());
+        assertEquals("duplicate text ocr", moderation.getOcrText());
 
         verify(bot, atLeastOnce()).execute(any(EditMessageText.class));
     }

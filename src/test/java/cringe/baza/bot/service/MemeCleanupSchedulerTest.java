@@ -36,9 +36,9 @@ class MemeCleanupSchedulerTest {
     @Test
     void cleanExpiredQuarantineMemes_WithExpiredMemes() {
         MemeModeration meme1 =
-                new MemeModeration("meme-1", "file-1", "Desc 1", 111L, "PUBLIC", "", "QUARANTINED", "Censorship");
+                new MemeModeration("meme-1", "file-1", "Desc 1", "", 111L, "PUBLIC", "", "QUARANTINED", "Censorship");
         MemeModeration meme2 =
-                new MemeModeration("meme-2", "file-2", "Desc 2", 222L, "PUBLIC", "", "QUARANTINED", "Duplicate");
+                new MemeModeration("meme-2", "file-2", "Desc 2", "", 222L, "PUBLIC", "", "QUARANTINED", "Duplicate");
 
         when(repository.findByStatusAndCreatedAtBefore(eq("QUARANTINED"), any(LocalDateTime.class)))
                 .thenReturn(List.of(meme1, meme2));

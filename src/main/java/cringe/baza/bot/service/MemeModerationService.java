@@ -56,6 +56,7 @@ public class MemeModerationService {
         memeProcessor.save(new Meme(
                 moderation.getId(),
                 moderation.getDescription(),
+                moderation.getOcrText(),
                 moderation.getFileId(),
                 moderation.getOwnerId(),
                 moderation.getVisibility(),

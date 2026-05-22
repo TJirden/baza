@@ -19,8 +19,14 @@ public class MemeProcessor {
      */
     public String save(Meme meme) {
         String id = meme.id() != null ? meme.id() : UUID.randomUUID().toString();
-        Meme memeWithId =
-                new Meme(id, meme.description(), meme.fileId(), meme.ownerId(), meme.visibility(), meme.groupIds());
+        Meme memeWithId = new Meme(
+                id,
+                meme.description(),
+                meme.ocrText(),
+                meme.fileId(),
+                meme.ownerId(),
+                meme.visibility(),
+                meme.groupIds());
         idRepository.save(id, memeWithId);
         return id;
     }
@@ -96,7 +102,15 @@ public class MemeProcessor {
         Meme meme = memeOpt.get();
         idRepository.delete(id);
         idRepository.save(
-                id, new Meme(id, newDescription, meme.fileId(), meme.ownerId(), meme.visibility(), meme.groupIds()));
+                id,
+                new Meme(
+                        id,
+                        newDescription,
+                        meme.ocrText(),
+                        meme.fileId(),
+                        meme.ownerId(),
+                        meme.visibility(),
+                        meme.groupIds()));
         return true;
     }
 }
