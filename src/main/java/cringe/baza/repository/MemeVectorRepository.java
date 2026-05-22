@@ -53,21 +53,17 @@ public class MemeVectorRepository implements IdRepository {
 
     @Override
     public List<String> findSimilarIds(String query, int limit, Long userId, List<Long> userGroupIds) {
-        SearchRequest request = SearchRequest.builder()
-                .query(query)
-                .topK(100)
-                .similarityThreshold(0.5)
-                .build();
+        SearchRequest request = SearchRequest.builder().query(query).topK(100).build();
 
         List<String> vectorIds = vectorStore.similaritySearch(request).stream()
                 .map(Document::getId)
                 .toList();
-        String textQuery = "%" + query + "%";
+        String normalizedQuery = "%" + query.toLowerCase().replace('ё', 'е') + "%";
         List<String> textIds = jdbcTemplate.queryForList(
-                "SELECT id FROM meme_moderation WHERE status = 'APPROVED' AND (ocr_text ILIKE ? OR description ILIKE ?)",
+                "SELECT id FROM meme_moderation WHERE status = 'APPROVED' AND (REPLACE(LOWER(ocr_text), 'ё', 'е') ILIKE ? OR REPLACE(LOWER(description), 'ё', 'е') ILIKE ?)",
                 String.class,
-                textQuery,
-                textQuery);
+                normalizedQuery,
+                normalizedQuery);
 
         Map<String, Double> rrfScores = new HashMap<>();
 
