@@ -22,12 +22,14 @@ public class MemeAnalyzerService {
     private final ChatModel chatModel;
     private final TelegramFileService fileService;
 
+    public record MemeAnalysis(String ocrText, String description) {}
+
     /**
      * Скачивает изображение мема по telegram fileId, отправляет его в Ollama Vision модель
-     * и возвращает текстовое описание мема на русском языке.
+     * и возвращает структурированный результат анализа (OCR-текст и описание).
      */
-    public String analyzeMeme(String fileId) {
-        log.info("Начало анализа мема ИИ для fileId: {}", fileId);
+    public MemeAnalysis analyzeMemeDetails(String fileId) {
+        log.info("Начало детального анализа мема ИИ для fileId: {}", fileId);
         try (InputStream inputStream = fileService.downloadFile(fileId)) {
             if (inputStream == null) {
                 throw new IOException("Не удалось скачать файл из Telegram");
@@ -36,19 +38,69 @@ public class MemeAnalyzerService {
             Resource imageResource = new ByteArrayResource(imageBytes);
 
             UserMessage userMessage = UserMessage.builder()
-                    .text("Describe what is happening in this image in detail. Extract any visible text exactly.")
+                    .text(
+                            "Extract any visible text exactly as OCR. Describe the rest of the image contextually in Russian. "
+                                    + "You MUST reply STRICTLY in this format:\n"
+                                    + "TEXT: <exact text on image or EMPTY if none>\n"
+                                    + "DESCRIPTION: <visual description of the image in Russian>")
                     .media(new Media(MimeTypeUtils.IMAGE_JPEG, imageResource))
                     .build();
 
-            log.info("Отправка запроса в Ollama Vision...");
+            log.info("Отправка запроса детального анализа в Ollama Vision...");
             var response = chatModel.call(new Prompt(List.of(userMessage)));
-            String aiDescription = response.getResult().getOutput().getText();
-            log.info("Анализ мема ИИ успешно завершен: {}", aiDescription);
-            return aiDescription != null ? aiDescription.trim() : "";
+            String reply = response.getResult().getOutput().getText();
+            log.info("Ответ Ollama Vision:\n{}", reply);
+
+            String ocrText = "";
+            String description = "";
+
+            if (reply != null) {
+                String[] lines = reply.split("\n");
+                StringBuilder descBuilder = new StringBuilder();
+                boolean buildingDesc = false;
+
+                for (String line : lines) {
+                    String trimmed = line.trim();
+                    if (trimmed.toUpperCase().startsWith("TEXT:")) {
+                        ocrText = trimmed.substring(5).trim();
+                        buildingDesc = false;
+                    } else if (trimmed.toUpperCase().startsWith("DESCRIPTION:")) {
+                        descBuilder.append(trimmed.substring(12).trim());
+                        buildingDesc = true;
+                    } else if (buildingDesc) {
+                        if (!descBuilder.isEmpty()) {
+                            descBuilder.append("\n");
+                        }
+                        descBuilder.append(trimmed);
+                    }
+                }
+                description = descBuilder.toString().trim();
+            }
+
+            if (ocrText.equalsIgnoreCase("EMPTY") || ocrText.equalsIgnoreCase("<EMPTY>")) {
+                ocrText = "";
+            }
+
+            if (description.isBlank()) {
+                description = "Без описания";
+            }
+
+            return new MemeAnalysis(ocrText, description);
         } catch (Exception e) {
-            log.error("Ошибка при анализе мема через ИИ: {}", e.getMessage(), e);
+            log.error("Ошибка при детальном анализе мема через ИИ: {}", e.getMessage(), e);
             throw new RuntimeException("Ошибка ИИ при анализе изображения: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Сохраняет обратную совместимость, возвращая объединенное описание мема.
+     */
+    public String analyzeMeme(String fileId) {
+        MemeAnalysis analysis = analyzeMemeDetails(fileId);
+        if (analysis.ocrText().isBlank()) {
+            return analysis.description();
+        }
+        return analysis.description() + " [Текст]: " + analysis.ocrText();
     }
 
     public CensorshipResult checkCensorship(String fileId) {

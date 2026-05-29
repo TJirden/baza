@@ -24,6 +24,9 @@ public class MemeModeration {
     @Column(length = 2000)
     private String description;
 
+    @Column(length = 2000)
+    private String ocrText;
+
     private Long ownerId;
     private String visibility;
     private String groupIds;
@@ -39,6 +42,7 @@ public class MemeModeration {
             String id,
             String fileId,
             String description,
+            String ocrText,
             Long ownerId,
             String visibility,
             String groupIds,
@@ -47,6 +51,7 @@ public class MemeModeration {
         this.id = id;
         this.fileId = fileId;
         this.description = description;
+        this.ocrText = ocrText;
         this.ownerId = ownerId;
         this.visibility = visibility;
         this.groupIds = groupIds;

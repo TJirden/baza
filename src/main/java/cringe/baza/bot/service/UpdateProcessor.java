@@ -36,6 +36,7 @@ public class UpdateProcessor {
     private final TelegramBot bot;
     private final AsyncMemeService asyncMemeService;
     private final MemeModerationService moderationService;
+    private final MemeBattleService memeBattleService;
 
     public BaseRequest<?, ?> processUpdate(Update update) {
         if (update.callbackQuery() != null) {
@@ -54,7 +55,11 @@ public class UpdateProcessor {
             return handleInlineQuery(update.inlineQuery());
         }
 
-        if (update.message() != null && update.message().from() != null) {
+        if (update.message() == null) {
+            return null;
+        }
+
+        if (update.message().from() != null) {
             User tgUser = update.message().from();
             userService.getOrCreateUser(tgUser.id(), tgUser.username(), tgUser.firstName());
         }
@@ -173,6 +178,30 @@ public class UpdateProcessor {
             } else {
                 return new AnswerCallbackQuery(callbackQuery.id())
                         .text("Жалоба принята. Всего жалоб на мем: " + count + "/3")
+                        .showAlert(true);
+            }
+        }
+
+        if (data != null && data.startsWith("vote:")) {
+            try {
+                String[] parts = data.split(":");
+                Long battleId = Long.parseLong(parts[1]);
+                String option = parts[2];
+                Long userId = callbackQuery.from().id();
+
+                boolean success = memeBattleService.registerVote(battleId, userId, option);
+                if (success) {
+                    return new AnswerCallbackQuery(callbackQuery.id())
+                            .text("Ваш голос за Вариант " + option + " принят!");
+                } else {
+                    return new AnswerCallbackQuery(callbackQuery.id())
+                            .text("Вы уже голосовали в этом баттле!")
+                            .showAlert(true);
+                }
+            } catch (Exception e) {
+                log.error("Error processing battle vote callback: {}", e.getMessage(), e);
+                return new AnswerCallbackQuery(callbackQuery.id())
+                        .text("Ошибка при обработке голоса!")
                         .showAlert(true);
             }
         }

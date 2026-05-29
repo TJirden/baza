@@ -9,4 +9,6 @@ import org.springframework.stereotype.Repository;
 public interface TelegramUserRepository extends JpaRepository<TelegramUser, Long> {
     List<TelegramUser> findByUsernameContainingIgnoreCaseOrFirstNameContainingIgnoreCase(
             String username, String firstName);
+
+    List<TelegramUser> findTop5ByOrderByPointsDesc();
 }

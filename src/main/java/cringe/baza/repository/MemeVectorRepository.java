@@ -37,6 +37,7 @@ public class MemeVectorRepository implements IdRepository {
                 id,
                 meme.fileId(),
                 meme.description(),
+                meme.ocrText(),
                 meme.ownerId(),
                 meme.visibility(),
                 groupIdsStr,
@@ -52,21 +53,40 @@ public class MemeVectorRepository implements IdRepository {
 
     @Override
     public List<String> findSimilarIds(String query, int limit, Long userId, List<Long> userGroupIds) {
-        SearchRequest request = SearchRequest.builder()
-                .query(query)
-                .topK(100)
-                .similarityThreshold(0.5)
-                .build();
+        SearchRequest request = SearchRequest.builder().query(query).topK(100).build();
 
-        List<String> rawIds = vectorStore.similaritySearch(request).stream()
+        List<String> vectorIds = vectorStore.similaritySearch(request).stream()
                 .map(Document::getId)
                 .toList();
+        String normalizedQuery = "%" + query.toLowerCase().replace('ё', 'е') + "%";
+        List<String> textIds = jdbcTemplate.queryForList(
+                "SELECT id FROM meme_moderation WHERE status = 'APPROVED' AND (REPLACE(LOWER(ocr_text), 'ё', 'е') ILIKE ? OR REPLACE(LOWER(description), 'ё', 'е') ILIKE ?)",
+                String.class,
+                normalizedQuery,
+                normalizedQuery);
 
-        if (rawIds.isEmpty()) {
+        Map<String, Double> rrfScores = new HashMap<>();
+
+        for (int i = 0; i < vectorIds.size(); i++) {
+            String id = vectorIds.get(i);
+            rrfScores.put(id, rrfScores.getOrDefault(id, 0.0) + 1.0 / (60.0 + i));
+        }
+
+        for (int i = 0; i < textIds.size(); i++) {
+            String id = textIds.get(i);
+            rrfScores.put(id, rrfScores.getOrDefault(id, 0.0) + 1.0 / (60.0 + i));
+        }
+
+        List<String> combinedIds = rrfScores.entrySet().stream()
+                .sorted((e1, e2) -> Double.compare(e2.getValue(), e1.getValue()))
+                .map(Map.Entry::getKey)
+                .toList();
+
+        if (combinedIds.isEmpty()) {
             return List.of();
         }
 
-        List<MemeModeration> matches = memeModerationRepository.findAllById(rawIds).stream()
+        List<MemeModeration> matches = memeModerationRepository.findAllById(combinedIds).stream()
                 .filter(m -> "APPROVED".equals(m.getStatus()))
                 .filter(m -> {
                     if ("PUBLIC".equals(m.getVisibility())) {
@@ -92,8 +112,8 @@ public class MemeVectorRepository implements IdRepository {
                 .toList();
 
         Map<String, Integer> orderMap = new HashMap<>();
-        for (int i = 0; i < rawIds.size(); i++) {
-            orderMap.put(rawIds.get(i), i);
+        for (int i = 0; i < combinedIds.size(); i++) {
+            orderMap.put(combinedIds.get(i), i);
         }
 
         return matches.stream()
@@ -146,7 +166,13 @@ public class MemeVectorRepository implements IdRepository {
                         }
                     }
                     return new Meme(
-                            m.getId(), m.getDescription(), m.getFileId(), m.getOwnerId(), m.getVisibility(), groupIds);
+                            m.getId(),
+                            m.getDescription(),
+                            m.getOcrText(),
+                            m.getFileId(),
+                            m.getOwnerId(),
+                            m.getVisibility(),
+                            groupIds);
                 });
     }
 

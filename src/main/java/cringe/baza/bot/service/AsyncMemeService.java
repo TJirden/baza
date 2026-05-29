@@ -52,15 +52,56 @@ public class AsyncMemeService {
             String groupIdsStr = groupIds.stream().map(String::valueOf).collect(Collectors.joining(","));
 
             String memeId = UUID.randomUUID().toString();
-            String finalDescription = getFinalDescription(chatId, messageIdToEdit, fileId, description);
+
+            String ocrText = "";
+            String aiDescription = "";
+
+            try {
+                bot.execute(new EditMessageText(chatId, messageIdToEdit, "Анализирую изображение с помощью ИИ..."));
+                MemeAnalyzerService.MemeAnalysis analysis = memeAnalyzerService.analyzeMemeDetails(fileId);
+                ocrText = analysis.ocrText();
+                aiDescription = analysis.description();
+            } catch (Exception e) {
+                log.warn("Не удалось выполнить ИИ-анализ мема: {}", e.getMessage());
+                if (description == null || description.isBlank()) {
+                    throw new RuntimeException("ИИ-анализ обязателен для мемов без описания", e);
+                }
+            }
+
+            String finalDescription;
+            if (description == null || description.isBlank()) {
+                finalDescription = aiDescription;
+            } else {
+                if (aiDescription != null && !aiDescription.isBlank()) {
+                    finalDescription = description + "\n\n[ИИ-Теги]: " + aiDescription;
+                } else {
+                    finalDescription = description;
+                }
+            }
 
             if (checkCensorshipAndQuarantine(
-                    chatId, messageIdToEdit, memeId, fileId, finalDescription, userId, visibility, groupIdsStr)) {
+                    chatId,
+                    messageIdToEdit,
+                    memeId,
+                    fileId,
+                    finalDescription,
+                    ocrText,
+                    userId,
+                    visibility,
+                    groupIdsStr)) {
                 return;
             }
 
             if (checkDuplicateAndQuarantine(
-                    chatId, messageIdToEdit, memeId, fileId, finalDescription, userId, visibility, groupIdsStr)) {
+                    chatId,
+                    messageIdToEdit,
+                    memeId,
+                    fileId,
+                    finalDescription,
+                    ocrText,
+                    userId,
+                    visibility,
+                    groupIdsStr)) {
                 return;
             }
 
@@ -70,6 +111,7 @@ public class AsyncMemeService {
                     memeId,
                     fileId,
                     finalDescription,
+                    ocrText,
                     userId,
                     visibility,
                     groupIds,
@@ -103,32 +145,13 @@ public class AsyncMemeService {
         return "PUBLIC";
     }
 
-    private String getFinalDescription(long chatId, int messageIdToEdit, String fileId, String description) {
-        if (description == null || description.isBlank()) {
-            bot.execute(new EditMessageText(chatId, messageIdToEdit, "Анализирую изображение с помощью ИИ..."));
-            String aiDesc = memeAnalyzerService.analyzeMeme(fileId);
-            return (aiDesc != null && !aiDesc.isBlank()) ? aiDesc : "Без описания";
-        } else {
-            bot.execute(new EditMessageText(chatId, messageIdToEdit, "Сохраняю и обогащаю описание с помощью ИИ..."));
-            try {
-                String aiTags = memeAnalyzerService.analyzeMeme(fileId);
-                if (aiTags != null && !aiTags.isBlank()) {
-                    return description + "\n\n[ИИ-Теги]: " + aiTags;
-                }
-                return description;
-            } catch (Exception e) {
-                log.warn("Не удалось обогатить мем с помощью ИИ, сохраняю оригинальное описание: {}", e.getMessage());
-                return description;
-            }
-        }
-    }
-
     private boolean checkCensorshipAndQuarantine(
             long chatId,
             int messageIdToEdit,
             String memeId,
             String fileId,
             String finalDescription,
+            String ocrText,
             long userId,
             String visibility,
             String groupIdsStr) {
@@ -142,6 +165,7 @@ public class AsyncMemeService {
                     memeId,
                     fileId,
                     finalDescription,
+                    ocrText,
                     userId,
                     visibility,
                     groupIdsStr,
@@ -166,6 +190,7 @@ public class AsyncMemeService {
             String memeId,
             String fileId,
             String finalDescription,
+            String ocrText,
             long userId,
             String visibility,
             String groupIdsStr) {
@@ -180,6 +205,7 @@ public class AsyncMemeService {
                     memeId,
                     fileId,
                     finalDescription,
+                    ocrText,
                     userId,
                     visibility,
                     groupIdsStr,
@@ -204,16 +230,18 @@ public class AsyncMemeService {
             String memeId,
             String fileId,
             String finalDescription,
+            String ocrText,
             long userId,
             String visibility,
             List<Long> groupIds,
             String groupIdsStr) {
 
-        MemeModeration moderation =
-                new MemeModeration(memeId, fileId, finalDescription, userId, visibility, groupIdsStr, "APPROVED", null);
+        MemeModeration moderation = new MemeModeration(
+                memeId, fileId, finalDescription, ocrText, userId, visibility, groupIdsStr, "APPROVED", null);
         memeModerationRepository.save(moderation);
 
-        String imageId = memeProcessor.save(new Meme(memeId, finalDescription, fileId, userId, visibility, groupIds));
+        String imageId =
+                memeProcessor.save(new Meme(memeId, finalDescription, ocrText, fileId, userId, visibility, groupIds));
         log.info("Мем успешно сохранен и проиндексирован. ID: {}", imageId);
 
         String text = "*Мем успешно сохранен!*\n\n"
