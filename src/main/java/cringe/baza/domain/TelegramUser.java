@@ -24,6 +24,9 @@ public class TelegramUser {
     private String username;
     private String firstName;
 
+    private Integer battleWins = 0;
+    private Integer points = 0;
+
     @ManyToMany(mappedBy = "members")
     private Set<MemeGroup> groups = new HashSet<>();
 }
