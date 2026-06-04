@@ -11,4 +11,6 @@ public interface TelegramUserRepository extends JpaRepository<TelegramUser, Long
             String username, String firstName);
 
     List<TelegramUser> findTop5ByOrderByPointsDesc();
+
+    java.util.Optional<TelegramUser> findByUsernameIgnoreCase(String username);
 }

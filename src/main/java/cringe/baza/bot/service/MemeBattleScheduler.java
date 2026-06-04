@@ -40,4 +40,36 @@ public class MemeBattleScheduler {
             }
         }
     }
+
+    /**
+     * Проверяет просроченные дуэли и отменяет их с возвратом ставок, если необходимо.
+     */
+    @Scheduled(fixedDelay = 60000)
+    public void cancelExpiredDuels() {
+        log.debug("Checking for expired pending or selection duels...");
+        List<MemeBattle> pendingDuels = memeBattleRepository.findByStatus("PENDING");
+        List<MemeBattle> selectionDuels = memeBattleRepository.findByStatus("MEME_SELECTION");
+
+        LocalDateTime threshold = LocalDateTime.now().minusMinutes(10);
+
+        for (MemeBattle duel : pendingDuels) {
+            if (duel.getStartTime() != null && duel.getStartTime().isBefore(threshold)) {
+                try {
+                    memeBattleService.cancelPendingDuel(duel, "Время на принятие вызова истекло.");
+                } catch (Exception e) {
+                    log.error("Failed to cancel pending duel {}: {}", duel.getId(), e.getMessage(), e);
+                }
+            }
+        }
+
+        for (MemeBattle duel : selectionDuels) {
+            if (duel.getStartTime() != null && duel.getStartTime().isBefore(threshold)) {
+                try {
+                    memeBattleService.cancelPendingDuel(duel, "Время на выбор мемов истекло.");
+                } catch (Exception e) {
+                    log.error("Failed to cancel selection duel {}: {}", duel.getId(), e.getMessage(), e);
+                }
+            }
+        }
+    }
 }

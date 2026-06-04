@@ -206,6 +206,47 @@ public class UpdateProcessor {
             }
         }
 
+        if (data != null && data.startsWith("duel_accept:")) {
+            try {
+                long battleId = Long.parseLong(data.substring(12));
+                long userId = callbackQuery.from().id();
+                return memeBattleService.acceptDuel(battleId, userId, callbackQuery.id());
+            } catch (Exception e) {
+                log.error("Error processing duel accept callback: {}", e.getMessage(), e);
+                return new AnswerCallbackQuery(callbackQuery.id())
+                        .text("Ошибка при принятии вызова!")
+                        .showAlert(true);
+            }
+        }
+
+        if (data != null && data.startsWith("duel_decline:")) {
+            try {
+                long battleId = Long.parseLong(data.substring(13));
+                long userId = callbackQuery.from().id();
+                return memeBattleService.declineDuel(battleId, userId, callbackQuery.id());
+            } catch (Exception e) {
+                log.error("Error processing duel decline callback: {}", e.getMessage(), e);
+                return new AnswerCallbackQuery(callbackQuery.id())
+                        .text("Ошибка при отклонении вызова!")
+                        .showAlert(true);
+            }
+        }
+
+        if (data != null && data.startsWith("duel_select:")) {
+            try {
+                String[] parts = data.split(":");
+                long battleId = Long.parseLong(parts[1]);
+                String memeId = parts[2];
+                long userId = callbackQuery.from().id();
+                return memeBattleService.selectDuelMeme(battleId, userId, memeId, callbackQuery.id());
+            } catch (Exception e) {
+                log.error("Error processing duel meme selection callback: {}", e.getMessage(), e);
+                return new AnswerCallbackQuery(callbackQuery.id())
+                        .text("Ошибка при выборе мема!")
+                        .showAlert(true);
+            }
+        }
+
         return new AnswerCallbackQuery(callbackQuery.id());
     }
 }

@@ -27,8 +27,15 @@ public class MemeBattle {
     private LocalDateTime startTime;
     private LocalDateTime endTime;
 
-    private String status; // "ACTIVE", "COMPLETED"
+    private String status; // "ACTIVE", "COMPLETED", "PENDING", "MEME_SELECTION", "DECLINED", "EXPIRED"
 
     private Long telegramChatId;
     private Integer telegramMessageId;
+
+    private String battleType = "AUTO"; // "AUTO", "DUEL"
+    private Long challengerId;
+    private Long opponentId;
+    private Integer bet = 0;
+    private Boolean challengerMemeSelected = false;
+    private Boolean opponentMemeSelected = false;
 }

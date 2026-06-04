@@ -13,4 +13,6 @@ public interface MemeModerationRepository extends JpaRepository<MemeModeration, 
     List<MemeModeration> findByStatusAndCreatedAtBefore(String status, LocalDateTime threshold);
 
     List<MemeModeration> findByStatusAndVisibility(String status, String visibility);
+
+    List<MemeModeration> findByOwnerIdAndStatusAndVisibility(Long ownerId, String status, String visibility);
 }
