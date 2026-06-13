@@ -132,7 +132,7 @@ class AsyncMemeServiceTest {
         int messageIdToEdit = 500;
 
         when(fileService.getImageFileId(photo)).thenReturn("file-123");
-        when(memeAnalyzerService.analyzeMemeDetails("file-123")).thenThrow(new RuntimeException("Ollama offline"));
+        when(memeAnalyzerService.analyzeMemeDetails("file-123")).thenThrow(new RuntimeException("AI offline"));
         when(memeAnalyzerService.checkCensorship("file-123"))
                 .thenReturn(new MemeAnalyzerService.CensorshipResult(true, ""));
         when(memeVectorRepository.findDuplicateMemeId(anyString(), anyDouble())).thenReturn(Optional.empty());
