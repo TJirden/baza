@@ -49,10 +49,6 @@ public class MemeModerationService {
             }
         }
 
-        moderation.setStatus("APPROVED");
-        moderation.setModerationReason(null);
-        repository.save(moderation);
-
         memeProcessor.save(new Meme(
                 moderation.getId(),
                 moderation.getDescription(),
@@ -61,6 +57,10 @@ public class MemeModerationService {
                 moderation.getOwnerId(),
                 moderation.getVisibility(),
                 groupIds));
+
+        moderation.setStatus("APPROVED");
+        moderation.setModerationReason(null);
+        repository.save(moderation);
 
         if (moderation.getOwnerId() != null) {
             try {
