@@ -11,6 +11,7 @@ import com.pengrad.telegrambot.model.request.InlineQueryResultCachedPhoto;
 import com.pengrad.telegrambot.request.AnswerCallbackQuery;
 import com.pengrad.telegrambot.request.AnswerInlineQuery;
 import com.pengrad.telegrambot.request.BaseRequest;
+import com.pengrad.telegrambot.request.EditMessageCaption;
 import com.pengrad.telegrambot.request.SendMessage;
 import com.pengrad.telegrambot.response.SendResponse;
 import cringe.baza.bot.command.Command;
@@ -37,6 +38,7 @@ public class UpdateProcessor {
     private final AsyncMemeService asyncMemeService;
     private final MemeModerationService moderationService;
     private final MemeBattleService memeBattleService;
+    private final SwipeService swipeService;
 
     public BaseRequest<?, ?> processUpdate(Update update) {
         if (update.callbackQuery() != null) {
@@ -69,6 +71,17 @@ public class UpdateProcessor {
 
         if (currentState == UserState.AWAITING_SAVE_IMAGE) {
             return processImageSave(update);
+        }
+        if (currentState == UserState.SWIPING) {
+            String text = update.message().text();
+            if (text != null && text.startsWith("/")) {
+                sessionService.setUserState(chatId, UserState.DEFAULT);
+                if (text.equalsIgnoreCase("/cancel")) {
+                    return new SendMessage(chatId, "Режим оценки завершен.");
+                }
+                return processCommand(update);
+            }
+            return new SendMessage(chatId, "Вы находитесь в режиме оценки мемов. Нажимайте кнопки под картинкой или напишите /cancel для выхода.");
         }
         return processCommand(update);
     }
@@ -243,6 +256,71 @@ public class UpdateProcessor {
                 log.error("Error processing duel meme selection callback: {}", e.getMessage(), e);
                 return new AnswerCallbackQuery(callbackQuery.id())
                         .text("Ошибка при выборе мема!")
+                        .showAlert(true);
+            }
+        }
+
+        if (data != null && data.startsWith("swipe_vote:")) {
+            try {
+                long userId = callbackQuery.from().id();
+                long chatId = callbackQuery.message().chat().id();
+                UserState currentState = sessionService.getUserState(chatId);
+
+                if (currentState != UserState.SWIPING) {
+                    return new AnswerCallbackQuery(callbackQuery.id())
+                            .text("⚠️ Режим оценки неактивен!")
+                            .showAlert(true);
+                }
+
+                String[] parts = data.split(":");
+                String memeId = parts[1];
+                String voteType = parts[2];
+
+                swipeService.registerSwipeVote(userId, memeId, voteType);
+
+                String ratingText = "BASE".equalsIgnoreCase(voteType) ? "🔥 База" : "💩 Кринж";
+                String originalText = callbackQuery.message().caption();
+                if (originalText == null) {
+                    originalText = "";
+                }
+                String editedText = originalText + "\n\nВаша оценка: *" + ratingText + "*";
+
+                bot.execute(new EditMessageCaption(chatId, callbackQuery.message().messageId())
+                        .caption(editedText)
+                        .parseMode(com.pengrad.telegrambot.model.request.ParseMode.Markdown));
+
+                swipeService.sendSwipeCard(chatId, userId);
+
+                return new AnswerCallbackQuery(callbackQuery.id()).text("Голос принят!");
+            } catch (Exception e) {
+                log.error("Error processing swipe vote callback: {}", e.getMessage(), e);
+                return new AnswerCallbackQuery(callbackQuery.id())
+                        .text("Ошибка при обработке оценки!")
+                        .showAlert(true);
+            }
+        }
+
+        if (data != null && "swipe_stop".equals(data)) {
+            try {
+                long userId = callbackQuery.from().id();
+                long chatId = callbackQuery.message().chat().id();
+                sessionService.setUserState(chatId, UserState.DEFAULT);
+
+                String originalText = callbackQuery.message().caption();
+                if (originalText == null) {
+                    originalText = "";
+                }
+                String editedText = originalText + "\n\n🛑 *Оценка завершена.*";
+
+                bot.execute(new EditMessageCaption(chatId, callbackQuery.message().messageId())
+                        .caption(editedText)
+                        .parseMode(com.pengrad.telegrambot.model.request.ParseMode.Markdown));
+
+                return new AnswerCallbackQuery(callbackQuery.id()).text("Вы вышли из режима оценки.");
+            } catch (Exception e) {
+                log.error("Error stopping swipe mode: {}", e.getMessage(), e);
+                return new AnswerCallbackQuery(callbackQuery.id())
+                        .text("Ошибка при выходе из режима оценки!")
                         .showAlert(true);
             }
         }

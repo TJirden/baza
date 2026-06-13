@@ -49,6 +49,9 @@ class UpdateProcessorTest {
     @Mock
     private MemeModerationService moderationService;
 
+    @Mock
+    private SwipeService swipeService;
+
     @InjectMocks
     private UpdateProcessor updateProcessor;
 
