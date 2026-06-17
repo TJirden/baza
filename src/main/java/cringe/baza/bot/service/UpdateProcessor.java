@@ -81,7 +81,9 @@ public class UpdateProcessor {
                 }
                 return processCommand(update);
             }
-            return new SendMessage(chatId, "Вы находитесь в режиме оценки мемов. Нажимайте кнопки под картинкой или напишите /cancel для выхода.");
+            return new SendMessage(
+                    chatId,
+                    "Вы находитесь в режиме оценки мемов. Нажимайте кнопки под картинкой или напишите /cancel для выхода.");
         }
         return processCommand(update);
     }
@@ -285,9 +287,10 @@ public class UpdateProcessor {
                 }
                 String editedText = originalText + "\n\nВаша оценка: *" + ratingText + "*";
 
-                bot.execute(new EditMessageCaption(chatId, callbackQuery.message().messageId())
-                        .caption(editedText)
-                        .parseMode(com.pengrad.telegrambot.model.request.ParseMode.Markdown));
+                bot.execute(
+                        new EditMessageCaption(chatId, callbackQuery.message().messageId())
+                                .caption(editedText)
+                                .parseMode(com.pengrad.telegrambot.model.request.ParseMode.Markdown));
 
                 swipeService.sendSwipeCard(chatId, userId);
 
@@ -312,9 +315,10 @@ public class UpdateProcessor {
                 }
                 String editedText = originalText + "\n\n🛑 *Оценка завершена.*";
 
-                bot.execute(new EditMessageCaption(chatId, callbackQuery.message().messageId())
-                        .caption(editedText)
-                        .parseMode(com.pengrad.telegrambot.model.request.ParseMode.Markdown));
+                bot.execute(
+                        new EditMessageCaption(chatId, callbackQuery.message().messageId())
+                                .caption(editedText)
+                                .parseMode(com.pengrad.telegrambot.model.request.ParseMode.Markdown));
 
                 return new AnswerCallbackQuery(callbackQuery.id()).text("Вы вышли из режима оценки.");
             } catch (Exception e) {

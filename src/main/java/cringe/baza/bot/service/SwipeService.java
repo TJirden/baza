@@ -74,9 +74,8 @@ public class SwipeService {
         }
         MemeModeration meme = memeOpt.get();
 
-        MemeRating rating = memeRatingRepository
-                .findById(memeId)
-                .orElse(new MemeRating(memeId, defaultElo, 0, 0, null));
+        MemeRating rating =
+                memeRatingRepository.findById(memeId).orElse(new MemeRating(memeId, defaultElo, 0, 0, null));
 
         int oldElo = rating.getEloRating();
         double expected = 1.0 / (1.0 + Math.pow(10.0, (1000.0 - oldElo) / 400.0));
@@ -123,17 +122,15 @@ public class SwipeService {
                 .orElse(new MemeRating(meme.getId(), defaultElo, 0, 0, null));
 
         String caption = String.format(
-                "🔥 *Оценка мема*\n\n"
-                        + "%s\n\n"
-                        + "📊 Текущий рейтинг: *%d ELO* (В: %d, П: %d)",
+                "🔥 *Оценка мема*\n\n" + "%s\n\n" + "📊 Текущий рейтинг: *%d ELO* (В: %d, П: %d)",
                 (meme.getDescription() != null ? meme.getDescription() : "Без описания"),
                 rating.getEloRating(),
                 rating.getWins(),
                 rating.getLosses());
 
         InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup(
-                new InlineKeyboardButton("🔥 База").callbackData("swipe_vote:" + meme.getId() + ":BASE"),
-                new InlineKeyboardButton("💩 Кринж").callbackData("swipe_vote:" + meme.getId() + ":CRINGE"))
+                        new InlineKeyboardButton("🔥 База").callbackData("swipe_vote:" + meme.getId() + ":BASE"),
+                        new InlineKeyboardButton("💩 Кринж").callbackData("swipe_vote:" + meme.getId() + ":CRINGE"))
                 .addRow(new InlineKeyboardButton("🛑 Выйти").callbackData("swipe_stop"));
 
         bot.execute(new SendPhoto(chatId, meme.getFileId())
