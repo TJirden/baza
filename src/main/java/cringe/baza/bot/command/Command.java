@@ -32,7 +32,6 @@ public interface Command {
             return null;
         }
 
-        String[] parts = withoutCommand.split("\\s+");
-        return parts[0].trim();
+        return withoutCommand;
     }
 }
