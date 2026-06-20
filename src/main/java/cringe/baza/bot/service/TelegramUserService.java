@@ -19,13 +19,29 @@ public class TelegramUserService {
 
     @Transactional
     public TelegramUser getOrCreateUser(Long id, String username, String firstName) {
-        return userRepository.findById(id).orElseGet(() -> {
-            TelegramUser newUser = new TelegramUser();
-            newUser.setId(id);
-            newUser.setUsername(username);
-            newUser.setFirstName(firstName);
-            return userRepository.save(newUser);
-        });
+        return userRepository.findById(id)
+                .map(existingUser -> {
+                    boolean updated = false;
+                    if (username != null && !username.equals(existingUser.getUsername())) {
+                        existingUser.setUsername(username);
+                        updated = true;
+                    }
+                    if (firstName != null && !firstName.equals(existingUser.getFirstName())) {
+                        existingUser.setFirstName(firstName);
+                        updated = true;
+                    }
+                    if (updated) {
+                        return userRepository.save(existingUser);
+                    }
+                    return existingUser;
+                })
+                .orElseGet(() -> {
+                    TelegramUser newUser = new TelegramUser();
+                    newUser.setId(id);
+                    newUser.setUsername(username);
+                    newUser.setFirstName(firstName);
+                    return userRepository.save(newUser);
+                });
     }
 
     @Transactional(readOnly = true)
