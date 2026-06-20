@@ -28,6 +28,12 @@ public class SaveCommand implements Command {
     @Override
     public SendMessage handle(Update update) {
         long chatId = update.message().chat().id();
+        long userId = update.message().from().id();
+
+        if (chatId != userId) {
+            return new SendMessage(chatId, "⚠️ Команда /save доступна только в личных сообщениях с ботом.");
+        }
+
         String text = extractText(update.message().text());
 
         String visibility = "PUBLIC";
