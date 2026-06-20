@@ -167,4 +167,101 @@ class MemeBattleServiceTest {
         assertEquals(10, authorA.getPoints());
         assertEquals(1, authorA.getBattleWins());
     }
+
+    @Test
+    void completeBattle_Duel_ChallengerWins_EloAndStakesRewards() {
+        MemeBattle battle = new MemeBattle();
+        battle.setId(77L);
+        battle.setStatus("ACTIVE");
+        battle.setBattleType("DUEL");
+        battle.setChallengerId(111L);
+        battle.setOpponentId(222L);
+        battle.setBet(50);
+        battle.setMemeAId("meme-A");
+        battle.setMemeBId("meme-B");
+        battle.setVotesA(15);
+        battle.setVotesB(5);
+        battle.setTelegramChatId(12345L);
+        battle.setTelegramMessageId(67890);
+
+        MemeModeration memeA =
+                new MemeModeration("meme-A", "file-A", "Cat meme", "", 111L, "PUBLIC", "", "APPROVED", null);
+        MemeModeration memeB =
+                new MemeModeration("meme-B", "file-B", "Dog meme", "", 222L, "PUBLIC", "", "APPROVED", null);
+
+        when(memeModerationRepository.findById("meme-A")).thenReturn(Optional.of(memeA));
+        when(memeModerationRepository.findById("meme-B")).thenReturn(Optional.of(memeB));
+
+        MemeRating ratingA = new MemeRating("meme-A", 1000, 0, 0, null);
+        MemeRating ratingB = new MemeRating("meme-B", 1000, 0, 0, null);
+
+        when(memeRatingRepository.findById("meme-A")).thenReturn(Optional.of(ratingA));
+        when(memeRatingRepository.findById("meme-B")).thenReturn(Optional.of(ratingB));
+
+        TelegramUser challenger = new TelegramUser(111L, "challenger", "Challenger", 0, 100, new java.util.HashSet<>());
+        TelegramUser opponent = new TelegramUser(222L, "opponent", "Opponent", 0, 100, new java.util.HashSet<>());
+
+        when(telegramUserRepository.findById(111L)).thenReturn(Optional.of(challenger));
+        when(telegramUserRepository.findById(222L)).thenReturn(Optional.of(opponent));
+
+        memeBattleService.completeBattle(battle);
+
+        assertEquals("COMPLETED", battle.getStatus());
+        assertEquals("meme-A", battle.getWinnerMemeId());
+
+        assertEquals(210, challenger.getPoints());
+        assertEquals(1, challenger.getBattleWins());
+        assertEquals(100, opponent.getPoints());
+
+        verify(telegramUserRepository).save(challenger);
+        verify(telegramUserRepository).save(opponent);
+    }
+
+    @Test
+    void completeBattle_Duel_Draw_StakesRefunded() {
+        MemeBattle battle = new MemeBattle();
+        battle.setId(78L);
+        battle.setStatus("ACTIVE");
+        battle.setBattleType("DUEL");
+        battle.setChallengerId(111L);
+        battle.setOpponentId(222L);
+        battle.setBet(50);
+        battle.setMemeAId("meme-A");
+        battle.setMemeBId("meme-B");
+        battle.setVotesA(5);
+        battle.setVotesB(5);
+        battle.setTelegramChatId(12345L);
+        battle.setTelegramMessageId(67890);
+
+        MemeModeration memeA =
+                new MemeModeration("meme-A", "file-A", "Cat meme", "", 111L, "PUBLIC", "", "APPROVED", null);
+        MemeModeration memeB =
+                new MemeModeration("meme-B", "file-B", "Dog meme", "", 222L, "PUBLIC", "", "APPROVED", null);
+
+        when(memeModerationRepository.findById("meme-A")).thenReturn(Optional.of(memeA));
+        when(memeModerationRepository.findById("meme-B")).thenReturn(Optional.of(memeB));
+
+        MemeRating ratingA = new MemeRating("meme-A", 1000, 0, 0, null);
+        MemeRating ratingB = new MemeRating("meme-B", 1000, 0, 0, null);
+
+        when(memeRatingRepository.findById("meme-A")).thenReturn(Optional.of(ratingA));
+        when(memeRatingRepository.findById("meme-B")).thenReturn(Optional.of(ratingB));
+
+        TelegramUser challenger = new TelegramUser(111L, "challenger", "Challenger", 0, 100, new java.util.HashSet<>());
+        TelegramUser opponent = new TelegramUser(222L, "opponent", "Opponent", 0, 100, new java.util.HashSet<>());
+
+        when(telegramUserRepository.findById(111L)).thenReturn(Optional.of(challenger));
+        when(telegramUserRepository.findById(222L)).thenReturn(Optional.of(opponent));
+
+        memeBattleService.completeBattle(battle);
+
+        assertEquals("COMPLETED", battle.getStatus());
+        assertNull(battle.getWinnerMemeId());
+
+        assertEquals(150, challenger.getPoints());
+        assertEquals(150, opponent.getPoints());
+
+        verify(telegramUserRepository).save(challenger);
+        verify(telegramUserRepository).save(opponent);
+    }
 }

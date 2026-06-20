@@ -236,13 +236,13 @@ public class AsyncMemeService {
             List<Long> groupIds,
             String groupIdsStr) {
 
-        MemeModeration moderation = new MemeModeration(
-                memeId, fileId, finalDescription, ocrText, userId, visibility, groupIdsStr, "APPROVED", null);
-        memeModerationRepository.save(moderation);
-
         String imageId =
                 memeProcessor.save(new Meme(memeId, finalDescription, ocrText, fileId, userId, visibility, groupIds));
         log.info("Мем успешно сохранен и проиндексирован. ID: {}", imageId);
+
+        MemeModeration moderation = new MemeModeration(
+                memeId, fileId, finalDescription, ocrText, userId, visibility, groupIdsStr, "APPROVED", null);
+        memeModerationRepository.save(moderation);
 
         String text = "*Мем успешно сохранен!*\n\n"
                 + "*ID*: `" + imageId + "`\n"

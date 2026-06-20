@@ -36,7 +36,8 @@ dependencyManagement {
 dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.ai:spring-ai-starter-vector-store-pgvector")
-    implementation("org.springframework.ai:spring-ai-starter-model-ollama")
+    implementation("org.springframework.ai:spring-ai-starter-model-google-genai")
+    implementation("org.springframework.ai:spring-ai-starter-model-google-genai-embedding")
 	implementation("org.springframework.boot:spring-boot-starter-webmvc")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-configuration-processor")

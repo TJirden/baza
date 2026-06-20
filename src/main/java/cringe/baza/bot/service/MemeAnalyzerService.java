@@ -25,7 +25,7 @@ public class MemeAnalyzerService {
     public record MemeAnalysis(String ocrText, String description) {}
 
     /**
-     * Скачивает изображение мема по telegram fileId, отправляет его в Ollama Vision модель
+     * Скачивает изображение мема по telegram fileId, отправляет его в Gemini модель
      * и возвращает структурированный результат анализа (OCR-текст и описание).
      */
     public MemeAnalysis analyzeMemeDetails(String fileId) {
@@ -46,10 +46,10 @@ public class MemeAnalyzerService {
                     .media(new Media(MimeTypeUtils.IMAGE_JPEG, imageResource))
                     .build();
 
-            log.info("Отправка запроса детального анализа в Ollama Vision...");
+            log.info("Отправка запроса детального анализа в Gemini...");
             var response = chatModel.call(new Prompt(List.of(userMessage)));
             String reply = response.getResult().getOutput().getText();
-            log.info("Ответ Ollama Vision:\n{}", reply);
+            log.info("Ответ Gemini:\n{}", reply);
 
             String ocrText = "";
             String description = "";
@@ -121,7 +121,7 @@ public class MemeAnalyzerService {
                     .media(new Media(MimeTypeUtils.IMAGE_JPEG, imageResource))
                     .build();
 
-            log.info("Отправка запроса цензуры в Ollama...");
+            log.info("Отправка запроса цензуры в Gemini...");
             var response = chatModel.call(new Prompt(List.of(userMessage)));
             String reply = response.getResult().getOutput().getText();
             log.info("Ответ ИИ-цензуры: {}", reply);
