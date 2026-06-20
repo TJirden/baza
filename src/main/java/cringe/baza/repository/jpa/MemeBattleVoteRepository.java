@@ -7,4 +7,6 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface MemeBattleVoteRepository extends JpaRepository<MemeBattleVote, Long> {
     boolean existsByBattleIdAndUserId(Long battleId, Long userId);
+
+    void deleteByBattleId(Long battleId);
 }

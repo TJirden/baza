@@ -1,9 +1,15 @@
 package cringe.baza.repository;
 
+import cringe.baza.domain.MemeBattle;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.model.IdRepository;
 import cringe.baza.model.Meme;
+import cringe.baza.repository.jpa.MemeBattleRepository;
+import cringe.baza.repository.jpa.MemeBattleVoteRepository;
 import cringe.baza.repository.jpa.MemeModerationRepository;
+import cringe.baza.repository.jpa.MemeRatingRepository;
+import cringe.baza.repository.jpa.MemeReportRepository;
+import cringe.baza.repository.jpa.MemeSwipeVoteRepository;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -15,6 +21,7 @@ import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 @RequiredArgsConstructor
@@ -23,6 +30,11 @@ public class MemeVectorRepository implements IdRepository {
     private final VectorStore vectorStore;
     private final JdbcTemplate jdbcTemplate;
     private final MemeModerationRepository memeModerationRepository;
+    private final MemeRatingRepository memeRatingRepository;
+    private final MemeReportRepository memeReportRepository;
+    private final MemeSwipeVoteRepository memeSwipeVoteRepository;
+    private final MemeBattleRepository memeBattleRepository;
+    private final MemeBattleVoteRepository memeBattleVoteRepository;
 
     @Override
     public void save(String id, Meme meme) {
@@ -134,8 +146,21 @@ public class MemeVectorRepository implements IdRepository {
                 .toList();
     }
 
+    @Transactional
     @Override
     public void delete(String id) {
+        if (memeRatingRepository.existsById(id)) {
+            memeRatingRepository.deleteById(id);
+        }
+        memeReportRepository.deleteByMemeId(id);
+        memeSwipeVoteRepository.deleteByMemeId(id);
+
+        List<MemeBattle> battles = memeBattleRepository.findReferencingMeme(id);
+        for (MemeBattle battle : battles) {
+            memeBattleVoteRepository.deleteByBattleId(battle.getId());
+        }
+        memeBattleRepository.deleteAll(battles);
+
         vectorStore.delete(List.of(id));
         memeModerationRepository.deleteById(id);
     }

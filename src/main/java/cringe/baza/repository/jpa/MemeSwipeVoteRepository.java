@@ -13,4 +13,6 @@ public interface MemeSwipeVoteRepository extends JpaRepository<MemeSwipeVote, Lo
 
     @Query("SELECT v.memeId FROM MemeSwipeVote v WHERE v.userId = :userId")
     List<String> findVotedMemeIdsByUserId(@Param("userId") Long userId);
+
+    void deleteByMemeId(String memeId);
 }
