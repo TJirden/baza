@@ -71,11 +71,8 @@ public class MemeProcessor {
     }
 
     public boolean delete(String id) {
-        if (idRepository.findById(id).isPresent()) {
-            idRepository.delete(id);
-            return true;
-        }
-        return false;
+        idRepository.delete(id);
+        return true;
     }
 
     public boolean quarantine(String id) {

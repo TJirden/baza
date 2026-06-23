@@ -1,6 +1,7 @@
 package cringe.baza.bot.service;
 
 import cringe.baza.domain.MemeModeration;
+import cringe.baza.model.IdRepository;
 import cringe.baza.model.ModerationStatus;
 import cringe.baza.repository.jpa.MemeModerationRepository;
 import java.time.LocalDateTime;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Service;
 public class MemeCleanupScheduler {
 
     private final MemeModerationRepository repository;
+    private final IdRepository idRepository;
 
     @Scheduled(cron = "${app.moderation.cleanup-cron:0 0 2 * * ?}")
     public void cleanExpiredQuarantineMemes() {
@@ -32,7 +34,7 @@ public class MemeCleanupScheduler {
         log.info("Found {} expired quarantine memes to delete.", expired.size());
         for (MemeModeration meme : expired) {
             try {
-                repository.delete(meme);
+                idRepository.delete(meme.getId());
                 log.info("Successfully deleted expired quarantine meme: {}", meme.getId());
             } catch (Exception e) {
                 log.error("Failed to delete expired quarantine meme {}: {}", meme.getId(), e.getMessage());

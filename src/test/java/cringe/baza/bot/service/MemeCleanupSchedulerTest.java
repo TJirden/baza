@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import cringe.baza.domain.MemeModeration;
+import cringe.baza.model.IdRepository;
 import cringe.baza.model.MemeVisibility;
 import cringe.baza.model.ModerationStatus;
 import cringe.baza.repository.jpa.MemeModerationRepository;
@@ -22,6 +23,9 @@ class MemeCleanupSchedulerTest {
     @Mock
     private MemeModerationRepository repository;
 
+    @Mock
+    private IdRepository idRepository;
+
     @InjectMocks
     private MemeCleanupScheduler scheduler;
 
@@ -32,7 +36,7 @@ class MemeCleanupSchedulerTest {
 
         scheduler.cleanExpiredQuarantineMemes();
 
-        verify(repository, never()).delete(any(MemeModeration.class));
+        verify(idRepository, never()).delete(anyString());
     }
 
     @Test
@@ -63,7 +67,7 @@ class MemeCleanupSchedulerTest {
 
         scheduler.cleanExpiredQuarantineMemes();
 
-        verify(repository).delete(meme1);
-        verify(repository).delete(meme2);
+        verify(idRepository).delete("meme-1");
+        verify(idRepository).delete("meme-2");
     }
 }

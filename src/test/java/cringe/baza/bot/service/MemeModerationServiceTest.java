@@ -3,6 +3,7 @@ package cringe.baza.bot.service;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import cringe.baza.domain.MemeModeration;
 import cringe.baza.processor.MemeProcessor;
 import cringe.baza.repository.jpa.MemeModerationRepository;
 import cringe.baza.repository.jpa.MemeReportRepository;
@@ -75,5 +76,69 @@ class MemeModerationServiceTest {
         verify(memeReportRepository).save(any());
         verify(memeProcessor).quarantine("meme-1");
         verify(memeReportRepository).deleteByMemeId("meme-1");
+    }
+
+    @Test
+    void approveMeme_NotFound() {
+        when(repository.findById("meme-1")).thenReturn(java.util.Optional.empty());
+        boolean result = moderationService.approveMeme("meme-1");
+        assertFalse(result);
+    }
+
+    @Test
+    void approveMeme_AlreadyApproved() {
+        MemeModeration meme = new MemeModeration();
+        meme.setId("meme-1");
+        meme.setStatus(cringe.baza.model.ModerationStatus.APPROVED);
+
+        when(repository.findById("meme-1")).thenReturn(java.util.Optional.of(meme));
+
+        boolean result = moderationService.approveMeme("meme-1");
+        assertTrue(result);
+        verify(memeProcessor, never()).save(any());
+    }
+
+    @Test
+    void approveMeme_Success() {
+        MemeModeration meme = new MemeModeration();
+        meme.setId("meme-1");
+        meme.setStatus(cringe.baza.model.ModerationStatus.PENDING);
+        meme.setDescription("Test description");
+        meme.setOcrText("OCR");
+        meme.setFileId("file-1");
+        meme.setOwnerId(123L);
+        meme.setVisibility(cringe.baza.model.MemeVisibility.PUBLIC);
+
+        when(repository.findById("meme-1")).thenReturn(java.util.Optional.of(meme));
+
+        boolean result = moderationService.approveMeme("meme-1");
+        assertTrue(result);
+
+        verify(memeProcessor).save(any());
+        assertEquals(cringe.baza.model.ModerationStatus.APPROVED, meme.getStatus());
+        verify(repository).save(meme);
+        verify(telegramService).sendMessageWithMarkdown(eq(123L), anyString());
+    }
+
+    @Test
+    void rejectMeme_NotFound() {
+        when(repository.findById("meme-1")).thenReturn(java.util.Optional.empty());
+        boolean result = moderationService.rejectMeme("meme-1", "reason");
+        assertFalse(result);
+    }
+
+    @Test
+    void rejectMeme_Success() {
+        MemeModeration meme = new MemeModeration();
+        meme.setId("meme-1");
+        meme.setOwnerId(123L);
+
+        when(repository.findById("meme-1")).thenReturn(java.util.Optional.of(meme));
+
+        boolean result = moderationService.rejectMeme("meme-1", "bad quality");
+        assertTrue(result);
+
+        verify(memeProcessor).delete("meme-1");
+        verify(telegramService).sendMessageWithMarkdown(eq(123L), contains("bad quality"));
     }
 }
