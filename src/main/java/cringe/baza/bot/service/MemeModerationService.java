@@ -10,19 +10,32 @@ import cringe.baza.repository.jpa.MemeReportRepository;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class MemeModerationService {
 
     private final TelegramBot bot;
     private final MemeModerationRepository repository;
     private final MemeProcessor memeProcessor;
     private final MemeReportRepository memeReportRepository;
+    private final int complaintsThreshold;
+
+    public MemeModerationService(
+            TelegramBot bot,
+            MemeModerationRepository repository,
+            MemeProcessor memeProcessor,
+            MemeReportRepository memeReportRepository,
+            @Value("${app.bot.complaints-threshold}") int complaintsThreshold) {
+        this.bot = bot;
+        this.repository = repository;
+        this.memeProcessor = memeProcessor;
+        this.memeReportRepository = memeReportRepository;
+        this.complaintsThreshold = complaintsThreshold;
+    }
 
     public List<MemeModeration> getQuarantinedMemes() {
         return repository.findByStatus("QUARANTINED");
@@ -123,10 +136,10 @@ public class MemeModerationService {
         memeReportRepository.save(new cringe.baza.domain.MemeReport(memeId, userId));
         long count = memeReportRepository.countByMemeId(memeId);
 
-        if (count >= 3) {
+        if (count >= complaintsThreshold) {
             memeProcessor.quarantine(memeId);
             memeReportRepository.deleteByMemeId(memeId);
-            return new ReportResult("QUARANTINED", 3);
+            return new ReportResult("QUARANTINED", complaintsThreshold);
         }
 
         return new ReportResult("REPORT_ADDED", count);

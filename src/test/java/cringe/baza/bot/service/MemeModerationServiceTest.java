@@ -6,9 +6,9 @@ import static org.mockito.Mockito.*;
 import cringe.baza.processor.MemeProcessor;
 import cringe.baza.repository.jpa.MemeModerationRepository;
 import cringe.baza.repository.jpa.MemeReportRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -24,8 +24,13 @@ class MemeModerationServiceTest {
     @Mock
     private MemeReportRepository memeReportRepository;
 
-    @InjectMocks
     private MemeModerationService moderationService;
+
+    @BeforeEach
+    void setUp() {
+        moderationService = new MemeModerationService(
+                mock(com.pengrad.telegrambot.TelegramBot.class), repository, memeProcessor, memeReportRepository, 3);
+    }
 
     @Test
     void reportMeme_AlreadyReported() {

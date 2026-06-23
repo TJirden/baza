@@ -9,9 +9,9 @@ import com.pengrad.telegrambot.request.AnswerInlineQuery;
 import cringe.baza.model.Meme;
 import cringe.baza.processor.MemeProcessor;
 import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -24,8 +24,12 @@ class InlineQueryHandlerTest {
     @Mock
     private MemeProcessor memeProcessor;
 
-    @InjectMocks
     private InlineQueryHandler handler;
+
+    @BeforeEach
+    void setUp() {
+        handler = new InlineQueryHandler(userService, memeProcessor, 50);
+    }
 
     @Test
     void handle_EmptyQuery_ReturnsEmptyAnswer() {
