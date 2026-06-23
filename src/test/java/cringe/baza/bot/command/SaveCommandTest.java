@@ -60,7 +60,7 @@ class SaveCommandTest {
         // Assert
         assertNotNull(response);
         assertEquals(
-                "⚠️ В групповом чате команда /save должна быть ответом на сообщение с фото.",
+                "В групповом чате команда /save должна быть ответом на сообщение с фото.",
                 response.getParameters().get("text"));
         verifyNoInteractions(sessionService);
         verifyNoInteractions(asyncMemeService);

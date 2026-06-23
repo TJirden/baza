@@ -46,7 +46,7 @@ class SaveCommandParserTest {
 
         // Assert
         assertFalse(result.success());
-        assertEquals("⚠️ Укажите ID групп: /save group {id1} {id2} [описание]", result.errorMessage());
+        assertEquals("Укажите ID групп: /save group {id1} {id2} [описание]", result.errorMessage());
     }
 
     @Test

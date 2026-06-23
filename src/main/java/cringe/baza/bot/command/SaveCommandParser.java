@@ -26,7 +26,7 @@ public class SaveCommandParser {
                 i++;
             }
             if (i == 1) {
-                return SaveParseResult.failure("⚠️ Укажите ID групп: /save group {id1} {id2} [описание]");
+                return SaveParseResult.failure("Укажите ID групп: /save group {id1} {id2} [описание]");
             }
             String groupIds = Arrays.stream(parts, 1, i).collect(Collectors.joining(","));
             String description = Arrays.stream(parts)
@@ -62,7 +62,7 @@ public class SaveCommandParser {
                 i++;
             }
             if (i == 1) {
-                return SaveParseResult.failure("⚠️ Укажите ID групп: /save group {id1} {id2} [описание]");
+                return SaveParseResult.failure("Укажите ID групп: /save group {id1} {id2} [описание]");
             }
             String groupIds = Arrays.stream(parts, 1, i).collect(Collectors.joining(","));
             return SaveParseResult.success("GROUP:" + groupIds, null);

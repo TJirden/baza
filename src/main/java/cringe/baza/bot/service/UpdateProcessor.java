@@ -41,6 +41,15 @@ public class UpdateProcessor {
     private final SwipeService swipeService;
 
     public BaseRequest<?, ?> processUpdate(Update update) {
+        try {
+            return doProcessUpdate(update);
+        } catch (Exception e) {
+            log.error("Ошибка при обработке обновления: {}", e.getMessage(), e);
+            return handleException(update, e);
+        }
+    }
+
+    private BaseRequest<?, ?> doProcessUpdate(Update update) {
         if (update.callbackQuery() != null) {
             User tgUser = update.callbackQuery().from();
             if (tgUser != null) {
@@ -76,6 +85,20 @@ public class UpdateProcessor {
             return handleSwipingState(update, chatId);
         }
         return processCommand(update);
+    }
+
+    private BaseRequest<?, ?> handleException(Update update, Exception e) {
+        Long chatId = null;
+        if (update.message() != null) {
+            chatId = update.message().chat().id();
+        } else if (update.callbackQuery() != null && update.callbackQuery().message() != null) {
+            chatId = update.callbackQuery().message().chat().id();
+        }
+
+        if (chatId != null) {
+            return new SendMessage(chatId, "Произошла ошибка при обработке команды. Пожалуйста, попробуйте позже.");
+        }
+        return null;
     }
 
     private BaseRequest<?, ?> handleSwipingState(Update update, long chatId) {

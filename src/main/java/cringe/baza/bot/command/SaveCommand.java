@@ -44,8 +44,7 @@ public class SaveCommand implements Command {
         }
 
         if (chatId != userId) {
-            return new SendMessage(
-                    chatId, "⚠️ В групповом чате команда /save должна быть ответом на сообщение с фото.");
+            return new SendMessage(chatId, "В групповом чате команда /save должна быть ответом на сообщение с фото.");
         }
 
         return handleStatefulSave(update, chatId);
@@ -65,25 +64,20 @@ public class SaveCommand implements Command {
             description = replyTo.caption();
         }
 
-        try {
-            SendResponse response = bot.execute(new SendMessage(chatId, "Получаю мем из ответа и индексирую..."));
-            if (response == null || !response.isOk()) {
-                return new SendMessage(chatId, "Ошибка: не удалось запустить процесс сохранения мема.");
-            }
-
-            asyncMemeService.saveMemeAsync(
-                    chatId,
-                    userId,
-                    replyTo.photo(),
-                    description,
-                    visibility,
-                    response.message().messageId());
-
-            return null;
-        } catch (Exception e) {
-            log.error("Failed to save meme by reply: {}", e.getMessage(), e);
-            return new SendMessage(chatId, "Ошибка: произошел сбой при сохранении мема.");
+        SendResponse response = bot.execute(new SendMessage(chatId, "Получаю мем из ответа и индексирую..."));
+        if (response == null || !response.isOk()) {
+            throw new RuntimeException("Не удалось запустить процесс сохранения мема");
         }
+
+        asyncMemeService.saveMemeAsync(
+                chatId,
+                userId,
+                replyTo.photo(),
+                description,
+                visibility,
+                response.message().messageId());
+
+        return null;
     }
 
     private SendMessage handleStatefulSave(Update update, long chatId) {
