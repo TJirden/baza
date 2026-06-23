@@ -10,6 +10,8 @@ import cringe.baza.bot.model.UserState;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.domain.MemeRating;
 import cringe.baza.domain.MemeSwipeVote;
+import cringe.baza.model.MemeVisibility;
+import cringe.baza.model.ModerationStatus;
 import cringe.baza.repository.jpa.MemeModerationRepository;
 import cringe.baza.repository.jpa.MemeRatingRepository;
 import cringe.baza.repository.jpa.MemeSwipeVoteRepository;
@@ -42,7 +44,8 @@ public class SwipeService {
     private int defaultElo;
 
     public Optional<MemeModeration> getNextMemeForUser(long userId) {
-        List<MemeModeration> publicApproved = memeModerationRepository.findByStatusAndVisibility("APPROVED", "PUBLIC");
+        List<MemeModeration> publicApproved =
+                memeModerationRepository.findByStatusAndVisibility(ModerationStatus.APPROVED, MemeVisibility.PUBLIC);
         List<String> votedMemeIds = swipeVoteRepository.findVotedMemeIdsByUserId(userId);
 
         List<MemeModeration> candidates = publicApproved.stream()

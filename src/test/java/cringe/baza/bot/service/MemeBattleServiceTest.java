@@ -8,6 +8,8 @@ import cringe.baza.domain.MemeBattle;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.domain.MemeRating;
 import cringe.baza.domain.TelegramUser;
+import cringe.baza.model.MemeVisibility;
+import cringe.baza.model.ModerationStatus;
 import cringe.baza.repository.jpa.MemeBattleRepository;
 import cringe.baza.repository.jpa.MemeBattleVoteRepository;
 import cringe.baza.repository.jpa.MemeModerationRepository;
@@ -105,10 +107,10 @@ class MemeBattleServiceTest {
         battle.setTelegramChatId(12345L);
         battle.setTelegramMessageId(67890);
 
-        MemeModeration memeA =
-                new MemeModeration("meme-A", "file-A", "Cat meme", "", 111L, "PUBLIC", "", "APPROVED", null);
-        MemeModeration memeB =
-                new MemeModeration("meme-B", "file-B", "Dog meme", "", 222L, "PUBLIC", "", "APPROVED", null);
+        MemeModeration memeA = new MemeModeration(
+                "meme-A", "file-A", "Cat meme", "", 111L, MemeVisibility.PUBLIC, "", ModerationStatus.APPROVED, null);
+        MemeModeration memeB = new MemeModeration(
+                "meme-B", "file-B", "Dog meme", "", 222L, MemeVisibility.PUBLIC, "", ModerationStatus.APPROVED, null);
 
         when(memeModerationRepository.findById("meme-A")).thenReturn(Optional.of(memeA));
         when(memeModerationRepository.findById("meme-B")).thenReturn(Optional.of(memeB));
@@ -184,10 +186,10 @@ class MemeBattleServiceTest {
         battle.setTelegramChatId(12345L);
         battle.setTelegramMessageId(67890);
 
-        MemeModeration memeA =
-                new MemeModeration("meme-A", "file-A", "Cat meme", "", 111L, "PUBLIC", "", "APPROVED", null);
-        MemeModeration memeB =
-                new MemeModeration("meme-B", "file-B", "Dog meme", "", 222L, "PUBLIC", "", "APPROVED", null);
+        MemeModeration memeA = new MemeModeration(
+                "meme-A", "file-A", "Cat meme", "", 111L, MemeVisibility.PUBLIC, "", ModerationStatus.APPROVED, null);
+        MemeModeration memeB = new MemeModeration(
+                "meme-B", "file-B", "Dog meme", "", 222L, MemeVisibility.PUBLIC, "", ModerationStatus.APPROVED, null);
 
         when(memeModerationRepository.findById("meme-A")).thenReturn(Optional.of(memeA));
         when(memeModerationRepository.findById("meme-B")).thenReturn(Optional.of(memeB));
@@ -233,10 +235,10 @@ class MemeBattleServiceTest {
         battle.setTelegramChatId(12345L);
         battle.setTelegramMessageId(67890);
 
-        MemeModeration memeA =
-                new MemeModeration("meme-A", "file-A", "Cat meme", "", 111L, "PUBLIC", "", "APPROVED", null);
-        MemeModeration memeB =
-                new MemeModeration("meme-B", "file-B", "Dog meme", "", 222L, "PUBLIC", "", "APPROVED", null);
+        MemeModeration memeA = new MemeModeration(
+                "meme-A", "file-A", "Cat meme", "", 111L, MemeVisibility.PUBLIC, "", ModerationStatus.APPROVED, null);
+        MemeModeration memeB = new MemeModeration(
+                "meme-B", "file-B", "Dog meme", "", 222L, MemeVisibility.PUBLIC, "", ModerationStatus.APPROVED, null);
 
         when(memeModerationRepository.findById("meme-A")).thenReturn(Optional.of(memeA));
         when(memeModerationRepository.findById("meme-B")).thenReturn(Optional.of(memeB));

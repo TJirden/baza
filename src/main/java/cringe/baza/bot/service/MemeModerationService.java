@@ -4,6 +4,7 @@ import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.request.SendMessage;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.model.Meme;
+import cringe.baza.model.ModerationStatus;
 import cringe.baza.processor.MemeProcessor;
 import cringe.baza.repository.jpa.MemeModerationRepository;
 import cringe.baza.repository.jpa.MemeReportRepository;
@@ -38,7 +39,7 @@ public class MemeModerationService {
     }
 
     public List<MemeModeration> getQuarantinedMemes() {
-        return repository.findByStatus("QUARANTINED");
+        return repository.findByStatus(ModerationStatus.QUARANTINED);
     }
 
     public boolean approveMeme(String id) {
@@ -48,7 +49,7 @@ public class MemeModerationService {
         }
 
         MemeModeration moderation = moderationOpt.get();
-        if ("APPROVED".equals(moderation.getStatus())) {
+        if (ModerationStatus.APPROVED == moderation.getStatus()) {
             return true;
         }
 
@@ -71,7 +72,7 @@ public class MemeModerationService {
                 moderation.getVisibility(),
                 groupIds));
 
-        moderation.setStatus("APPROVED");
+        moderation.setStatus(ModerationStatus.APPROVED);
         moderation.setModerationReason(null);
         repository.save(moderation);
 

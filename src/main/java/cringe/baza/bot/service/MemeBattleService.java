@@ -15,6 +15,8 @@ import cringe.baza.domain.MemeBattleVote;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.domain.MemeRating;
 import cringe.baza.domain.TelegramUser;
+import cringe.baza.model.MemeVisibility;
+import cringe.baza.model.ModerationStatus;
 import cringe.baza.repository.jpa.MemeBattleRepository;
 import cringe.baza.repository.jpa.MemeBattleVoteRepository;
 import cringe.baza.repository.jpa.MemeModerationRepository;
@@ -57,7 +59,8 @@ public class MemeBattleService {
     @Transactional
     public void startBattle(long chatId) {
         log.info("Starting new meme battle in chat: {}", chatId);
-        List<MemeModeration> approvedPublic = memeModerationRepository.findByStatusAndVisibility("APPROVED", "PUBLIC");
+        List<MemeModeration> approvedPublic =
+                memeModerationRepository.findByStatusAndVisibility(ModerationStatus.APPROVED, MemeVisibility.PUBLIC);
 
         if (approvedPublic.size() < 2) {
             bot.execute(new SendMessage(
@@ -82,8 +85,8 @@ public class MemeBattleService {
                 }
                 Optional<MemeModeration> opt = memeModerationRepository.findById(id);
                 if (opt.isPresent()
-                        && "APPROVED".equals(opt.get().getStatus())
-                        && "PUBLIC".equals(opt.get().getVisibility())) {
+                        && ModerationStatus.APPROVED == opt.get().getStatus()
+                        && MemeVisibility.PUBLIC == opt.get().getVisibility()) {
                     memeB = opt.get();
                     break;
                 }
@@ -561,8 +564,8 @@ public class MemeBattleService {
     }
 
     private void sendMemeSelectionPrivateMessage(long userId, long battleId) {
-        List<MemeModeration> userMemes =
-                memeModerationRepository.findByOwnerIdAndStatusAndVisibility(userId, "APPROVED", "PUBLIC");
+        List<MemeModeration> userMemes = memeModerationRepository.findByOwnerIdAndStatusAndVisibility(
+                userId, ModerationStatus.APPROVED, MemeVisibility.PUBLIC);
 
         if (userMemes.isEmpty()) {
             bot.execute(new SendMessage(

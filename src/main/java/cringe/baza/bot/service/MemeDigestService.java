@@ -8,6 +8,7 @@ import cringe.baza.domain.MemeGroup;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.domain.MemeRating;
 import cringe.baza.domain.TelegramUser;
+import cringe.baza.model.ModerationStatus;
 import cringe.baza.repository.jpa.MemeGroupRepository;
 import cringe.baza.repository.jpa.MemeModerationRepository;
 import cringe.baza.repository.jpa.MemeRatingRepository;
@@ -75,7 +76,8 @@ public class MemeDigestService {
     @Transactional(readOnly = true)
     public List<MemeModeration> getTopMemesForGroup(Long groupId) {
         LocalDateTime threshold = LocalDateTime.now().minusDays(digestDays);
-        List<MemeModeration> recentMemes = moderationRepository.findByStatusAndCreatedAtAfter("APPROVED", threshold);
+        List<MemeModeration> recentMemes =
+                moderationRepository.findByStatusAndCreatedAtAfter(ModerationStatus.APPROVED, threshold);
 
         List<MemeModeration> groupMemes = recentMemes.stream()
                 .filter(m -> {

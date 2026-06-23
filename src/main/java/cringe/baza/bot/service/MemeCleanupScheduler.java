@@ -1,6 +1,7 @@
 package cringe.baza.bot.service;
 
 import cringe.baza.domain.MemeModeration;
+import cringe.baza.model.ModerationStatus;
 import cringe.baza.repository.jpa.MemeModerationRepository;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -20,7 +21,8 @@ public class MemeCleanupScheduler {
     public void cleanExpiredQuarantineMemes() {
         log.info("Starting scheduled cleanup of expired quarantine memes...");
         LocalDateTime threshold = LocalDateTime.now().minusDays(7);
-        List<MemeModeration> expired = repository.findByStatusAndCreatedAtBefore("QUARANTINED", threshold);
+        List<MemeModeration> expired =
+                repository.findByStatusAndCreatedAtBefore(ModerationStatus.QUARANTINED, threshold);
 
         if (expired.isEmpty()) {
             log.info("No expired quarantine memes found.");

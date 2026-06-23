@@ -6,6 +6,8 @@ import com.pengrad.telegrambot.model.request.ParseMode;
 import com.pengrad.telegrambot.request.EditMessageText;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.model.Meme;
+import cringe.baza.model.MemeVisibility;
+import cringe.baza.model.ModerationStatus;
 import cringe.baza.processor.MemeProcessor;
 import cringe.baza.repository.MemeVectorRepository;
 import cringe.baza.repository.jpa.MemeModerationRepository;
@@ -48,7 +50,7 @@ public class AsyncMemeService {
             }
 
             List<Long> groupIds = new ArrayList<>();
-            String visibility = parseVisibilityAndGroups(visibilityContext, groupIds);
+            MemeVisibility visibility = parseVisibilityAndGroups(visibilityContext, groupIds);
             String groupIdsStr = groupIds.stream().map(String::valueOf).collect(Collectors.joining(","));
 
             String memeId = UUID.randomUUID().toString();
@@ -128,7 +130,7 @@ public class AsyncMemeService {
         }
     }
 
-    private String parseVisibilityAndGroups(String visibilityContext, List<Long> groupIds) {
+    private MemeVisibility parseVisibilityAndGroups(String visibilityContext, List<Long> groupIds) {
         if (visibilityContext != null) {
             if (visibilityContext.startsWith("GROUP:")) {
                 String[] parts = visibilityContext.substring(6).split(",");
@@ -138,11 +140,15 @@ public class AsyncMemeService {
                     } catch (NumberFormatException ignored) {
                     }
                 }
-                return "GROUP";
+                return MemeVisibility.GROUP;
             }
-            return visibilityContext;
+            try {
+                return MemeVisibility.valueOf(visibilityContext.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return MemeVisibility.PUBLIC;
+            }
         }
-        return "PUBLIC";
+        return MemeVisibility.PUBLIC;
     }
 
     private boolean checkCensorshipAndQuarantine(
@@ -153,7 +159,7 @@ public class AsyncMemeService {
             String finalDescription,
             String ocrText,
             long userId,
-            String visibility,
+            MemeVisibility visibility,
             String groupIdsStr) {
 
         bot.execute(new EditMessageText(chatId, messageIdToEdit, "Проверяю мем на цензуру с помощью ИИ..."));
@@ -169,7 +175,7 @@ public class AsyncMemeService {
                     userId,
                     visibility,
                     groupIdsStr,
-                    "QUARANTINED",
+                    ModerationStatus.QUARANTINED,
                     "ИИ-цензура: " + censorship.reason());
             memeModerationRepository.save(moderation);
 
@@ -192,7 +198,7 @@ public class AsyncMemeService {
             String finalDescription,
             String ocrText,
             long userId,
-            String visibility,
+            MemeVisibility visibility,
             String groupIdsStr) {
 
         bot.execute(new EditMessageText(chatId, messageIdToEdit, "Проверяю на наличие дубликатов в базе..."));
@@ -209,7 +215,7 @@ public class AsyncMemeService {
                     userId,
                     visibility,
                     groupIdsStr,
-                    "QUARANTINED",
+                    ModerationStatus.QUARANTINED,
                     "Дубликат мема: " + duplicateId);
             memeModerationRepository.save(moderation);
 
@@ -232,7 +238,7 @@ public class AsyncMemeService {
             String finalDescription,
             String ocrText,
             long userId,
-            String visibility,
+            MemeVisibility visibility,
             List<Long> groupIds,
             String groupIdsStr) {
 
@@ -241,7 +247,15 @@ public class AsyncMemeService {
         log.info("Мем успешно сохранен и проиндексирован. ID: {}", imageId);
 
         MemeModeration moderation = new MemeModeration(
-                memeId, fileId, finalDescription, ocrText, userId, visibility, groupIdsStr, "APPROVED", null);
+                memeId,
+                fileId,
+                finalDescription,
+                ocrText,
+                userId,
+                visibility,
+                groupIdsStr,
+                ModerationStatus.APPROVED,
+                null);
         memeModerationRepository.save(moderation);
 
         String text = "*Мем успешно сохранен!*\n\n"

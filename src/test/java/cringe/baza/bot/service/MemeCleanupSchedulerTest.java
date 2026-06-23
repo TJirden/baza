@@ -5,6 +5,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import cringe.baza.domain.MemeModeration;
+import cringe.baza.model.MemeVisibility;
+import cringe.baza.model.ModerationStatus;
 import cringe.baza.repository.jpa.MemeModerationRepository;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -25,7 +27,7 @@ class MemeCleanupSchedulerTest {
 
     @Test
     void cleanExpiredQuarantineMemes_NoExpiredMemes() {
-        when(repository.findByStatusAndCreatedAtBefore(eq("QUARANTINED"), any(LocalDateTime.class)))
+        when(repository.findByStatusAndCreatedAtBefore(eq(ModerationStatus.QUARANTINED), any(LocalDateTime.class)))
                 .thenReturn(List.of());
 
         scheduler.cleanExpiredQuarantineMemes();
@@ -35,12 +37,28 @@ class MemeCleanupSchedulerTest {
 
     @Test
     void cleanExpiredQuarantineMemes_WithExpiredMemes() {
-        MemeModeration meme1 =
-                new MemeModeration("meme-1", "file-1", "Desc 1", "", 111L, "PUBLIC", "", "QUARANTINED", "Censorship");
-        MemeModeration meme2 =
-                new MemeModeration("meme-2", "file-2", "Desc 2", "", 222L, "PUBLIC", "", "QUARANTINED", "Duplicate");
+        MemeModeration meme1 = new MemeModeration(
+                "meme-1",
+                "file-1",
+                "Desc 1",
+                "",
+                111L,
+                MemeVisibility.PUBLIC,
+                "",
+                ModerationStatus.QUARANTINED,
+                "Censorship");
+        MemeModeration meme2 = new MemeModeration(
+                "meme-2",
+                "file-2",
+                "Desc 2",
+                "",
+                222L,
+                MemeVisibility.PUBLIC,
+                "",
+                ModerationStatus.QUARANTINED,
+                "Duplicate");
 
-        when(repository.findByStatusAndCreatedAtBefore(eq("QUARANTINED"), any(LocalDateTime.class)))
+        when(repository.findByStatusAndCreatedAtBefore(eq(ModerationStatus.QUARANTINED), any(LocalDateTime.class)))
                 .thenReturn(List.of(meme1, meme2));
 
         scheduler.cleanExpiredQuarantineMemes();

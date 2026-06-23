@@ -8,5 +8,5 @@ public record Meme(
         String ocrText,
         String fileId,
         Long ownerId,
-        String visibility,
+        MemeVisibility visibility,
         List<Long> groupIds) {}

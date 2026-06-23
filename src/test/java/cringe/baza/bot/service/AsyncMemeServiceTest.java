@@ -9,6 +9,8 @@ import com.pengrad.telegrambot.model.PhotoSize;
 import com.pengrad.telegrambot.request.EditMessageText;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.model.Meme;
+import cringe.baza.model.MemeVisibility;
+import cringe.baza.model.ModerationStatus;
 import cringe.baza.processor.MemeProcessor;
 import cringe.baza.repository.MemeVectorRepository;
 import cringe.baza.repository.jpa.MemeModerationRepository;
@@ -71,7 +73,7 @@ class AsyncMemeServiceTest {
         verify(memeProcessor).save(memeCaptor.capture());
         Meme savedMeme = memeCaptor.getValue();
         assertEquals("file-123", savedMeme.fileId());
-        assertEquals("PUBLIC", savedMeme.visibility());
+        assertEquals(MemeVisibility.PUBLIC, savedMeme.visibility());
         assertEquals(userId, savedMeme.ownerId());
         assertEquals("Cute puppy\n\n[ИИ-Теги]: puppy playing tag", savedMeme.description());
         assertEquals("puppy text ocr", savedMeme.ocrText());
@@ -80,7 +82,7 @@ class AsyncMemeServiceTest {
         ArgumentCaptor<MemeModeration> moderationCaptor = ArgumentCaptor.forClass(MemeModeration.class);
         verify(memeModerationRepository).save(moderationCaptor.capture());
         MemeModeration moderation = moderationCaptor.getValue();
-        assertEquals("APPROVED", moderation.getStatus());
+        assertEquals(ModerationStatus.APPROVED, moderation.getStatus());
         assertEquals("file-123", moderation.getFileId());
 
         verify(bot, atLeastOnce()).execute(any(EditMessageText.class));
@@ -112,7 +114,7 @@ class AsyncMemeServiceTest {
         verify(memeProcessor).save(memeCaptor.capture());
         Meme savedMeme = memeCaptor.getValue();
         assertEquals("file-123", savedMeme.fileId());
-        assertEquals("PUBLIC", savedMeme.visibility());
+        assertEquals(MemeVisibility.PUBLIC, savedMeme.visibility());
         assertEquals("AI generated description of a cat", savedMeme.description());
         assertEquals("cat text ocr", savedMeme.ocrText());
 
@@ -176,7 +178,7 @@ class AsyncMemeServiceTest {
         verify(memeProcessor).save(memeCaptor.capture());
         Meme savedMeme = memeCaptor.getValue();
         assertEquals("file-456", savedMeme.fileId());
-        assertEquals("GROUP", savedMeme.visibility());
+        assertEquals(MemeVisibility.GROUP, savedMeme.visibility());
         assertEquals(List.of(10L, 20L), savedMeme.groupIds());
         assertEquals("Funny cat\n\n[ИИ-Теги]: cat jumping around", savedMeme.description());
         assertEquals("cat text ocr", savedMeme.ocrText());
@@ -209,7 +211,7 @@ class AsyncMemeServiceTest {
         ArgumentCaptor<MemeModeration> moderationCaptor = ArgumentCaptor.forClass(MemeModeration.class);
         verify(memeModerationRepository).save(moderationCaptor.capture());
         MemeModeration moderation = moderationCaptor.getValue();
-        assertEquals("QUARANTINED", moderation.getStatus());
+        assertEquals(ModerationStatus.QUARANTINED, moderation.getStatus());
         assertEquals("ИИ-цензура: Подозрение на NSFW", moderation.getModerationReason());
         assertEquals("unsafe text ocr", moderation.getOcrText());
 
@@ -244,7 +246,7 @@ class AsyncMemeServiceTest {
         ArgumentCaptor<MemeModeration> moderationCaptor = ArgumentCaptor.forClass(MemeModeration.class);
         verify(memeModerationRepository).save(moderationCaptor.capture());
         MemeModeration moderation = moderationCaptor.getValue();
-        assertEquals("QUARANTINED", moderation.getStatus());
+        assertEquals(ModerationStatus.QUARANTINED, moderation.getStatus());
         assertEquals("Дубликат мема: existing-meme-id-999", moderation.getModerationReason());
         assertEquals("duplicate text ocr", moderation.getOcrText());
 
