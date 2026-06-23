@@ -1,11 +1,5 @@
 package cringe.baza.bot.service;
 
-import com.pengrad.telegrambot.TelegramBot;
-import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
-import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
-import com.pengrad.telegrambot.model.request.ParseMode;
-import com.pengrad.telegrambot.request.SendMessage;
-import com.pengrad.telegrambot.request.SendPhoto;
 import cringe.baza.bot.model.UserState;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.domain.MemeRating;
@@ -31,7 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class SwipeService {
 
-    private final TelegramBot bot;
+    private final TelegramService telegramService;
     private final MemeModerationRepository memeModerationRepository;
     private final MemeRatingRepository memeRatingRepository;
     private final MemeSwipeVoteRepository swipeVoteRepository;
@@ -111,10 +105,9 @@ public class SwipeService {
     public void sendSwipeCard(long chatId, long userId) {
         Optional<MemeModeration> memeOpt = getNextMemeForUser(userId);
         if (memeOpt.isEmpty()) {
-            bot.execute(new SendMessage(
-                            chatId,
-                            "🎉 *Вы оценили все доступные мемы!*\nЗагружайте новые мемы или подождите, пока это сделают другие.")
-                    .parseMode(ParseMode.Markdown));
+            telegramService.sendMessageWithMarkdown(
+                    chatId,
+                    "🎉 *Вы оценили все доступные мемы!*\nЗагружайте новые мемы или подождите, пока это сделают другие.");
             sessionService.setUserState(chatId, UserState.DEFAULT);
             return;
         }
@@ -131,14 +124,6 @@ public class SwipeService {
                 rating.getWins(),
                 rating.getLosses());
 
-        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup(
-                        new InlineKeyboardButton("🔥 База").callbackData("swipe_vote:" + meme.getId() + ":BASE"),
-                        new InlineKeyboardButton("💩 Кринж").callbackData("swipe_vote:" + meme.getId() + ":CRINGE"))
-                .addRow(new InlineKeyboardButton("🛑 Выйти").callbackData("swipe_stop"));
-
-        bot.execute(new SendPhoto(chatId, meme.getFileId())
-                .caption(caption)
-                .parseMode(ParseMode.Markdown)
-                .replyMarkup(keyboard));
+        telegramService.sendSwipeCard(chatId, meme.getFileId(), caption, meme.getId());
     }
 }

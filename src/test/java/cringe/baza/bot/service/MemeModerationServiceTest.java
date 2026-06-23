@@ -24,12 +24,15 @@ class MemeModerationServiceTest {
     @Mock
     private MemeReportRepository memeReportRepository;
 
+    @Mock
+    private TelegramService telegramService;
+
     private MemeModerationService moderationService;
 
     @BeforeEach
     void setUp() {
-        moderationService = new MemeModerationService(
-                mock(com.pengrad.telegrambot.TelegramBot.class), repository, memeProcessor, memeReportRepository, 3);
+        moderationService =
+                new MemeModerationService(telegramService, repository, memeProcessor, memeReportRepository, 3);
     }
 
     @Test

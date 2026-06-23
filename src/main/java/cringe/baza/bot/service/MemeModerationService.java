@@ -1,7 +1,5 @@
 package cringe.baza.bot.service;
 
-import com.pengrad.telegrambot.TelegramBot;
-import com.pengrad.telegrambot.request.SendMessage;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.model.Meme;
 import cringe.baza.model.ModerationStatus;
@@ -19,19 +17,19 @@ import org.springframework.stereotype.Service;
 @Service
 public class MemeModerationService {
 
-    private final TelegramBot bot;
+    private final TelegramService telegramService;
     private final MemeModerationRepository repository;
     private final MemeProcessor memeProcessor;
     private final MemeReportRepository memeReportRepository;
     private final int complaintsThreshold;
 
     public MemeModerationService(
-            TelegramBot bot,
+            TelegramService telegramService,
             MemeModerationRepository repository,
             MemeProcessor memeProcessor,
             MemeReportRepository memeReportRepository,
             @Value("${app.bot.complaints-threshold}") int complaintsThreshold) {
-        this.bot = bot;
+        this.telegramService = telegramService;
         this.repository = repository;
         this.memeProcessor = memeProcessor;
         this.memeReportRepository = memeReportRepository;
@@ -78,12 +76,11 @@ public class MemeModerationService {
 
         if (moderation.getOwnerId() != null) {
             try {
-                bot.execute(new SendMessage(
-                                moderation.getOwnerId(),
-                                "*Ваш мем успешно одобрен!*\n\n"
-                                        + "*ID мема:* `" + id + "`\n"
-                                        + "Он прошел модерацию и теперь доступен в поиске.")
-                        .parseMode(com.pengrad.telegrambot.model.request.ParseMode.Markdown));
+                telegramService.sendMessageWithMarkdown(
+                        moderation.getOwnerId(),
+                        "*Ваш мем успешно одобрен!*\n\n"
+                                + "*ID мема:* `" + id + "`\n"
+                                + "Он прошел модерацию и теперь доступен в поиске.");
             } catch (Exception e) {
                 log.warn(
                         "Не удалось отправить уведомление о разблокировке автору мема {}: {}",
@@ -108,15 +105,12 @@ public class MemeModerationService {
 
         if (moderation.getOwnerId() != null) {
             try {
-                bot.execute(new SendMessage(
-                                moderation.getOwnerId(),
-                                "*Ваш мем был отклонен модератором!*\n\n"
-                                        + "*ID мема:* `" + id + "`\n"
-                                        + "*Причина:* "
-                                        + (reason != null && !reason.isBlank()
-                                                ? reason
-                                                : "Нарушение правил сообщества"))
-                        .parseMode(com.pengrad.telegrambot.model.request.ParseMode.Markdown));
+                telegramService.sendMessageWithMarkdown(
+                        moderation.getOwnerId(),
+                        "*Ваш мем был отклонен модератором!*\n\n"
+                                + "*ID мема:* `" + id + "`\n"
+                                + "*Причина:* "
+                                + (reason != null && !reason.isBlank() ? reason : "Нарушение правил сообщества"));
             } catch (Exception e) {
                 log.warn(
                         "Не удалось отправить уведомление об отклонении автору мема {}: {}",

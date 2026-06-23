@@ -3,9 +3,6 @@ package cringe.baza.bot.service;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import com.pengrad.telegrambot.TelegramBot;
-import com.pengrad.telegrambot.request.SendMessage;
-import com.pengrad.telegrambot.request.SendPhoto;
 import cringe.baza.bot.model.UserState;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.domain.MemeRating;
@@ -31,7 +28,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 class SwipeServiceTest {
 
     @Mock
-    private TelegramBot bot;
+    private TelegramService telegramService;
 
     @Mock
     private MemeModerationRepository memeModerationRepository;
@@ -136,7 +133,7 @@ class SwipeServiceTest {
         swipeService.registerSwipeVote(userId, memeId, "BASE");
 
         verify(swipeVoteRepository).save(any());
-        assertEquals(1008, rating.getEloRating()); // newElo = 1000 + 16 * (1.0 - 0.5) = 1008
+        assertEquals(1008, rating.getEloRating());
         assertEquals(1, rating.getWins());
         assertEquals(101, owner.getPoints());
         verify(memeRatingRepository).save(rating);
@@ -159,7 +156,7 @@ class SwipeServiceTest {
         swipeService.registerSwipeVote(userId, memeId, "CRINGE");
 
         verify(swipeVoteRepository).save(any());
-        assertEquals(992, rating.getEloRating()); // newElo = 1000 + 16 * (0.0 - 0.5) = 992
+        assertEquals(992, rating.getEloRating());
         assertEquals(1, rating.getLosses());
         verify(memeRatingRepository).save(rating);
         verifyNoInteractions(telegramUserRepository);
@@ -176,7 +173,7 @@ class SwipeServiceTest {
 
         swipeService.sendSwipeCard(chatId, userId);
 
-        verify(bot).execute(any(SendMessage.class));
+        verify(telegramService).sendMessageWithMarkdown(eq(chatId), anyString());
         verify(sessionService).setUserState(chatId, UserState.DEFAULT);
     }
 
@@ -194,7 +191,7 @@ class SwipeServiceTest {
 
         swipeService.sendSwipeCard(chatId, userId);
 
-        verify(bot).execute(any(SendPhoto.class));
+        verify(telegramService).sendSwipeCard(eq(chatId), eq("file-1"), anyString(), eq("meme-1"));
         verifyNoInteractions(sessionService);
     }
 }

@@ -3,9 +3,6 @@ package cringe.baza.bot.service;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import com.pengrad.telegrambot.TelegramBot;
-import com.pengrad.telegrambot.request.SendMessage;
-import com.pengrad.telegrambot.request.SendPhoto;
 import cringe.baza.domain.MemeGroup;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.domain.MemeRating;
@@ -51,7 +48,7 @@ class MemeDigestServiceTest {
     private ChatModel chatModel;
 
     @Mock
-    private TelegramBot bot;
+    private TelegramService telegramService;
 
     @InjectMocks
     private MemeDigestService digestService;
@@ -63,7 +60,6 @@ class MemeDigestServiceTest {
 
     @Test
     void getTopMemesForGroup_Success() {
-        // Arrange
         Long groupId = 10L;
         MemeModeration meme1 = new MemeModeration(
                 "meme-1",
@@ -116,19 +112,16 @@ class MemeDigestServiceTest {
         when(ratingRepository.findAllById(List.of("meme-1", "meme-2", "meme-3")))
                 .thenReturn(List.of(r1, r2, r3));
 
-        // Act
         List<MemeModeration> result = digestService.getTopMemesForGroup(groupId);
 
-        // Assert
         assertEquals(3, result.size());
-        assertEquals("meme-2", result.get(0).getId()); // Highest Elo: 1200
-        assertEquals("meme-1", result.get(1).getId()); // 1100
-        assertEquals("meme-3", result.get(2).getId()); // 1000
+        assertEquals("meme-2", result.get(0).getId());
+        assertEquals("meme-1", result.get(1).getId());
+        assertEquals("meme-3", result.get(2).getId());
     }
 
     @Test
     void generateDigestTextWithAI_Success() {
-        // Arrange
         String groupName = "Cringe Group";
         MemeModeration meme = new MemeModeration(
                 "meme-1",
@@ -155,16 +148,13 @@ class MemeDigestServiceTest {
         when(mockResponse.getResult()).thenReturn(mockGeneration);
         when(chatModel.call(any(Prompt.class))).thenReturn(mockResponse);
 
-        // Act
         String result = digestService.generateDigestTextWithAI(groupName, List.of(meme));
 
-        // Assert
         assertEquals("Generated digest text from Gemini!", result);
     }
 
     @Test
     void generateAndSendDigestForGroup_Success() {
-        // Arrange
         MemeGroup group = new MemeGroup();
         group.setId(10L);
         group.setName("Meme Club");
@@ -177,12 +167,10 @@ class MemeDigestServiceTest {
         MemeModeration meme = new MemeModeration(
                 "meme-1", "file-1", "Desc", "OCR", 111L, MemeVisibility.GROUP, "10", ModerationStatus.APPROVED, null);
 
-        // Set up recent memes and ratings to return top memes
         when(moderationRepository.findByStatusAndCreatedAtAfter(eq(ModerationStatus.APPROVED), any()))
                 .thenReturn(List.of(meme));
         when(ratingRepository.findAllById(anyList())).thenReturn(List.of(new MemeRating("meme-1", 1000, 0, 0, null)));
 
-        // Mock AI generation
         ChatResponse mockResponse = mock(ChatResponse.class);
         Generation mockGeneration = mock(Generation.class);
         AssistantMessage mockMessage = mock(AssistantMessage.class);
@@ -191,17 +179,14 @@ class MemeDigestServiceTest {
         when(mockResponse.getResult()).thenReturn(mockGeneration);
         when(chatModel.call(any(Prompt.class))).thenReturn(mockResponse);
 
-        // Mock user details for owner
         TelegramUser owner = new TelegramUser();
         owner.setId(111L);
         owner.setUsername("owner1");
         when(userRepository.findById(111L)).thenReturn(Optional.of(owner));
 
-        // Act
         digestService.generateAndSendDigestForGroup(group);
 
-        // Assert
-        verify(bot).execute(any(SendMessage.class));
-        verify(bot).execute(any(SendPhoto.class));
+        verify(telegramService).sendMessageWithMarkdown(eq(999L), eq("Cool Digest"));
+        verify(telegramService).sendPhoto(eq(999L), eq("file-1"), anyString());
     }
 }

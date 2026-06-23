@@ -5,6 +5,7 @@ import com.pengrad.telegrambot.model.CallbackQuery;
 import com.pengrad.telegrambot.request.AnswerCallbackQuery;
 import com.pengrad.telegrambot.request.BaseRequest;
 import com.pengrad.telegrambot.request.EditMessageCaption;
+import cringe.baza.bot.model.DuelActionResult;
 import cringe.baza.bot.model.UserState;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +18,7 @@ public class CallbackQueryHandler {
 
     private final MemeModerationService moderationService;
     private final MemeBattleService memeBattleService;
+    private final MemeDuelService memeDuelService;
     private final SwipeService swipeService;
     private final UserSessionService sessionService;
     private final TelegramBot bot;
@@ -75,7 +77,12 @@ public class CallbackQueryHandler {
             try {
                 long battleId = Long.parseLong(data.substring(12));
                 long userId = callbackQuery.from().id();
-                return memeBattleService.acceptDuel(battleId, userId, callbackQuery.id());
+                DuelActionResult result = memeDuelService.acceptDuel(battleId, userId);
+                if (result == DuelActionResult.SUCCESS) {
+                    return new AnswerCallbackQuery(callbackQuery.id())
+                            .text("Вы приняли вызов! Перейдите в ЛС с ботом для выбора мема.");
+                }
+                return mapDuelResult(callbackQuery.id(), result);
             } catch (Exception e) {
                 log.error("Error processing duel accept callback: {}", e.getMessage(), e);
                 return new AnswerCallbackQuery(callbackQuery.id())
@@ -88,7 +95,11 @@ public class CallbackQueryHandler {
             try {
                 long battleId = Long.parseLong(data.substring(13));
                 long userId = callbackQuery.from().id();
-                return memeBattleService.declineDuel(battleId, userId, callbackQuery.id());
+                DuelActionResult result = memeDuelService.declineDuel(battleId, userId);
+                if (result == DuelActionResult.SUCCESS) {
+                    return new AnswerCallbackQuery(callbackQuery.id()).text("Вызов отменен.");
+                }
+                return mapDuelResult(callbackQuery.id(), result);
             } catch (Exception e) {
                 log.error("Error processing duel decline callback: {}", e.getMessage(), e);
                 return new AnswerCallbackQuery(callbackQuery.id())
@@ -103,7 +114,11 @@ public class CallbackQueryHandler {
                 long battleId = Long.parseLong(parts[1]);
                 String memeId = parts[2];
                 long userId = callbackQuery.from().id();
-                return memeBattleService.selectDuelMeme(battleId, userId, memeId, callbackQuery.id());
+                DuelActionResult result = memeDuelService.selectDuelMeme(battleId, userId, memeId);
+                if (result == DuelActionResult.SUCCESS) {
+                    return new AnswerCallbackQuery(callbackQuery.id()).text("Мем выбран!");
+                }
+                return mapDuelResult(callbackQuery.id(), result);
             } catch (Exception e) {
                 log.error("Error processing duel meme selection callback: {}", e.getMessage(), e);
                 return new AnswerCallbackQuery(callbackQuery.id())
@@ -180,5 +195,45 @@ public class CallbackQueryHandler {
         }
 
         return new AnswerCallbackQuery(callbackQuery.id());
+    }
+
+    private AnswerCallbackQuery mapDuelResult(String callbackQueryId, DuelActionResult result) {
+        switch (result) {
+            case SUCCESS:
+                return new AnswerCallbackQuery(callbackQueryId).text("Действие успешно выполнено.");
+            case NOT_FOUND:
+                return new AnswerCallbackQuery(callbackQueryId)
+                        .text("⚠️ Дуэль не найдена!")
+                        .showAlert(true);
+            case INACTIVE:
+                return new AnswerCallbackQuery(callbackQueryId)
+                        .text("⚠️ Этот вызов уже неактивен!")
+                        .showAlert(true);
+            case UNAUTHORIZED:
+                return new AnswerCallbackQuery(callbackQueryId)
+                        .text("⚠️ Вы не имеете права выполнять это действие!")
+                        .showAlert(true);
+            case CHALLENGER_INSUFFICIENT_POINTS:
+                return new AnswerCallbackQuery(callbackQueryId)
+                        .text("⚠️ У вызывающего недостаточно очков!")
+                        .showAlert(true);
+            case OPPONENT_INSUFFICIENT_POINTS:
+                return new AnswerCallbackQuery(callbackQueryId)
+                        .text("⚠️ У вас недостаточно очков!")
+                        .showAlert(true);
+            case MEME_NOT_FOUND:
+                return new AnswerCallbackQuery(callbackQueryId)
+                        .text("⚠️ Выбранный мем не найден!")
+                        .showAlert(true);
+            case ALREADY_SELECTED:
+                return new AnswerCallbackQuery(callbackQueryId)
+                        .text("⚠️ Вы уже выбрали мем!")
+                        .showAlert(true);
+            case ERROR:
+            default:
+                return new AnswerCallbackQuery(callbackQueryId)
+                        .text("⚠️ Произошла ошибка при обработке дуэли!")
+                        .showAlert(true);
+        }
     }
 }

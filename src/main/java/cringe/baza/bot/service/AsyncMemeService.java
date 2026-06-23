@@ -1,9 +1,6 @@
 package cringe.baza.bot.service;
 
-import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.PhotoSize;
-import com.pengrad.telegrambot.model.request.ParseMode;
-import com.pengrad.telegrambot.request.EditMessageText;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.model.Meme;
 import cringe.baza.model.MemeVisibility;
@@ -26,7 +23,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class AsyncMemeService {
 
-    private final TelegramBot bot;
+    private final TelegramService telegramService;
     private final MemeProcessor memeProcessor;
     private final TelegramFileService fileService;
     private final MemeAnalyzerService memeAnalyzerService;
@@ -59,7 +56,7 @@ public class AsyncMemeService {
             String aiDescription = "";
 
             try {
-                bot.execute(new EditMessageText(chatId, messageIdToEdit, "Анализирую изображение с помощью ИИ..."));
+                telegramService.editMessageText(chatId, messageIdToEdit, "Анализирую изображение с помощью ИИ...");
                 MemeAnalyzerService.MemeAnalysis analysis = memeAnalyzerService.analyzeMemeDetails(fileId);
                 ocrText = analysis.ocrText();
                 aiDescription = analysis.description();
@@ -122,8 +119,8 @@ public class AsyncMemeService {
         } catch (Exception e) {
             log.error("Критическая ошибка при асинхронном сохранении изображения: {}", e.getMessage(), e);
             try {
-                bot.execute(new EditMessageText(chatId, messageIdToEdit, "*Ошибка сохранения мема:* " + e.getMessage())
-                        .parseMode(ParseMode.Markdown));
+                telegramService.editMessageTextWithMarkdown(
+                        chatId, messageIdToEdit, "*Ошибка сохранения мема:* " + e.getMessage());
             } catch (Exception ex) {
                 log.error("Не удалось отправить сообщение об ошибке пользователю: {}", ex.getMessage());
             }
@@ -162,7 +159,7 @@ public class AsyncMemeService {
             MemeVisibility visibility,
             String groupIdsStr) {
 
-        bot.execute(new EditMessageText(chatId, messageIdToEdit, "Проверяю мем на цензуру с помощью ИИ..."));
+        telegramService.editMessageText(chatId, messageIdToEdit, "Проверяю мем на цензуру с помощью ИИ...");
         MemeAnalyzerService.CensorshipResult censorship = memeAnalyzerService.checkCensorship(fileId);
 
         if (!censorship.safe()) {
@@ -184,7 +181,7 @@ public class AsyncMemeService {
                     + "Мем будет доступен только после ручного одобрения модератором.\n\n"
                     + "*ID мема:* `" + memeId + "`";
 
-            bot.execute(new EditMessageText(chatId, messageIdToEdit, text).parseMode(ParseMode.Markdown));
+            telegramService.editMessageTextWithMarkdown(chatId, messageIdToEdit, text);
             return true;
         }
         return false;
@@ -201,7 +198,7 @@ public class AsyncMemeService {
             MemeVisibility visibility,
             String groupIdsStr) {
 
-        bot.execute(new EditMessageText(chatId, messageIdToEdit, "Проверяю на наличие дубликатов в базе..."));
+        telegramService.editMessageText(chatId, messageIdToEdit, "Проверяю на наличие дубликатов в базе...");
         Optional<String> duplicateIdOpt = memeVectorRepository.findDuplicateMemeId(finalDescription, 0.95);
 
         if (duplicateIdOpt.isPresent()) {
@@ -224,7 +221,7 @@ public class AsyncMemeService {
                     + "Мем сохранен в карантин до подтверждения модератором.\n\n"
                     + "*ID вашего мема:* `" + memeId + "`";
 
-            bot.execute(new EditMessageText(chatId, messageIdToEdit, text).parseMode(ParseMode.Markdown));
+            telegramService.editMessageTextWithMarkdown(chatId, messageIdToEdit, text);
             return true;
         }
         return false;
@@ -263,6 +260,6 @@ public class AsyncMemeService {
                 + "*Описание*: " + finalDescription + "\n"
                 + "*Доступ*: " + visibility;
 
-        bot.execute(new EditMessageText(chatId, messageIdToEdit, text).parseMode(ParseMode.Markdown));
+        telegramService.editMessageTextWithMarkdown(chatId, messageIdToEdit, text);
     }
 }
