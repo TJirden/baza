@@ -73,17 +73,22 @@ public class UpdateProcessor {
             return processImageSave(update);
         }
         if (currentState == UserState.SWIPING) {
-            String text = update.message().text();
-            if (text != null && text.startsWith("/")) {
-                sessionService.setUserState(chatId, UserState.DEFAULT);
-                if (text.equalsIgnoreCase("/cancel")) {
-                    return new SendMessage(chatId, "Режим оценки завершен.");
-                }
-                return processCommand(update);
-            }
+            return handleSwipingState(update, chatId);
+        }
+        return processCommand(update);
+    }
+
+    private BaseRequest<?, ?> handleSwipingState(Update update, long chatId) {
+        String text = update.message().text();
+        if (text == null || !text.startsWith("/")) {
             return new SendMessage(
                     chatId,
                     "Вы находитесь в режиме оценки мемов. Нажимайте кнопки под картинкой или напишите /cancel для выхода.");
+        }
+
+        sessionService.setUserState(chatId, UserState.DEFAULT);
+        if (text.equalsIgnoreCase("/cancel")) {
+            return new SendMessage(chatId, "Режим оценки завершен.");
         }
         return processCommand(update);
     }
@@ -108,7 +113,7 @@ public class UpdateProcessor {
             String visibilityContext = sessionService.getTempData(chatId);
             sessionService.setUserState(chatId, UserState.DEFAULT);
 
-            asyncMemeService.processAndSaveMemeAsync(
+            asyncMemeService.saveMemeAsync(
                     chatId,
                     userId,
                     update.message().photo(),

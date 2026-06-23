@@ -4,8 +4,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import cringe.baza.domain.TelegramUser;
-import cringe.baza.repository.jpa.TelegramUserRepository;
 import cringe.baza.repository.jpa.MemeGroupRepository;
+import cringe.baza.repository.jpa.TelegramUserRepository;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

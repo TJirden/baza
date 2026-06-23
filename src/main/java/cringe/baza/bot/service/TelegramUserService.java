@@ -19,7 +19,8 @@ public class TelegramUserService {
 
     @Transactional
     public TelegramUser getOrCreateUser(Long id, String username, String firstName) {
-        return userRepository.findById(id)
+        return userRepository
+                .findById(id)
                 .map(existingUser -> {
                     boolean updated = false;
                     if (username != null && !username.equals(existingUser.getUsername())) {

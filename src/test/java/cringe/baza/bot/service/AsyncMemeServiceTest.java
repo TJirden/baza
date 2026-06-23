@@ -46,7 +46,7 @@ class AsyncMemeServiceTest {
     private AsyncMemeService asyncMemeService;
 
     @Test
-    void processAndSaveMemeAsync_Success_Public() {
+    void saveMemeAsync_Success_Public() {
         // Arrange
         long chatId = 111L;
         long userId = 222L;
@@ -64,8 +64,7 @@ class AsyncMemeServiceTest {
         when(memeProcessor.save(any(Meme.class))).thenReturn("meme-uuid-1");
 
         // Act
-        asyncMemeService.processAndSaveMemeAsync(
-                chatId, userId, photo, description, visibilityContext, messageIdToEdit);
+        asyncMemeService.saveMemeAsync(chatId, userId, photo, description, visibilityContext, messageIdToEdit);
 
         // Assert
         ArgumentCaptor<Meme> memeCaptor = ArgumentCaptor.forClass(Meme.class);
@@ -88,7 +87,7 @@ class AsyncMemeServiceTest {
     }
 
     @Test
-    void processAndSaveMemeAsync_Success_NoDescription() {
+    void saveMemeAsync_Success_NoDescription() {
         // Arrange
         long chatId = 111L;
         long userId = 222L;
@@ -106,8 +105,7 @@ class AsyncMemeServiceTest {
         when(memeProcessor.save(any(Meme.class))).thenReturn("meme-uuid-1");
 
         // Act
-        asyncMemeService.processAndSaveMemeAsync(
-                chatId, userId, photo, description, visibilityContext, messageIdToEdit);
+        asyncMemeService.saveMemeAsync(chatId, userId, photo, description, visibilityContext, messageIdToEdit);
 
         // Assert
         ArgumentCaptor<Meme> memeCaptor = ArgumentCaptor.forClass(Meme.class);
@@ -122,7 +120,7 @@ class AsyncMemeServiceTest {
     }
 
     @Test
-    void processAndSaveMemeAsync_Success_WithDescription_AIEnrichmentFailure() {
+    void saveMemeAsync_Success_WithDescription_AIEnrichmentFailure() {
         // Arrange
         long chatId = 111L;
         long userId = 222L;
@@ -139,8 +137,7 @@ class AsyncMemeServiceTest {
         when(memeProcessor.save(any(Meme.class))).thenReturn("meme-uuid-1");
 
         // Act
-        asyncMemeService.processAndSaveMemeAsync(
-                chatId, userId, photo, description, visibilityContext, messageIdToEdit);
+        asyncMemeService.saveMemeAsync(chatId, userId, photo, description, visibilityContext, messageIdToEdit);
 
         // Assert
         ArgumentCaptor<Meme> memeCaptor = ArgumentCaptor.forClass(Meme.class);
@@ -154,7 +151,7 @@ class AsyncMemeServiceTest {
     }
 
     @Test
-    void processAndSaveMemeAsync_Success_Group() {
+    void saveMemeAsync_Success_Group() {
         // Arrange
         long chatId = 111L;
         long userId = 222L;
@@ -172,8 +169,7 @@ class AsyncMemeServiceTest {
         when(memeProcessor.save(any(Meme.class))).thenReturn("meme-uuid-2");
 
         // Act
-        asyncMemeService.processAndSaveMemeAsync(
-                chatId, userId, photo, description, visibilityContext, messageIdToEdit);
+        asyncMemeService.saveMemeAsync(chatId, userId, photo, description, visibilityContext, messageIdToEdit);
 
         // Assert
         ArgumentCaptor<Meme> memeCaptor = ArgumentCaptor.forClass(Meme.class);
@@ -189,7 +185,7 @@ class AsyncMemeServiceTest {
     }
 
     @Test
-    void processAndSaveMemeAsync_Failure_CensorshipFlagged() {
+    void saveMemeAsync_Failure_CensorshipFlagged() {
         // Arrange
         long chatId = 111L;
         long userId = 222L;
@@ -205,8 +201,7 @@ class AsyncMemeServiceTest {
                 .thenReturn(new MemeAnalyzerService.CensorshipResult(false, "Подозрение на NSFW"));
 
         // Act
-        asyncMemeService.processAndSaveMemeAsync(
-                chatId, userId, photo, description, visibilityContext, messageIdToEdit);
+        asyncMemeService.saveMemeAsync(chatId, userId, photo, description, visibilityContext, messageIdToEdit);
 
         // Assert
         verify(memeProcessor, never()).save(any(Meme.class));
@@ -222,7 +217,7 @@ class AsyncMemeServiceTest {
     }
 
     @Test
-    void processAndSaveMemeAsync_Failure_DuplicateFlagged() {
+    void saveMemeAsync_Failure_DuplicateFlagged() {
         // Arrange
         long chatId = 111L;
         long userId = 222L;
@@ -241,8 +236,7 @@ class AsyncMemeServiceTest {
                 .thenReturn(Optional.of("existing-meme-id-999"));
 
         // Act
-        asyncMemeService.processAndSaveMemeAsync(
-                chatId, userId, photo, description, visibilityContext, messageIdToEdit);
+        asyncMemeService.saveMemeAsync(chatId, userId, photo, description, visibilityContext, messageIdToEdit);
 
         // Assert
         verify(memeProcessor, never()).save(any(Meme.class));
@@ -258,7 +252,7 @@ class AsyncMemeServiceTest {
     }
 
     @Test
-    void processAndSaveMemeAsync_Failure_NullFileId() {
+    void saveMemeAsync_Failure_NullFileId() {
         // Arrange
         long chatId = 111L;
         long userId = 222L;
@@ -270,8 +264,7 @@ class AsyncMemeServiceTest {
         when(fileService.getImageFileId(photo)).thenReturn(null);
 
         // Act
-        asyncMemeService.processAndSaveMemeAsync(
-                chatId, userId, photo, description, visibilityContext, messageIdToEdit);
+        asyncMemeService.saveMemeAsync(chatId, userId, photo, description, visibilityContext, messageIdToEdit);
 
         // Assert
         verify(memeProcessor, never()).save(any(Meme.class));

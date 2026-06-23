@@ -32,6 +32,9 @@ class SaveCommandTest {
     @Mock
     private AsyncMemeService asyncMemeService;
 
+    @Mock
+    private SaveCommandParser parser;
+
     @InjectMocks
     private SaveCommand saveCommand;
 
@@ -50,14 +53,15 @@ class SaveCommandTest {
         when(chat.id()).thenReturn(100L); // group chatId
         when(user.id()).thenReturn(200L); // userId != chatId
         when(message.replyToMessage()).thenReturn(null);
-        when(message.text()).thenReturn("/save");
 
         // Act
         SendMessage response = saveCommand.handle(update);
 
         // Assert
         assertNotNull(response);
-        assertEquals("⚠️ В групповом чате команда /save должна быть ответом на сообщение с фото.", response.getParameters().get("text"));
+        assertEquals(
+                "⚠️ В групповом чате команда /save должна быть ответом на сообщение с фото.",
+                response.getParameters().get("text"));
         verifyNoInteractions(sessionService);
         verifyNoInteractions(asyncMemeService);
     }
@@ -70,7 +74,7 @@ class SaveCommandTest {
         Message replyTo = mock(Message.class);
         Chat chat = mock(Chat.class);
         User user = mock(User.class);
-        PhotoSize[] photos = new PhotoSize[]{mock(PhotoSize.class)};
+        PhotoSize[] photos = new PhotoSize[] {mock(PhotoSize.class)};
         SendResponse sendResponse = mock(SendResponse.class);
         Message sentMsg = mock(Message.class);
 
@@ -82,6 +86,7 @@ class SaveCommandTest {
         when(chat.id()).thenReturn(100L); // group chatId
         when(user.id()).thenReturn(200L);
         when(message.text()).thenReturn("/save private cool cat");
+        when(parser.parseReplySave("private cool cat")).thenReturn(SaveParseResult.success("PRIVATE", "cool cat"));
 
         when(replyTo.photo()).thenReturn(photos);
         when(bot.execute(any(SendMessage.class))).thenReturn(sendResponse);
@@ -94,9 +99,7 @@ class SaveCommandTest {
 
         // Assert
         assertNull(response);
-        verify(asyncMemeService).processAndSaveMemeAsync(
-                eq(100L), eq(200L), eq(photos), eq("cool cat"), eq("PRIVATE"), eq(999)
-        );
+        verify(asyncMemeService).saveMemeAsync(eq(100L), eq(200L), eq(photos), eq("cool cat"), eq("PRIVATE"), eq(999));
         verifyNoInteractions(sessionService);
     }
 
@@ -115,6 +118,7 @@ class SaveCommandTest {
         when(chat.id()).thenReturn(200L); // private chatId
         when(user.id()).thenReturn(200L); // userId == chatId
         when(message.text()).thenReturn("/save private");
+        when(parser.parseStatefulSave("private")).thenReturn(SaveParseResult.success("PRIVATE", null));
 
         // Act
         SendMessage response = saveCommand.handle(update);
@@ -135,7 +139,7 @@ class SaveCommandTest {
         Message replyTo = mock(Message.class);
         Chat chat = mock(Chat.class);
         User user = mock(User.class);
-        PhotoSize[] photos = new PhotoSize[]{mock(PhotoSize.class)};
+        PhotoSize[] photos = new PhotoSize[] {mock(PhotoSize.class)};
         SendResponse sendResponse = mock(SendResponse.class);
         Message sentMsg = mock(Message.class);
 
@@ -147,6 +151,8 @@ class SaveCommandTest {
         when(chat.id()).thenReturn(200L); // private chatId
         when(user.id()).thenReturn(200L);
         when(message.text()).thenReturn("/save public custom description");
+        when(parser.parseReplySave("public custom description"))
+                .thenReturn(SaveParseResult.success("PUBLIC", "custom description"));
 
         when(replyTo.photo()).thenReturn(photos);
         when(bot.execute(any(SendMessage.class))).thenReturn(sendResponse);
@@ -159,9 +165,8 @@ class SaveCommandTest {
 
         // Assert
         assertNull(response);
-        verify(asyncMemeService).processAndSaveMemeAsync(
-                eq(200L), eq(200L), eq(photos), eq("custom description"), eq("PUBLIC"), eq(888)
-        );
+        verify(asyncMemeService)
+                .saveMemeAsync(eq(200L), eq(200L), eq(photos), eq("custom description"), eq("PUBLIC"), eq(888));
         verifyNoInteractions(sessionService);
     }
 }

@@ -8,8 +8,6 @@ import com.pengrad.telegrambot.response.SendResponse;
 import cringe.baza.bot.model.UserState;
 import cringe.baza.bot.service.AsyncMemeService;
 import cringe.baza.bot.service.UserSessionService;
-import java.util.Arrays;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -22,6 +20,7 @@ public class SaveCommand implements Command {
     private final UserSessionService sessionService;
     private final TelegramBot bot;
     private final AsyncMemeService asyncMemeService;
+    private final SaveCommandParser parser;
 
     @Override
     public String command() {
@@ -37,85 +36,69 @@ public class SaveCommand implements Command {
     public SendMessage handle(Update update) {
         long chatId = update.message().chat().id();
         long userId = update.message().from().id();
-
-        String text = extractText(update.message().text());
-        String visibility = "PUBLIC";
-        String description = null;
-
-        if (text != null && !text.isBlank()) {
-            String[] parts = text.split("\\s+");
-            String type = parts[0].toLowerCase();
-
-            if (type.equals("private")) {
-                visibility = "PRIVATE";
-                description = text.substring("private".length()).trim();
-            } else if (type.equals("group")) {
-                int i = 1;
-                while (i < parts.length && isNumeric(parts[i])) {
-                    i++;
-                }
-                if (i == 1) {
-                    return new SendMessage(chatId, "⚠️ Укажите ID групп: /save group {id1} {id2} [описание]");
-                }
-                String groupIds = Arrays.stream(parts, 1, i).collect(Collectors.joining(","));
-                visibility = "GROUP:" + groupIds;
-                description = Arrays.stream(parts).skip(i).collect(Collectors.joining(" ")).trim();
-            } else if (type.equals("public")) {
-                visibility = "PUBLIC";
-                description = text.substring("public".length()).trim();
-            } else {
-                Message replyTo = update.message().replyToMessage();
-                if (replyTo != null && replyTo.photo() != null && replyTo.photo().length > 0) {
-                    visibility = "PUBLIC";
-                    description = text;
-                } else {
-                    return new SendMessage(
-                            chatId, "Неверный формат. Используйте: /save, /save private, /save public или /save group 1 2");
-                }
-            }
-        }
-
         Message replyTo = update.message().replyToMessage();
-        if (replyTo != null && replyTo.photo() != null && replyTo.photo().length > 0) {
-            if (description == null || description.isBlank()) {
-                description = replyTo.caption();
-            }
+        boolean isReplyToPhoto = replyTo != null && replyTo.photo() != null && replyTo.photo().length > 0;
 
-            try {
-                SendResponse response = bot.execute(new SendMessage(chatId, "Получаю мем из ответа и индексирую..."));
-                if (response == null || !response.isOk()) {
-                    return new SendMessage(chatId, "Ошибка: не удалось запустить процесс сохранения мема.");
-                }
-
-                asyncMemeService.processAndSaveMemeAsync(
-                        chatId,
-                        userId,
-                        replyTo.photo(),
-                        description,
-                        visibility,
-                        response.message().messageId());
-
-                return null;
-            } catch (Exception e) {
-                log.error("Failed to save meme by reply: {}", e.getMessage(), e);
-                return new SendMessage(chatId, "Ошибка: произошел сбой при сохранении мема.");
-            }
+        if (isReplyToPhoto) {
+            return handleReplySave(update, replyTo, chatId, userId);
         }
 
         if (chatId != userId) {
-            return new SendMessage(chatId, "⚠️ В групповом чате команда /save должна быть ответом на сообщение с фото.");
+            return new SendMessage(
+                    chatId, "⚠️ В групповом чате команда /save должна быть ответом на сообщение с фото.");
         }
+
+        return handleStatefulSave(update, chatId);
+    }
+
+    private SendMessage handleReplySave(Update update, Message replyTo, long chatId, long userId) {
+        String text = extractText(update.message().text());
+        SaveParseResult parseResult = parser.parseReplySave(text);
+
+        if (!parseResult.success()) {
+            return new SendMessage(chatId, parseResult.errorMessage());
+        }
+
+        String visibility = parseResult.visibility();
+        String description = parseResult.description();
+        if (description == null || description.isBlank()) {
+            description = replyTo.caption();
+        }
+
+        try {
+            SendResponse response = bot.execute(new SendMessage(chatId, "Получаю мем из ответа и индексирую..."));
+            if (response == null || !response.isOk()) {
+                return new SendMessage(chatId, "Ошибка: не удалось запустить процесс сохранения мема.");
+            }
+
+            asyncMemeService.saveMemeAsync(
+                    chatId,
+                    userId,
+                    replyTo.photo(),
+                    description,
+                    visibility,
+                    response.message().messageId());
+
+            return null;
+        } catch (Exception e) {
+            log.error("Failed to save meme by reply: {}", e.getMessage(), e);
+            return new SendMessage(chatId, "Ошибка: произошел сбой при сохранении мема.");
+        }
+    }
+
+    private SendMessage handleStatefulSave(Update update, long chatId) {
+        String text = extractText(update.message().text());
+        SaveParseResult parseResult = parser.parseStatefulSave(text);
+
+        if (!parseResult.success()) {
+            return new SendMessage(chatId, parseResult.errorMessage());
+        }
+
+        String visibility = parseResult.visibility();
 
         sessionService.setUserState(chatId, UserState.AWAITING_SAVE_IMAGE);
         sessionService.setTempData(chatId, visibility);
 
         return new SendMessage(chatId, "Скиньте картинку с подписью (сохранится с доступом: " + visibility + ")");
-    }
-
-    private boolean isNumeric(String str) {
-        if (str == null || str.isEmpty()) {
-            return false;
-        }
-        return str.chars().allMatch(Character::isDigit);
     }
 }

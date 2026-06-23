@@ -114,8 +114,7 @@ class UpdateProcessorTest {
         // Assert
         assertNull(result);
         verify(sessionService).setUserState(100L, UserState.DEFAULT);
-        verify(asyncMemeService)
-                .processAndSaveMemeAsync(eq(100L), eq(200L), eq(photo), isNull(), eq("PUBLIC"), eq(777));
+        verify(asyncMemeService).saveMemeAsync(eq(100L), eq(200L), eq(photo), isNull(), eq("PUBLIC"), eq(777));
     }
 
     @Test
@@ -151,8 +150,7 @@ class UpdateProcessorTest {
         // Assert
         assertNull(result); // Null return signifies successful delegation to async service
         verify(sessionService).setUserState(100L, UserState.DEFAULT);
-        verify(asyncMemeService)
-                .processAndSaveMemeAsync(eq(100L), eq(200L), eq(photo), eq("Funny dog"), eq("PUBLIC"), eq(777));
+        verify(asyncMemeService).saveMemeAsync(eq(100L), eq(200L), eq(photo), eq("Funny dog"), eq("PUBLIC"), eq(777));
     }
 
     @Test

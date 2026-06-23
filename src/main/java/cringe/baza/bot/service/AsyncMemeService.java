@@ -32,7 +32,7 @@ public class AsyncMemeService {
     private final MemeModerationRepository memeModerationRepository;
 
     @Async("memeAsyncExecutor")
-    public void processAndSaveMemeAsync(
+    public void saveMemeAsync(
             long chatId,
             long userId,
             PhotoSize[] photo,
