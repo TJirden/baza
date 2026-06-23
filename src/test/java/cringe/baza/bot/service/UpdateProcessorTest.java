@@ -1,21 +1,18 @@
 package cringe.baza.bot.service;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-import com.pengrad.telegrambot.TelegramBot;
+import com.pengrad.telegrambot.model.CallbackQuery;
 import com.pengrad.telegrambot.model.Chat;
+import com.pengrad.telegrambot.model.InlineQuery;
 import com.pengrad.telegrambot.model.Message;
-import com.pengrad.telegrambot.model.PhotoSize;
 import com.pengrad.telegrambot.model.Update;
 import com.pengrad.telegrambot.model.User;
+import com.pengrad.telegrambot.request.AnswerInlineQuery;
+import com.pengrad.telegrambot.request.BaseRequest;
 import com.pengrad.telegrambot.request.SendMessage;
-import com.pengrad.telegrambot.response.SendResponse;
-import cringe.baza.bot.command.Command;
 import cringe.baza.bot.model.UserState;
-import cringe.baza.processor.MemeProcessor;
-import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -26,156 +23,173 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class UpdateProcessorTest {
 
     @Mock
-    private List<Command> commands;
-
-    @Mock
     private UserSessionService sessionService;
-
-    @Mock
-    private TelegramFileService fileService;
-
-    @Mock
-    private MemeProcessor memeProcessor;
 
     @Mock
     private TelegramUserService userService;
 
     @Mock
-    private TelegramBot bot;
+    private CallbackQueryHandler callbackQueryHandler;
 
     @Mock
-    private AsyncMemeService asyncMemeService;
+    private InlineQueryHandler inlineQueryHandler;
 
     @Mock
-    private MemeModerationService moderationService;
+    private CommandRouter commandRouter;
 
     @Mock
-    private SwipeService swipeService;
+    private AwaitingSaveStateHandler awaitingSaveStateHandler;
+
+    @Mock
+    private SwipingStateHandler swipingStateHandler;
 
     @InjectMocks
     private UpdateProcessor updateProcessor;
 
     @Test
-    void processImageSave_ValidationFailure_NoPhoto() {
+    void processUpdate_CallbackQuery_DelegatesToCallbackHandler() {
         // Arrange
         Update update = mock(Update.class);
-        Message message = mock(Message.class);
-        Chat chat = mock(Chat.class);
+        CallbackQuery callbackQuery = mock(CallbackQuery.class);
         User user = mock(User.class);
-
-        when(update.message()).thenReturn(message);
-        when(message.chat()).thenReturn(chat);
-        when(message.from()).thenReturn(user);
-        when(chat.id()).thenReturn(100L);
-        when(user.id()).thenReturn(200L);
-        when(message.photo()).thenReturn(null);
-
-        when(sessionService.getUserState(100L)).thenReturn(UserState.AWAITING_SAVE_IMAGE);
-
-        // Act
-        SendMessage result = (SendMessage) updateProcessor.processUpdate(update);
-
-        // Assert
-        assertNotNull(result);
-        verify(sessionService).setUserState(100L, UserState.DEFAULT);
-        verifyNoInteractions(asyncMemeService);
-    }
-
-    @Test
-    void processImageSave_Success_NoDescription() {
-        // Arrange
-        Update update = mock(Update.class);
-        Message message = mock(Message.class);
-        Chat chat = mock(Chat.class);
-        User user = mock(User.class);
-        PhotoSize[] photo = new PhotoSize[] {mock(PhotoSize.class)};
-        SendResponse sendResponse = mock(SendResponse.class);
-        Message sentMessage = mock(Message.class);
-
-        when(update.message()).thenReturn(message);
-        when(message.chat()).thenReturn(chat);
-        when(message.from()).thenReturn(user);
-        when(chat.id()).thenReturn(100L);
-        when(user.id()).thenReturn(200L);
-        when(message.photo()).thenReturn(photo);
-        when(message.caption()).thenReturn(null);
-
-        when(sessionService.getUserState(100L)).thenReturn(UserState.AWAITING_SAVE_IMAGE);
-        when(sessionService.getTempData(100L)).thenReturn("PUBLIC");
-
-        when(bot.execute(any(SendMessage.class))).thenReturn(sendResponse);
-        when(sendResponse.isOk()).thenReturn(true);
-        when(sendResponse.message()).thenReturn(sentMessage);
-        when(sentMessage.messageId()).thenReturn(777);
-
-        // Act
-        SendMessage result = (SendMessage) updateProcessor.processUpdate(update);
-
-        // Assert
-        assertNull(result);
-        verify(sessionService).setUserState(100L, UserState.DEFAULT);
-        verify(asyncMemeService).saveMemeAsync(eq(100L), eq(200L), eq(photo), isNull(), eq("PUBLIC"), eq(777));
-    }
-
-    @Test
-    void processImageSave_Success() {
-        // Arrange
-        Update update = mock(Update.class);
-        Message message = mock(Message.class);
-        Chat chat = mock(Chat.class);
-        User user = mock(User.class);
-        PhotoSize[] photo = new PhotoSize[] {mock(PhotoSize.class)};
-        SendResponse sendResponse = mock(SendResponse.class);
-        Message sentMessage = mock(Message.class);
-
-        when(update.message()).thenReturn(message);
-        when(message.chat()).thenReturn(chat);
-        when(message.from()).thenReturn(user);
-        when(chat.id()).thenReturn(100L);
-        when(user.id()).thenReturn(200L);
-        when(message.photo()).thenReturn(photo);
-        when(message.caption()).thenReturn("Funny dog");
-
-        when(sessionService.getUserState(100L)).thenReturn(UserState.AWAITING_SAVE_IMAGE);
-        when(sessionService.getTempData(100L)).thenReturn("PUBLIC");
-
-        when(bot.execute(any(SendMessage.class))).thenReturn(sendResponse);
-        when(sendResponse.isOk()).thenReturn(true);
-        when(sendResponse.message()).thenReturn(sentMessage);
-        when(sentMessage.messageId()).thenReturn(777);
-
-        // Act
-        SendMessage result = (SendMessage) updateProcessor.processUpdate(update);
-
-        // Assert
-        assertNull(result); // Null return signifies successful delegation to async service
-        verify(sessionService).setUserState(100L, UserState.DEFAULT);
-        verify(asyncMemeService).saveMemeAsync(eq(100L), eq(200L), eq(photo), eq("Funny dog"), eq("PUBLIC"), eq(777));
-    }
-
-    @Test
-    void processUpdate_CallbackQuery_ReportMeme() {
-        // Arrange
-        Update update = mock(Update.class);
-        com.pengrad.telegrambot.model.CallbackQuery callbackQuery =
-                mock(com.pengrad.telegrambot.model.CallbackQuery.class);
-        User user = mock(User.class);
+        BaseRequest<?, ?> expectedResponse = mock(BaseRequest.class);
 
         when(update.callbackQuery()).thenReturn(callbackQuery);
         when(callbackQuery.from()).thenReturn(user);
-        when(user.id()).thenReturn(555L);
-        when(callbackQuery.data()).thenReturn("report:meme-123");
-        when(callbackQuery.id()).thenReturn("cb-id");
-
-        when(moderationService.reportMeme("meme-123", 555L))
-                .thenReturn(new MemeModerationService.ReportResult("REPORT_ADDED", 1L));
+        when(user.id()).thenReturn(123L);
+        when(user.username()).thenReturn("username");
+        when(user.firstName()).thenReturn("first");
+        when(callbackQueryHandler.handle(callbackQuery)).thenAnswer(inv -> expectedResponse);
 
         // Act
-        com.pengrad.telegrambot.request.AnswerCallbackQuery result =
-                (com.pengrad.telegrambot.request.AnswerCallbackQuery) updateProcessor.processUpdate(update);
+        BaseRequest<?, ?> result = updateProcessor.processUpdate(update);
+
+        // Assert
+        assertEquals(expectedResponse, result);
+        verify(userService).getOrCreateUser(123L, "username", "first");
+    }
+
+    @Test
+    void processUpdate_InlineQuery_DelegatesToInlineHandler() {
+        // Arrange
+        Update update = mock(Update.class);
+        InlineQuery inlineQuery = mock(InlineQuery.class);
+        User user = mock(User.class);
+        AnswerInlineQuery expectedResponse = mock(AnswerInlineQuery.class);
+
+        when(update.inlineQuery()).thenReturn(inlineQuery);
+        when(inlineQuery.from()).thenReturn(user);
+        when(user.id()).thenReturn(123L);
+        when(user.username()).thenReturn("username");
+        when(user.firstName()).thenReturn("first");
+        when(inlineQueryHandler.handle(inlineQuery)).thenReturn(expectedResponse);
+
+        // Act
+        BaseRequest<?, ?> result = updateProcessor.processUpdate(update);
+
+        // Assert
+        assertEquals(expectedResponse, result);
+        verify(userService).getOrCreateUser(123L, "username", "first");
+    }
+
+    @Test
+    void processUpdate_AwaitingSaveImageState_DelegatesToAwaitingSaveHandler() {
+        // Arrange
+        Update update = mock(Update.class);
+        Message message = mock(Message.class);
+        Chat chat = mock(Chat.class);
+        User user = mock(User.class);
+        SendMessage expectedResponse = mock(SendMessage.class);
+
+        when(update.message()).thenReturn(message);
+        when(message.chat()).thenReturn(chat);
+        when(chat.id()).thenReturn(456L);
+        when(message.from()).thenReturn(user);
+        when(user.id()).thenReturn(123L);
+        when(user.username()).thenReturn("username");
+        when(user.firstName()).thenReturn("first");
+        when(sessionService.getUserState(456L)).thenReturn(UserState.AWAITING_SAVE_IMAGE);
+        when(awaitingSaveStateHandler.handle(update)).thenReturn(expectedResponse);
+
+        // Act
+        BaseRequest<?, ?> result = updateProcessor.processUpdate(update);
+
+        // Assert
+        assertEquals(expectedResponse, result);
+    }
+
+    @Test
+    void processUpdate_SwipingState_DelegatesToSwipingHandler() {
+        // Arrange
+        Update update = mock(Update.class);
+        Message message = mock(Message.class);
+        Chat chat = mock(Chat.class);
+        User user = mock(User.class);
+        BaseRequest<?, ?> expectedResponse = mock(BaseRequest.class);
+
+        when(update.message()).thenReturn(message);
+        when(message.chat()).thenReturn(chat);
+        when(chat.id()).thenReturn(456L);
+        when(message.from()).thenReturn(user);
+        when(user.id()).thenReturn(123L);
+        when(user.username()).thenReturn("username");
+        when(user.firstName()).thenReturn("first");
+        when(sessionService.getUserState(456L)).thenReturn(UserState.SWIPING);
+        when(swipingStateHandler.handle(update, 456L)).thenAnswer(inv -> expectedResponse);
+
+        // Act
+        BaseRequest<?, ?> result = updateProcessor.processUpdate(update);
+
+        // Assert
+        assertEquals(expectedResponse, result);
+    }
+
+    @Test
+    void processUpdate_DefaultState_DelegatesToCommandRouter() {
+        // Arrange
+        Update update = mock(Update.class);
+        Message message = mock(Message.class);
+        Chat chat = mock(Chat.class);
+        User user = mock(User.class);
+        BaseRequest<?, ?> expectedResponse = mock(BaseRequest.class);
+
+        when(update.message()).thenReturn(message);
+        when(message.chat()).thenReturn(chat);
+        when(chat.id()).thenReturn(456L);
+        when(message.from()).thenReturn(user);
+        when(user.id()).thenReturn(123L);
+        when(user.username()).thenReturn("username");
+        when(user.firstName()).thenReturn("first");
+        when(sessionService.getUserState(456L)).thenReturn(UserState.DEFAULT);
+        when(commandRouter.route(update)).thenAnswer(inv -> expectedResponse);
+
+        // Act
+        BaseRequest<?, ?> result = updateProcessor.processUpdate(update);
+
+        // Assert
+        assertEquals(expectedResponse, result);
+    }
+
+    @Test
+    void processUpdate_ExceptionThrown_ReturnsErrorMessage() {
+        // Arrange
+        Update update = mock(Update.class);
+        Message message = mock(Message.class);
+        Chat chat = mock(Chat.class);
+
+        when(update.message()).thenReturn(message);
+        when(message.chat()).thenReturn(chat);
+        when(chat.id()).thenReturn(456L);
+        when(sessionService.getUserState(456L)).thenThrow(new RuntimeException("Test exception"));
+
+        // Act
+        SendMessage result = (SendMessage) updateProcessor.processUpdate(update);
 
         // Assert
         assertNotNull(result);
-        verify(moderationService).reportMeme("meme-123", 555L);
+        assertEquals(
+                "Произошла ошибка при обработке команды. Пожалуйста, попробуйте позже.",
+                result.getParameters().get("text"));
+        assertEquals(456L, result.getParameters().get("chat_id"));
     }
 }
