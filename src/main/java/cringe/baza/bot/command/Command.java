@@ -5,15 +5,12 @@ import com.pengrad.telegrambot.request.BaseRequest;
 
 public interface Command {
 
-    /** Имя команды без "/" */
     String command();
 
     String description();
 
-    /** Обработка входящего обновления */
     BaseRequest<?, ?> handle(Update update);
 
-    /** Проверяет, подходит ли данное обновление этой команде */
     default boolean supports(String text) {
         if (text == null) {
             return false;
@@ -32,7 +29,6 @@ public interface Command {
             return null;
         }
 
-        String[] parts = withoutCommand.split("\\s+");
-        return parts[0].trim();
+        return withoutCommand;
     }
 }

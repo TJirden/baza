@@ -16,6 +16,7 @@ public class MemeBattleScheduler {
 
     private final MemeBattleRepository memeBattleRepository;
     private final MemeBattleService memeBattleService;
+    private final MemeDuelLifecycleService memeDuelLifecycleService;
 
     /**
      * Проверяет активные баттлы раз в минуту и закрывает те, время голосования которых истекло.
@@ -55,7 +56,7 @@ public class MemeBattleScheduler {
         for (MemeBattle duel : pendingDuels) {
             if (duel.getStartTime() != null && duel.getStartTime().isBefore(threshold)) {
                 try {
-                    memeBattleService.cancelPendingDuel(duel, "Время на принятие вызова истекло.");
+                    memeDuelLifecycleService.cancelPendingDuel(duel, "Время на принятие вызова истекло.");
                 } catch (Exception e) {
                     log.error("Failed to cancel pending duel {}: {}", duel.getId(), e.getMessage(), e);
                 }
@@ -65,7 +66,7 @@ public class MemeBattleScheduler {
         for (MemeBattle duel : selectionDuels) {
             if (duel.getStartTime() != null && duel.getStartTime().isBefore(threshold)) {
                 try {
-                    memeBattleService.cancelPendingDuel(duel, "Время на выбор мемов истекло.");
+                    memeDuelLifecycleService.cancelPendingDuel(duel, "Время на выбор мемов истекло.");
                 } catch (Exception e) {
                     log.error("Failed to cancel selection duel {}: {}", duel.getId(), e.getMessage(), e);
                 }

@@ -3,13 +3,12 @@ package cringe.baza.bot.service;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import com.pengrad.telegrambot.TelegramBot;
-import com.pengrad.telegrambot.request.SendMessage;
-import com.pengrad.telegrambot.request.SendPhoto;
 import cringe.baza.bot.model.UserState;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.domain.MemeRating;
 import cringe.baza.domain.TelegramUser;
+import cringe.baza.model.MemeVisibility;
+import cringe.baza.model.ModerationStatus;
 import cringe.baza.repository.jpa.MemeModerationRepository;
 import cringe.baza.repository.jpa.MemeRatingRepository;
 import cringe.baza.repository.jpa.MemeSwipeVoteRepository;
@@ -29,7 +28,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 class SwipeServiceTest {
 
     @Mock
-    private TelegramBot bot;
+    private TelegramService telegramService;
 
     @Mock
     private MemeModerationRepository memeModerationRepository;
@@ -57,7 +56,7 @@ class SwipeServiceTest {
     @Test
     void getNextMemeForUser_NoCandidates() {
         long userId = 123L;
-        when(memeModerationRepository.findByStatusAndVisibility("APPROVED", "PUBLIC"))
+        when(memeModerationRepository.findByStatusAndVisibility(ModerationStatus.APPROVED, MemeVisibility.PUBLIC))
                 .thenReturn(Collections.emptyList());
         when(swipeVoteRepository.findVotedMemeIdsByUserId(userId)).thenReturn(Collections.emptyList());
 
@@ -70,14 +69,22 @@ class SwipeServiceTest {
     void getNextMemeForUser_HasCandidates() {
         long userId = 123L;
 
-        MemeModeration ownMeme =
-                new MemeModeration("meme-1", "file-1", "Own meme", "", userId, "PUBLIC", "", "APPROVED", null);
-        MemeModeration alreadyVoted =
-                new MemeModeration("meme-2", "file-2", "Voted meme", "", 456L, "PUBLIC", "", "APPROVED", null);
-        MemeModeration candidate =
-                new MemeModeration("meme-3", "file-3", "Good candidate", "", 456L, "PUBLIC", "", "APPROVED", null);
+        MemeModeration ownMeme = new MemeModeration(
+                "meme-1", "file-1", "Own meme", "", userId, MemeVisibility.PUBLIC, "", ModerationStatus.APPROVED, null);
+        MemeModeration alreadyVoted = new MemeModeration(
+                "meme-2", "file-2", "Voted meme", "", 456L, MemeVisibility.PUBLIC, "", ModerationStatus.APPROVED, null);
+        MemeModeration candidate = new MemeModeration(
+                "meme-3",
+                "file-3",
+                "Good candidate",
+                "",
+                456L,
+                MemeVisibility.PUBLIC,
+                "",
+                ModerationStatus.APPROVED,
+                null);
 
-        when(memeModerationRepository.findByStatusAndVisibility("APPROVED", "PUBLIC"))
+        when(memeModerationRepository.findByStatusAndVisibility(ModerationStatus.APPROVED, MemeVisibility.PUBLIC))
                 .thenReturn(List.of(ownMeme, alreadyVoted, candidate));
         when(swipeVoteRepository.findVotedMemeIdsByUserId(userId)).thenReturn(List.of("meme-2"));
 
@@ -105,8 +112,16 @@ class SwipeServiceTest {
         String memeId = "meme-1";
         long ownerId = 456L;
 
-        MemeModeration meme =
-                new MemeModeration(memeId, "file-1", "Description", "", ownerId, "PUBLIC", "", "APPROVED", null);
+        MemeModeration meme = new MemeModeration(
+                memeId,
+                "file-1",
+                "Description",
+                "",
+                ownerId,
+                MemeVisibility.PUBLIC,
+                "",
+                ModerationStatus.APPROVED,
+                null);
         MemeRating rating = new MemeRating(memeId, 1000, 0, 0, null);
         TelegramUser owner = new TelegramUser(ownerId, "owner", "OwnerName", 0, 100, new java.util.HashSet<>());
 
@@ -118,7 +133,7 @@ class SwipeServiceTest {
         swipeService.registerSwipeVote(userId, memeId, "BASE");
 
         verify(swipeVoteRepository).save(any());
-        assertEquals(1008, rating.getEloRating()); // newElo = 1000 + 16 * (1.0 - 0.5) = 1008
+        assertEquals(1008, rating.getEloRating());
         assertEquals(1, rating.getWins());
         assertEquals(101, owner.getPoints());
         verify(memeRatingRepository).save(rating);
@@ -130,8 +145,8 @@ class SwipeServiceTest {
         long userId = 123L;
         String memeId = "meme-1";
 
-        MemeModeration meme =
-                new MemeModeration(memeId, "file-1", "Description", "", null, "PUBLIC", "", "APPROVED", null);
+        MemeModeration meme = new MemeModeration(
+                memeId, "file-1", "Description", "", null, MemeVisibility.PUBLIC, "", ModerationStatus.APPROVED, null);
         MemeRating rating = new MemeRating(memeId, 1000, 0, 0, null);
 
         when(swipeVoteRepository.existsByMemeIdAndUserId(memeId, userId)).thenReturn(false);
@@ -141,7 +156,7 @@ class SwipeServiceTest {
         swipeService.registerSwipeVote(userId, memeId, "CRINGE");
 
         verify(swipeVoteRepository).save(any());
-        assertEquals(992, rating.getEloRating()); // newElo = 1000 + 16 * (0.0 - 0.5) = 992
+        assertEquals(992, rating.getEloRating());
         assertEquals(1, rating.getLosses());
         verify(memeRatingRepository).save(rating);
         verifyNoInteractions(telegramUserRepository);
@@ -152,13 +167,13 @@ class SwipeServiceTest {
         long chatId = 10L;
         long userId = 123L;
 
-        when(memeModerationRepository.findByStatusAndVisibility("APPROVED", "PUBLIC"))
+        when(memeModerationRepository.findByStatusAndVisibility(ModerationStatus.APPROVED, MemeVisibility.PUBLIC))
                 .thenReturn(Collections.emptyList());
         when(swipeVoteRepository.findVotedMemeIdsByUserId(userId)).thenReturn(Collections.emptyList());
 
         swipeService.sendSwipeCard(chatId, userId);
 
-        verify(bot).execute(any(SendMessage.class));
+        verify(telegramService).sendMessageWithMarkdown(eq(chatId), anyString());
         verify(sessionService).setUserState(chatId, UserState.DEFAULT);
     }
 
@@ -166,17 +181,17 @@ class SwipeServiceTest {
     void sendSwipeCard_MemeExists() {
         long chatId = 10L;
         long userId = 123L;
-        MemeModeration meme =
-                new MemeModeration("meme-1", "file-1", "Cool meme", "", 456L, "PUBLIC", "", "APPROVED", null);
+        MemeModeration meme = new MemeModeration(
+                "meme-1", "file-1", "Cool meme", "", 456L, MemeVisibility.PUBLIC, "", ModerationStatus.APPROVED, null);
 
-        when(memeModerationRepository.findByStatusAndVisibility("APPROVED", "PUBLIC"))
+        when(memeModerationRepository.findByStatusAndVisibility(ModerationStatus.APPROVED, MemeVisibility.PUBLIC))
                 .thenReturn(List.of(meme));
         when(swipeVoteRepository.findVotedMemeIdsByUserId(userId)).thenReturn(Collections.emptyList());
         when(memeRatingRepository.findById("meme-1")).thenReturn(Optional.empty());
 
         swipeService.sendSwipeCard(chatId, userId);
 
-        verify(bot).execute(any(SendPhoto.class));
+        verify(telegramService).sendSwipeCard(eq(chatId), eq("file-1"), anyString(), eq("meme-1"));
         verifyNoInteractions(sessionService);
     }
 }

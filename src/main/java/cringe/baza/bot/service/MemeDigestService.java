@@ -1,13 +1,10 @@
 package cringe.baza.bot.service;
 
-import com.pengrad.telegrambot.TelegramBot;
-import com.pengrad.telegrambot.model.request.ParseMode;
-import com.pengrad.telegrambot.request.SendMessage;
-import com.pengrad.telegrambot.request.SendPhoto;
 import cringe.baza.domain.MemeGroup;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.domain.MemeRating;
 import cringe.baza.domain.TelegramUser;
+import cringe.baza.model.ModerationStatus;
 import cringe.baza.repository.jpa.MemeGroupRepository;
 import cringe.baza.repository.jpa.MemeModerationRepository;
 import cringe.baza.repository.jpa.MemeRatingRepository;
@@ -36,7 +33,7 @@ public class MemeDigestService {
     private final MemeRatingRepository ratingRepository;
     private final TelegramUserRepository userRepository;
     private final ChatModel chatModel;
-    private final TelegramBot bot;
+    private final TelegramService telegramService;
 
     @Value("${app.digest.days:7}")
     private int digestDays;
@@ -75,7 +72,8 @@ public class MemeDigestService {
     @Transactional(readOnly = true)
     public List<MemeModeration> getTopMemesForGroup(Long groupId) {
         LocalDateTime threshold = LocalDateTime.now().minusDays(digestDays);
-        List<MemeModeration> recentMemes = moderationRepository.findByStatusAndCreatedAtAfter("APPROVED", threshold);
+        List<MemeModeration> recentMemes =
+                moderationRepository.findByStatusAndCreatedAtAfter(ModerationStatus.APPROVED, threshold);
 
         List<MemeModeration> groupMemes = recentMemes.stream()
                 .filter(m -> {
@@ -159,13 +157,13 @@ public class MemeDigestService {
     public void sendDigestToUser(Long userId, String digestText, List<MemeModeration> topMemes) {
         try {
             // 1. Отправляем текстовый дайджест
-            bot.execute(new SendMessage(userId, digestText).parseMode(ParseMode.Markdown));
+            telegramService.sendMessageWithMarkdown(userId, digestText);
 
             // 2. Отправляем фотографии лучших мемов
             for (int i = 0; i < topMemes.size(); i++) {
                 MemeModeration meme = topMemes.get(i);
                 String caption = (i + 1) + "-е место. Мем от автора @" + getOwnerUsername(meme.getOwnerId());
-                bot.execute(new SendPhoto(userId, meme.getFileId()).caption(caption));
+                telegramService.sendPhoto(userId, meme.getFileId(), caption);
             }
         } catch (Exception e) {
             log.error("Failed to send digest to user {}: {}", userId, e.getMessage(), e);

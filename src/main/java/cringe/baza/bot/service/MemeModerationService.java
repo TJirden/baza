@@ -1,31 +1,43 @@
 package cringe.baza.bot.service;
 
-import com.pengrad.telegrambot.TelegramBot;
-import com.pengrad.telegrambot.request.SendMessage;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.model.Meme;
+import cringe.baza.model.ModerationStatus;
 import cringe.baza.processor.MemeProcessor;
 import cringe.baza.repository.jpa.MemeModerationRepository;
 import cringe.baza.repository.jpa.MemeReportRepository;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class MemeModerationService {
 
-    private final TelegramBot bot;
+    private final TelegramService telegramService;
     private final MemeModerationRepository repository;
     private final MemeProcessor memeProcessor;
     private final MemeReportRepository memeReportRepository;
+    private final int complaintsThreshold;
+
+    public MemeModerationService(
+            TelegramService telegramService,
+            MemeModerationRepository repository,
+            MemeProcessor memeProcessor,
+            MemeReportRepository memeReportRepository,
+            @Value("${app.bot.complaints-threshold}") int complaintsThreshold) {
+        this.telegramService = telegramService;
+        this.repository = repository;
+        this.memeProcessor = memeProcessor;
+        this.memeReportRepository = memeReportRepository;
+        this.complaintsThreshold = complaintsThreshold;
+    }
 
     public List<MemeModeration> getQuarantinedMemes() {
-        return repository.findByStatus("QUARANTINED");
+        return repository.findByStatus(ModerationStatus.QUARANTINED);
     }
 
     public boolean approveMeme(String id) {
@@ -35,7 +47,7 @@ public class MemeModerationService {
         }
 
         MemeModeration moderation = moderationOpt.get();
-        if ("APPROVED".equals(moderation.getStatus())) {
+        if (ModerationStatus.APPROVED == moderation.getStatus()) {
             return true;
         }
 
@@ -58,18 +70,17 @@ public class MemeModerationService {
                 moderation.getVisibility(),
                 groupIds));
 
-        moderation.setStatus("APPROVED");
+        moderation.setStatus(ModerationStatus.APPROVED);
         moderation.setModerationReason(null);
         repository.save(moderation);
 
         if (moderation.getOwnerId() != null) {
             try {
-                bot.execute(new SendMessage(
-                                moderation.getOwnerId(),
-                                "*Ваш мем успешно одобрен!*\n\n"
-                                        + "*ID мема:* `" + id + "`\n"
-                                        + "Он прошел модерацию и теперь доступен в поиске.")
-                        .parseMode(com.pengrad.telegrambot.model.request.ParseMode.Markdown));
+                telegramService.sendMessageWithMarkdown(
+                        moderation.getOwnerId(),
+                        "*Ваш мем успешно одобрен!*\n\n"
+                                + "*ID мема:* `" + id + "`\n"
+                                + "Он прошел модерацию и теперь доступен в поиске.");
             } catch (Exception e) {
                 log.warn(
                         "Не удалось отправить уведомление о разблокировке автору мема {}: {}",
@@ -88,21 +99,16 @@ public class MemeModerationService {
 
         MemeModeration moderation = moderationOpt.get();
 
-        repository.deleteById(id);
-
         memeProcessor.delete(id);
 
         if (moderation.getOwnerId() != null) {
             try {
-                bot.execute(new SendMessage(
-                                moderation.getOwnerId(),
-                                "*Ваш мем был отклонен модератором!*\n\n"
-                                        + "*ID мема:* `" + id + "`\n"
-                                        + "*Причина:* "
-                                        + (reason != null && !reason.isBlank()
-                                                ? reason
-                                                : "Нарушение правил сообщества"))
-                        .parseMode(com.pengrad.telegrambot.model.request.ParseMode.Markdown));
+                telegramService.sendMessageWithMarkdown(
+                        moderation.getOwnerId(),
+                        "*Ваш мем был отклонен модератором!*\n\n"
+                                + "*ID мема:* `" + id + "`\n"
+                                + "*Причина:* "
+                                + (reason != null && !reason.isBlank() ? reason : "Нарушение правил сообщества"));
             } catch (Exception e) {
                 log.warn(
                         "Не удалось отправить уведомление об отклонении автору мема {}: {}",
@@ -123,10 +129,10 @@ public class MemeModerationService {
         memeReportRepository.save(new cringe.baza.domain.MemeReport(memeId, userId));
         long count = memeReportRepository.countByMemeId(memeId);
 
-        if (count >= 3) {
+        if (count >= complaintsThreshold) {
             memeProcessor.quarantine(memeId);
             memeReportRepository.deleteByMemeId(memeId);
-            return new ReportResult("QUARANTINED", 3);
+            return new ReportResult("QUARANTINED", complaintsThreshold);
         }
 
         return new ReportResult("REPORT_ADDED", count);

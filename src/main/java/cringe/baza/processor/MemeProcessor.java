@@ -14,9 +14,6 @@ public class MemeProcessor {
 
     private final IdRepository idRepository;
 
-    /**
-     * @return id мема
-     */
     public String save(Meme meme) {
         String id = meme.id() != null ? meme.id() : UUID.randomUUID().toString();
         Meme memeWithId = new Meme(
@@ -42,7 +39,6 @@ public class MemeProcessor {
         return List.of();
     }
 
-    /** Поиск мемов по смыслу описания (семантический поиск) */
     public List<Meme> getMemesByDescription(String description, int limit, Long userId, List<Long> userGroupIds) {
         List<String> ids = idRepository.findSimilarIds(description, limit, userId, userGroupIds);
 
@@ -52,7 +48,6 @@ public class MemeProcessor {
                 .toList();
     }
 
-    /** Поиск списка Telegram File ID по описанию для Inline Mode */
     public List<String> getFileIdsByDescription(String description, int limit, Long userId, List<Long> userGroupIds) {
         return idRepository.findSimilarFileIds(description, limit, userId, userGroupIds);
     }
@@ -61,7 +56,6 @@ public class MemeProcessor {
         return getMemesByDescription(query, limit, userId, userGroupIds);
     }
 
-    /** Поиск одного наиболее подходящего мема по смыслу описания */
     public Optional<Meme> getSingleMemeByDescription(String description, Long userId, List<Long> userGroupIds) {
         List<String> ids = idRepository.findSimilarIds(description, 1, userId, userGroupIds);
 
@@ -72,17 +66,13 @@ public class MemeProcessor {
         return idRepository.findById(ids.getFirst());
     }
 
-    /** Получение конкретного мема по его ID */
     public Optional<Meme> getMemeById(String id) {
         return idRepository.findById(id);
     }
 
     public boolean delete(String id) {
-        if (idRepository.findById(id).isPresent()) {
-            idRepository.delete(id);
-            return true;
-        }
-        return false;
+        idRepository.delete(id);
+        return true;
     }
 
     public boolean quarantine(String id) {

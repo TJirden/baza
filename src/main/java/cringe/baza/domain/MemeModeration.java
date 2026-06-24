@@ -1,7 +1,11 @@
 package cringe.baza.domain;
 
+import cringe.baza.model.MemeVisibility;
+import cringe.baza.model.ModerationStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
@@ -28,10 +32,14 @@ public class MemeModeration {
     private String ocrText;
 
     private Long ownerId;
-    private String visibility;
+
+    @Enumerated(EnumType.STRING)
+    private MemeVisibility visibility;
+
     private String groupIds;
 
-    private String status;
+    @Enumerated(EnumType.STRING)
+    private ModerationStatus status;
 
     @Column(length = 1000)
     private String moderationReason;
@@ -44,9 +52,9 @@ public class MemeModeration {
             String description,
             String ocrText,
             Long ownerId,
-            String visibility,
+            MemeVisibility visibility,
             String groupIds,
-            String status,
+            ModerationStatus status,
             String moderationReason) {
         this.id = id;
         this.fileId = fileId;

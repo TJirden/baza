@@ -8,6 +8,8 @@ import com.pengrad.telegrambot.request.SendMessage;
 import cringe.baza.domain.MemeBattle;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.domain.TelegramUser;
+import cringe.baza.model.MemeVisibility;
+import cringe.baza.model.ModerationStatus;
 import cringe.baza.repository.jpa.MemeBattleRepository;
 import cringe.baza.repository.jpa.MemeModerationRepository;
 import cringe.baza.repository.jpa.TelegramUserRepository;
@@ -103,10 +105,10 @@ public class DuelCommand implements Command {
                             + (opponent.getPoints() != null ? opponent.getPoints() : 0) + " очков.");
         }
 
-        List<MemeModeration> challengerMemes =
-                memeModerationRepository.findByOwnerIdAndStatusAndVisibility(challenger.getId(), "APPROVED", "PUBLIC");
-        List<MemeModeration> opponentMemes =
-                memeModerationRepository.findByOwnerIdAndStatusAndVisibility(opponent.getId(), "APPROVED", "PUBLIC");
+        List<MemeModeration> challengerMemes = memeModerationRepository.findByOwnerIdAndStatusAndVisibility(
+                challenger.getId(), ModerationStatus.APPROVED, MemeVisibility.PUBLIC);
+        List<MemeModeration> opponentMemes = memeModerationRepository.findByOwnerIdAndStatusAndVisibility(
+                opponent.getId(), ModerationStatus.APPROVED, MemeVisibility.PUBLIC);
 
         if (challengerMemes.isEmpty()) {
             return new SendMessage(chatId, "⚠️ У вас нет одобренных публичных мемов для участия в дуэли!");

@@ -1,11 +1,10 @@
 package cringe.baza.bot.service;
 
-import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.PhotoSize;
-import com.pengrad.telegrambot.model.request.ParseMode;
-import com.pengrad.telegrambot.request.EditMessageText;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.model.Meme;
+import cringe.baza.model.MemeVisibility;
+import cringe.baza.model.ModerationStatus;
 import cringe.baza.processor.MemeProcessor;
 import cringe.baza.repository.MemeVectorRepository;
 import cringe.baza.repository.jpa.MemeModerationRepository;
@@ -24,7 +23,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class AsyncMemeService {
 
-    private final TelegramBot bot;
+    private final TelegramService telegramService;
     private final MemeProcessor memeProcessor;
     private final TelegramFileService fileService;
     private final MemeAnalyzerService memeAnalyzerService;
@@ -32,7 +31,7 @@ public class AsyncMemeService {
     private final MemeModerationRepository memeModerationRepository;
 
     @Async("memeAsyncExecutor")
-    public void processAndSaveMemeAsync(
+    public void saveMemeAsync(
             long chatId,
             long userId,
             PhotoSize[] photo,
@@ -48,7 +47,7 @@ public class AsyncMemeService {
             }
 
             List<Long> groupIds = new ArrayList<>();
-            String visibility = parseVisibilityAndGroups(visibilityContext, groupIds);
+            MemeVisibility visibility = parseVisibilityAndGroups(visibilityContext, groupIds);
             String groupIdsStr = groupIds.stream().map(String::valueOf).collect(Collectors.joining(","));
 
             String memeId = UUID.randomUUID().toString();
@@ -57,7 +56,7 @@ public class AsyncMemeService {
             String aiDescription = "";
 
             try {
-                bot.execute(new EditMessageText(chatId, messageIdToEdit, "Анализирую изображение с помощью ИИ..."));
+                telegramService.editMessageText(chatId, messageIdToEdit, "Анализирую изображение с помощью ИИ...");
                 MemeAnalyzerService.MemeAnalysis analysis = memeAnalyzerService.analyzeMemeDetails(fileId);
                 ocrText = analysis.ocrText();
                 aiDescription = analysis.description();
@@ -120,15 +119,15 @@ public class AsyncMemeService {
         } catch (Exception e) {
             log.error("Критическая ошибка при асинхронном сохранении изображения: {}", e.getMessage(), e);
             try {
-                bot.execute(new EditMessageText(chatId, messageIdToEdit, "*Ошибка сохранения мема:* " + e.getMessage())
-                        .parseMode(ParseMode.Markdown));
+                telegramService.editMessageTextWithMarkdown(
+                        chatId, messageIdToEdit, "*Ошибка сохранения мема:* " + e.getMessage());
             } catch (Exception ex) {
                 log.error("Не удалось отправить сообщение об ошибке пользователю: {}", ex.getMessage());
             }
         }
     }
 
-    private String parseVisibilityAndGroups(String visibilityContext, List<Long> groupIds) {
+    private MemeVisibility parseVisibilityAndGroups(String visibilityContext, List<Long> groupIds) {
         if (visibilityContext != null) {
             if (visibilityContext.startsWith("GROUP:")) {
                 String[] parts = visibilityContext.substring(6).split(",");
@@ -138,11 +137,15 @@ public class AsyncMemeService {
                     } catch (NumberFormatException ignored) {
                     }
                 }
-                return "GROUP";
+                return MemeVisibility.GROUP;
             }
-            return visibilityContext;
+            try {
+                return MemeVisibility.valueOf(visibilityContext.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return MemeVisibility.PUBLIC;
+            }
         }
-        return "PUBLIC";
+        return MemeVisibility.PUBLIC;
     }
 
     private boolean checkCensorshipAndQuarantine(
@@ -153,10 +156,10 @@ public class AsyncMemeService {
             String finalDescription,
             String ocrText,
             long userId,
-            String visibility,
+            MemeVisibility visibility,
             String groupIdsStr) {
 
-        bot.execute(new EditMessageText(chatId, messageIdToEdit, "Проверяю мем на цензуру с помощью ИИ..."));
+        telegramService.editMessageText(chatId, messageIdToEdit, "Проверяю мем на цензуру с помощью ИИ...");
         MemeAnalyzerService.CensorshipResult censorship = memeAnalyzerService.checkCensorship(fileId);
 
         if (!censorship.safe()) {
@@ -169,7 +172,7 @@ public class AsyncMemeService {
                     userId,
                     visibility,
                     groupIdsStr,
-                    "QUARANTINED",
+                    ModerationStatus.QUARANTINED,
                     "ИИ-цензура: " + censorship.reason());
             memeModerationRepository.save(moderation);
 
@@ -178,7 +181,7 @@ public class AsyncMemeService {
                     + "Мем будет доступен только после ручного одобрения модератором.\n\n"
                     + "*ID мема:* `" + memeId + "`";
 
-            bot.execute(new EditMessageText(chatId, messageIdToEdit, text).parseMode(ParseMode.Markdown));
+            telegramService.editMessageTextWithMarkdown(chatId, messageIdToEdit, text);
             return true;
         }
         return false;
@@ -192,10 +195,10 @@ public class AsyncMemeService {
             String finalDescription,
             String ocrText,
             long userId,
-            String visibility,
+            MemeVisibility visibility,
             String groupIdsStr) {
 
-        bot.execute(new EditMessageText(chatId, messageIdToEdit, "Проверяю на наличие дубликатов в базе..."));
+        telegramService.editMessageText(chatId, messageIdToEdit, "Проверяю на наличие дубликатов в базе...");
         Optional<String> duplicateIdOpt = memeVectorRepository.findDuplicateMemeId(finalDescription, 0.95);
 
         if (duplicateIdOpt.isPresent()) {
@@ -209,7 +212,7 @@ public class AsyncMemeService {
                     userId,
                     visibility,
                     groupIdsStr,
-                    "QUARANTINED",
+                    ModerationStatus.QUARANTINED,
                     "Дубликат мема: " + duplicateId);
             memeModerationRepository.save(moderation);
 
@@ -218,7 +221,7 @@ public class AsyncMemeService {
                     + "Мем сохранен в карантин до подтверждения модератором.\n\n"
                     + "*ID вашего мема:* `" + memeId + "`";
 
-            bot.execute(new EditMessageText(chatId, messageIdToEdit, text).parseMode(ParseMode.Markdown));
+            telegramService.editMessageTextWithMarkdown(chatId, messageIdToEdit, text);
             return true;
         }
         return false;
@@ -232,7 +235,7 @@ public class AsyncMemeService {
             String finalDescription,
             String ocrText,
             long userId,
-            String visibility,
+            MemeVisibility visibility,
             List<Long> groupIds,
             String groupIdsStr) {
 
@@ -241,7 +244,15 @@ public class AsyncMemeService {
         log.info("Мем успешно сохранен и проиндексирован. ID: {}", imageId);
 
         MemeModeration moderation = new MemeModeration(
-                memeId, fileId, finalDescription, ocrText, userId, visibility, groupIdsStr, "APPROVED", null);
+                memeId,
+                fileId,
+                finalDescription,
+                ocrText,
+                userId,
+                visibility,
+                groupIdsStr,
+                ModerationStatus.APPROVED,
+                null);
         memeModerationRepository.save(moderation);
 
         String text = "*Мем успешно сохранен!*\n\n"
@@ -249,6 +260,6 @@ public class AsyncMemeService {
                 + "*Описание*: " + finalDescription + "\n"
                 + "*Доступ*: " + visibility;
 
-        bot.execute(new EditMessageText(chatId, messageIdToEdit, text).parseMode(ParseMode.Markdown));
+        telegramService.editMessageTextWithMarkdown(chatId, messageIdToEdit, text);
     }
 }
