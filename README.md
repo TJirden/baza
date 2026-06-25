@@ -44,3 +44,18 @@ docker-compose up -d
 * **`TELEGRAM_TOKEN`**: Токен бота
 * **`GEMINI_API_KEY`**: API-ключ Google Gemini
 * **`GOOGLE_CLOUD_PROJECT`**: Идентификатор проекта Google Cloud (необязательно, по умолчанию используется dummy-project)
+
+---
+
+## Тестирование
+
+**1. Запуск юнит и интеграционных тестов**
+```bash
+./gradlew test
+```
+
+**2. Запуск нагрузочных тестов (k6)**
+Для проведения нагрузочного тестирования API поиска выполните команду:
+```bash
+k6 run load-test.js
+```
