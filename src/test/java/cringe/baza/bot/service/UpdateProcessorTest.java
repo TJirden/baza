@@ -48,7 +48,6 @@ class UpdateProcessorTest {
 
     @Test
     void processUpdate_CallbackQuery_DelegatesToCallbackHandler() {
-        // Arrange
         Update update = mock(Update.class);
         CallbackQuery callbackQuery = mock(CallbackQuery.class);
         User user = mock(User.class);
@@ -61,17 +60,14 @@ class UpdateProcessorTest {
         when(user.firstName()).thenReturn("first");
         when(callbackQueryHandler.handle(callbackQuery)).thenAnswer(inv -> expectedResponse);
 
-        // Act
         BaseRequest<?, ?> result = updateProcessor.processUpdate(update);
 
-        // Assert
         assertEquals(expectedResponse, result);
         verify(userService).getOrCreateUser(123L, "username", "first");
     }
 
     @Test
     void processUpdate_InlineQuery_DelegatesToInlineHandler() {
-        // Arrange
         Update update = mock(Update.class);
         InlineQuery inlineQuery = mock(InlineQuery.class);
         User user = mock(User.class);
@@ -84,17 +80,14 @@ class UpdateProcessorTest {
         when(user.firstName()).thenReturn("first");
         when(inlineQueryHandler.handle(inlineQuery)).thenReturn(expectedResponse);
 
-        // Act
         BaseRequest<?, ?> result = updateProcessor.processUpdate(update);
 
-        // Assert
         assertEquals(expectedResponse, result);
         verify(userService).getOrCreateUser(123L, "username", "first");
     }
 
     @Test
     void processUpdate_AwaitingSaveImageState_DelegatesToAwaitingSaveHandler() {
-        // Arrange
         Update update = mock(Update.class);
         Message message = mock(Message.class);
         Chat chat = mock(Chat.class);
@@ -111,16 +104,13 @@ class UpdateProcessorTest {
         when(sessionService.getUserState(456L)).thenReturn(UserState.AWAITING_SAVE_IMAGE);
         when(awaitingSaveStateHandler.handle(update)).thenReturn(expectedResponse);
 
-        // Act
         BaseRequest<?, ?> result = updateProcessor.processUpdate(update);
 
-        // Assert
         assertEquals(expectedResponse, result);
     }
 
     @Test
     void processUpdate_SwipingState_DelegatesToSwipingHandler() {
-        // Arrange
         Update update = mock(Update.class);
         Message message = mock(Message.class);
         Chat chat = mock(Chat.class);
@@ -137,16 +127,13 @@ class UpdateProcessorTest {
         when(sessionService.getUserState(456L)).thenReturn(UserState.SWIPING);
         when(swipingStateHandler.handle(update, 456L)).thenAnswer(inv -> expectedResponse);
 
-        // Act
         BaseRequest<?, ?> result = updateProcessor.processUpdate(update);
 
-        // Assert
         assertEquals(expectedResponse, result);
     }
 
     @Test
     void processUpdate_DefaultState_DelegatesToCommandRouter() {
-        // Arrange
         Update update = mock(Update.class);
         Message message = mock(Message.class);
         Chat chat = mock(Chat.class);
@@ -163,16 +150,13 @@ class UpdateProcessorTest {
         when(sessionService.getUserState(456L)).thenReturn(UserState.DEFAULT);
         when(commandRouter.route(update)).thenAnswer(inv -> expectedResponse);
 
-        // Act
         BaseRequest<?, ?> result = updateProcessor.processUpdate(update);
 
-        // Assert
         assertEquals(expectedResponse, result);
     }
 
     @Test
     void processUpdate_ExceptionThrown_ReturnsErrorMessage() {
-        // Arrange
         Update update = mock(Update.class);
         Message message = mock(Message.class);
         Chat chat = mock(Chat.class);
@@ -182,10 +166,8 @@ class UpdateProcessorTest {
         when(chat.id()).thenReturn(456L);
         when(sessionService.getUserState(456L)).thenThrow(new RuntimeException("Test exception"));
 
-        // Act
         SendMessage result = (SendMessage) updateProcessor.processUpdate(update);
 
-        // Assert
         assertNotNull(result);
         assertEquals(
                 "Произошла ошибка при обработке команды. Пожалуйста, попробуйте позже.",
