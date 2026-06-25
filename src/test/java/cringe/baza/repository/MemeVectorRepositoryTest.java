@@ -50,17 +50,14 @@ class MemeVectorRepositoryTest {
 
     @Test
     void delete_CascadesCorrectly() {
-        // Arrange
         String memeId = "meme-123";
         MemeBattle battle = new MemeBattle();
         battle.setId(10L);
         when(memeRatingRepository.existsById(memeId)).thenReturn(true);
         when(memeBattleRepository.findReferencingMeme(memeId)).thenReturn(List.of(battle));
 
-        // Act
         repository.delete(memeId);
 
-        // Assert
         verify(memeRatingRepository).deleteById(memeId);
         verify(memeReportRepository).deleteByMemeId(memeId);
         verify(memeSwipeVoteRepository).deleteByMemeId(memeId);

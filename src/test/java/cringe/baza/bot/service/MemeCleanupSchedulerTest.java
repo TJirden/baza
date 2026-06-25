@@ -68,6 +68,8 @@ class MemeCleanupSchedulerTest {
         scheduler.cleanExpiredQuarantineMemes();
 
         verify(idRepository).delete("meme-1");
+        verify(repository).delete(meme1);
         verify(idRepository).delete("meme-2");
+        verify(repository).delete(meme2);
     }
 }

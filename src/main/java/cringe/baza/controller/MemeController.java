@@ -2,7 +2,6 @@ package cringe.baza.controller;
 
 import cringe.baza.bot.service.TelegramFileService;
 import cringe.baza.bot.service.TelegramUserService;
-import cringe.baza.domain.TelegramUser;
 import cringe.baza.model.Meme;
 import cringe.baza.processor.MemeProcessor;
 import java.io.InputStream;
@@ -31,7 +30,7 @@ public class MemeController {
 
         List<Long> groupIds = new ArrayList<>();
         if (userId != null) {
-            TelegramUser user = userService.getOrCreateUser(userId, null, null);
+            groupIds = userService.getUserGroupIds(userId);
         }
 
         return memeProcessor.getMemesByDescription(q, limit, userId, groupIds);

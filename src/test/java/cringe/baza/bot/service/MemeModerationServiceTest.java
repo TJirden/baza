@@ -139,6 +139,7 @@ class MemeModerationServiceTest {
         assertTrue(result);
 
         verify(memeProcessor).delete("meme-1");
+        verify(repository).delete(meme);
         verify(telegramService).sendMessageWithMarkdown(eq(123L), contains("bad quality"));
     }
 }

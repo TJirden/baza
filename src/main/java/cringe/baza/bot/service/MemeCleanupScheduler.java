@@ -35,6 +35,7 @@ public class MemeCleanupScheduler {
         for (MemeModeration meme : expired) {
             try {
                 idRepository.delete(meme.getId());
+                repository.delete(meme);
                 log.info("Successfully deleted expired quarantine meme: {}", meme.getId());
             } catch (Exception e) {
                 log.error("Failed to delete expired quarantine meme {}: {}", meme.getId(), e.getMessage());

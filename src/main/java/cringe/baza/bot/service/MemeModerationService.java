@@ -100,6 +100,7 @@ public class MemeModerationService {
         MemeModeration moderation = moderationOpt.get();
 
         memeProcessor.delete(id);
+        repository.delete(moderation);
 
         if (moderation.getOwnerId() != null) {
             try {
