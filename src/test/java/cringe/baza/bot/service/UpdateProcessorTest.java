@@ -3,16 +3,13 @@ package cringe.baza.bot.service;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import com.pengrad.telegrambot.model.CallbackQuery;
-import com.pengrad.telegrambot.model.Chat;
-import com.pengrad.telegrambot.model.InlineQuery;
-import com.pengrad.telegrambot.model.Message;
-import com.pengrad.telegrambot.model.Update;
-import com.pengrad.telegrambot.model.User;
+import com.pengrad.telegrambot.model.*;
 import com.pengrad.telegrambot.request.AnswerInlineQuery;
 import com.pengrad.telegrambot.request.BaseRequest;
 import com.pengrad.telegrambot.request.SendMessage;
 import cringe.baza.bot.model.UserState;
+import cringe.baza.user.TelegramUserService;
+import cringe.baza.user.UserSessionService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -48,7 +45,6 @@ class UpdateProcessorTest {
 
     @Test
     void processUpdate_CallbackQuery_DelegatesToCallbackHandler() {
-        // Arrange
         Update update = mock(Update.class);
         CallbackQuery callbackQuery = mock(CallbackQuery.class);
         User user = mock(User.class);
@@ -61,17 +57,28 @@ class UpdateProcessorTest {
         when(user.firstName()).thenReturn("first");
         when(callbackQueryHandler.handle(callbackQuery)).thenAnswer(inv -> expectedResponse);
 
-        // Act
         BaseRequest<?, ?> result = updateProcessor.processUpdate(update);
 
-        // Assert
         assertEquals(expectedResponse, result);
         verify(userService).getOrCreateUser(123L, "username", "first");
     }
 
     @Test
+    void processUpdate_CallbackQuery_UserNull() {
+        Update update = mock(Update.class);
+        CallbackQuery callbackQuery = mock(CallbackQuery.class);
+
+        when(update.callbackQuery()).thenReturn(callbackQuery);
+        when(callbackQuery.from()).thenReturn(null);
+
+        updateProcessor.processUpdate(update);
+
+        verifyNoInteractions(userService);
+        verify(callbackQueryHandler).handle(callbackQuery);
+    }
+
+    @Test
     void processUpdate_InlineQuery_DelegatesToInlineHandler() {
-        // Arrange
         Update update = mock(Update.class);
         InlineQuery inlineQuery = mock(InlineQuery.class);
         User user = mock(User.class);
@@ -84,17 +91,58 @@ class UpdateProcessorTest {
         when(user.firstName()).thenReturn("first");
         when(inlineQueryHandler.handle(inlineQuery)).thenReturn(expectedResponse);
 
-        // Act
         BaseRequest<?, ?> result = updateProcessor.processUpdate(update);
 
-        // Assert
         assertEquals(expectedResponse, result);
         verify(userService).getOrCreateUser(123L, "username", "first");
     }
 
     @Test
+    void processUpdate_InlineQuery_UserNull() {
+        Update update = mock(Update.class);
+        InlineQuery inlineQuery = mock(InlineQuery.class);
+
+        when(update.inlineQuery()).thenReturn(inlineQuery);
+        when(inlineQuery.from()).thenReturn(null);
+
+        updateProcessor.processUpdate(update);
+
+        verifyNoInteractions(userService);
+        verify(inlineQueryHandler).handle(inlineQuery);
+    }
+
+    @Test
+    void processUpdate_MessageNull() {
+        Update update = mock(Update.class);
+        when(update.callbackQuery()).thenReturn(null);
+        when(update.inlineQuery()).thenReturn(null);
+        when(update.message()).thenReturn(null);
+
+        BaseRequest<?, ?> result = updateProcessor.processUpdate(update);
+
+        assertNull(result);
+    }
+
+    @Test
+    void processUpdate_MessageFromNull() {
+        Update update = mock(Update.class);
+        Message message = mock(Message.class);
+        Chat chat = mock(Chat.class);
+
+        when(update.message()).thenReturn(message);
+        when(message.from()).thenReturn(null);
+        when(message.chat()).thenReturn(chat);
+        when(chat.id()).thenReturn(456L);
+        when(sessionService.getUserState(456L)).thenReturn(UserState.DEFAULT);
+
+        updateProcessor.processUpdate(update);
+
+        verifyNoInteractions(userService);
+        verify(commandRouter).route(update);
+    }
+
+    @Test
     void processUpdate_AwaitingSaveImageState_DelegatesToAwaitingSaveHandler() {
-        // Arrange
         Update update = mock(Update.class);
         Message message = mock(Message.class);
         Chat chat = mock(Chat.class);
@@ -111,16 +159,13 @@ class UpdateProcessorTest {
         when(sessionService.getUserState(456L)).thenReturn(UserState.AWAITING_SAVE_IMAGE);
         when(awaitingSaveStateHandler.handle(update)).thenReturn(expectedResponse);
 
-        // Act
         BaseRequest<?, ?> result = updateProcessor.processUpdate(update);
 
-        // Assert
         assertEquals(expectedResponse, result);
     }
 
     @Test
     void processUpdate_SwipingState_DelegatesToSwipingHandler() {
-        // Arrange
         Update update = mock(Update.class);
         Message message = mock(Message.class);
         Chat chat = mock(Chat.class);
@@ -137,16 +182,13 @@ class UpdateProcessorTest {
         when(sessionService.getUserState(456L)).thenReturn(UserState.SWIPING);
         when(swipingStateHandler.handle(update, 456L)).thenAnswer(inv -> expectedResponse);
 
-        // Act
         BaseRequest<?, ?> result = updateProcessor.processUpdate(update);
 
-        // Assert
         assertEquals(expectedResponse, result);
     }
 
     @Test
     void processUpdate_DefaultState_DelegatesToCommandRouter() {
-        // Arrange
         Update update = mock(Update.class);
         Message message = mock(Message.class);
         Chat chat = mock(Chat.class);
@@ -163,16 +205,13 @@ class UpdateProcessorTest {
         when(sessionService.getUserState(456L)).thenReturn(UserState.DEFAULT);
         when(commandRouter.route(update)).thenAnswer(inv -> expectedResponse);
 
-        // Act
         BaseRequest<?, ?> result = updateProcessor.processUpdate(update);
 
-        // Assert
         assertEquals(expectedResponse, result);
     }
 
     @Test
     void processUpdate_ExceptionThrown_ReturnsErrorMessage() {
-        // Arrange
         Update update = mock(Update.class);
         Message message = mock(Message.class);
         Chat chat = mock(Chat.class);
@@ -182,14 +221,43 @@ class UpdateProcessorTest {
         when(chat.id()).thenReturn(456L);
         when(sessionService.getUserState(456L)).thenThrow(new RuntimeException("Test exception"));
 
-        // Act
         SendMessage result = (SendMessage) updateProcessor.processUpdate(update);
 
-        // Assert
         assertNotNull(result);
         assertEquals(
                 "Произошла ошибка при обработке команды. Пожалуйста, попробуйте позже.",
                 result.getParameters().get("text"));
         assertEquals(456L, result.getParameters().get("chat_id"));
+    }
+
+    @Test
+    void processUpdate_ExceptionInCallback_ReturnsErrorMessage() {
+        Update update = mock(Update.class);
+        CallbackQuery callbackQuery = mock(CallbackQuery.class);
+        Message message = mock(Message.class);
+        Chat chat = mock(Chat.class);
+
+        when(update.callbackQuery()).thenReturn(callbackQuery);
+        when(callbackQuery.from()).thenReturn(null);
+        when(callbackQueryHandler.handle(callbackQuery)).thenThrow(new RuntimeException("Callback error"));
+        when(callbackQuery.message()).thenReturn(message);
+        when(message.chat()).thenReturn(chat);
+        when(chat.id()).thenReturn(999L);
+
+        SendMessage result = (SendMessage) updateProcessor.processUpdate(update);
+
+        assertNotNull(result);
+        assertEquals(999L, result.getParameters().get("chat_id"));
+    }
+
+    @Test
+    void processUpdate_ExceptionNoChatId_ReturnsNull() {
+        Update update = mock(Update.class);
+        when(update.callbackQuery()).thenReturn(null);
+        when(update.inlineQuery()).thenThrow(new RuntimeException("Error"));
+
+        BaseRequest<?, ?> result = updateProcessor.processUpdate(update);
+
+        assertNull(result);
     }
 }

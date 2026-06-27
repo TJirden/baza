@@ -4,6 +4,7 @@ import com.pengrad.telegrambot.model.Update;
 import com.pengrad.telegrambot.request.BaseRequest;
 import com.pengrad.telegrambot.request.SendMessage;
 import cringe.baza.bot.model.UserState;
+import cringe.baza.user.UserSessionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -23,7 +24,7 @@ public class SwipingStateHandler {
         }
 
         sessionService.setUserState(chatId, UserState.DEFAULT);
-        if (text.equalsIgnoreCase("/cancel")) {
+        if ("/cancel".equalsIgnoreCase(text)) {
             return new SendMessage(chatId, "Режим оценки завершен.");
         }
         return commandRouter.route(update);

@@ -1,0 +1,112 @@
+Initialized native services in: /home/elenium/.gradle/native
+Initialized jansi services in: /home/elenium/.gradle/native
+Found daemon DaemonInfo{pid=7867, address=[af1f5bfe-140f-4261-935d-665b1c62b980 port:33661, addresses:[/127.0.0.1]], state=Idle, lastBusy=1782561354904, context=DefaultDaemonContext[uid=9747cc58-f071-42ff-a205-1627926aa40f,javaHome=/home/elenium/.antigravity/extensions/redhat.java-1.55.0-linux-x64/jre/21.0.11-linux-x86_64,javaVersion=21,javaVendor=Eclipse Adoptium,daemonRegistryDir=/home/elenium/.gradle/daemon,pid=7867,idleTimeout=10800000,priority=NORMAL,applyInstrumentationAgent=true,nativeServicesMode=ENABLED,daemonOpts=-XX:MaxMetaspaceSize=384m,-XX:+HeapDumpOnOutOfMemoryError,-Xms256m,-Xmx512m,-Dfile.encoding=UTF-8,-Duser.country=RU,-Duser.language=ru,-Duser.variant]} however its context does not match the desired criteria.
+JVM is incompatible.
+Wanted: DaemonRequestContext{jvmCriteria=/home/elenium/java/openjdk-25.0.2 (no Daemon JVM specified, using current Java home), daemonOpts=[-XX:MaxMetaspaceSize=384m, -XX:+HeapDumpOnOutOfMemoryError, -Xms256m, -Xmx512m, -Dfile.encoding=UTF-8, -Duser.country=RU, -Duser.language=ru, -Duser.variant], applyInstrumentationAgent=true, nativeServicesMode=ENABLED, priority=NORMAL}
+Actual: DefaultDaemonContext[uid=9747cc58-f071-42ff-a205-1627926aa40f,javaHome=/home/elenium/.antigravity/extensions/redhat.java-1.55.0-linux-x64/jre/21.0.11-linux-x86_64,javaVersion=21,javaVendor=Eclipse Adoptium,daemonRegistryDir=/home/elenium/.gradle/daemon,pid=7867,idleTimeout=10800000,priority=NORMAL,applyInstrumentationAgent=true,nativeServicesMode=ENABLED,daemonOpts=-XX:MaxMetaspaceSize=384m,-XX:+HeapDumpOnOutOfMemoryError,-Xms256m,-Xmx512m,-Dfile.encoding=UTF-8,-Duser.country=RU,-Duser.language=ru,-Duser.variant]
+
+  Looking for a different daemon...
+The client will now receive all logging from the daemon (pid: 21669). The daemon log file: /home/elenium/.gradle/daemon/9.3.1/daemon-21669.out.log
+Starting 20th build in daemon [uptime: 20 mins 51.225 secs, performance: 100%, GC rate: 0.00/s, heap usage: 0% of 512 MiB, non-heap usage: 25% of 384 MiB]
+Using 12 worker leases.
+Operational build model parameters: {requiresToolingModels=false, parallelProjectExecution=false, configureOnDemand=false, configurationCache=false, configurationCacheParallelStore=false, configurationCacheParallelLoad=true, isolatedProjects=false, parallelProjectConfiguration=false, intermediateModelCache=false, parallelToolingApiActions=false, invalidateCoupledProjects=false, modelAsProjectDependency=false, resilientModelBuilding=false}
+Now considering [/home/elenium/java/baza] as hierarchies to watch
+Watching the file system is configured to be enabled if available
+File system watching is active
+Starting Build
+Settings evaluated using settings file '/home/elenium/java/baza/settings.gradle.kts'.
+Projects loaded. Root project using build file '/home/elenium/java/baza/build.gradle.kts'.
+Included projects: [root project 'baza']
+
+> Configure project :
+Evaluating root project 'baza' using build file '/home/elenium/java/baza/build.gradle.kts'.
+Resolved plugin [id: 'org.gradle.java']
+Resolved plugin [id: 'org.springframework.boot', version: '4.0.3']
+Resolved plugin [id: 'io.spring.dependency-management', version: '1.1.7']
+Resolved plugin [id: 'com.diffplug.spotless', version: '6.25.0']
+Applying dependency management to configuration 'annotationProcessor' in project 'baza'
+Applying dependency management to configuration 'apiElements' in project 'baza'
+Applying dependency management to configuration 'archives' in project 'baza'
+Applying dependency management to configuration 'bootArchives' in project 'baza'
+Applying dependency management to configuration 'compileClasspath' in project 'baza'
+Applying dependency management to configuration 'compileOnly' in project 'baza'
+Applying dependency management to configuration 'default' in project 'baza'
+Applying dependency management to configuration 'developmentOnly' in project 'baza'
+Applying dependency management to configuration 'implementation' in project 'baza'
+Applying dependency management to configuration 'mainSourceElements' in project 'baza'
+Applying dependency management to configuration 'productionRuntimeClasspath' in project 'baza'
+Applying dependency management to configuration 'runtimeClasspath' in project 'baza'
+Applying dependency management to configuration 'runtimeElements' in project 'baza'
+Applying dependency management to configuration 'runtimeOnly' in project 'baza'
+Applying dependency management to configuration 'testAndDevelopmentOnly' in project 'baza'
+Applying dependency management to configuration 'testAnnotationProcessor' in project 'baza'
+Applying dependency management to configuration 'testCompileClasspath' in project 'baza'
+Applying dependency management to configuration 'testCompileOnly' in project 'baza'
+Applying dependency management to configuration 'testImplementation' in project 'baza'
+Applying dependency management to configuration 'testResultsElementsForTest' in project 'baza'
+Applying dependency management to configuration 'testRuntimeClasspath' in project 'baza'
+Applying dependency management to configuration 'testRuntimeOnly' in project 'baza'
+All projects evaluated.
+Task name matched 'test'
+Selected primary task 'test' from project :
+Resolving global dependency management for project 'baza'
+Excluding []
+Excluding []
+Excluding []
+Excluding []
+Excluding []
+Excluding []
+Tasks to be executed: [task ':compileJava', task ':processResources', task ':classes', task ':compileTestJava', task ':processTestResources', task ':testClasses', task ':test']
+Tasks that were excluded: []
+Resolve mutations for :compileJava (Thread[#3410,Execution worker,5,main]) started.
+:compileJava (Thread[#3409,included builds,5,main]) started.
+
+> Task :compileJava UP-TO-DATE
+Custom actions are attached to task ':compileJava'.
+Caching disabled for task ':compileJava' because:
+  Build cache is disabled
+Skipping task ':compileJava' as it is up-to-date.
+No compile result for :compileJava
+Resolve mutations for :processResources (Thread[#3409,included builds,5,main]) started.
+:processResources (Thread[#3409,included builds,5,main]) started.
+
+> Task :processResources UP-TO-DATE
+Caching disabled for task ':processResources' because:
+  Build cache is disabled
+  Not worth caching
+Skipping task ':processResources' as it is up-to-date.
+Resolve mutations for :classes (Thread[#3409,included builds,5,main]) started.
+:classes (Thread[#3409,included builds,5,main]) started.
+
+> Task :classes UP-TO-DATE
+Skipping task ':classes' as it has no actions.
+Resolve mutations for :compileTestJava (Thread[#3409,included builds,5,main]) started.
+:compileTestJava (Thread[#3409,included builds,5,main]) started.
+
+> Task :compileTestJava UP-TO-DATE
+Custom actions are attached to task ':compileTestJava'.
+Caching disabled for task ':compileTestJava' because:
+  Build cache is disabled
+Skipping task ':compileTestJava' as it is up-to-date.
+No compile result for :compileTestJava
+Resolve mutations for :processTestResources (Thread[#3409,included builds,5,main]) started.
+:processTestResources (Thread[#3409,included builds,5,main]) started.
+
+> Task :processTestResources NO-SOURCE
+Skipping task ':processTestResources' as it has no source files and no previous output files.
+Resolve mutations for :testClasses (Thread[#3409,included builds,5,main]) started.
+:testClasses (Thread[#3409,included builds,5,main]) started.
+
+> Task :testClasses UP-TO-DATE
+Skipping task ':testClasses' as it has no actions.
+Resolve mutations for :test (Thread[#3409,included builds,5,main]) started.
+:test (Thread[#3409,included builds,5,main]) started.
+
+> Task :test UP-TO-DATE
+Caching disabled for task ':test' because:
+  Build cache is disabled
+Skipping task ':test' as it is up-to-date.
+
+BUILD SUCCESSFUL in 1s
+4 actionable tasks: 4 up-to-date
+Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.3.1/userguide/configuration_cache_enabling.html

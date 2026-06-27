@@ -2,13 +2,18 @@ package cringe.baza.domain;
 
 import cringe.baza.model.MemeVisibility;
 import cringe.baza.model.ModerationStatus;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -45,6 +50,15 @@ public class MemeModeration {
     private String moderationReason;
 
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    @OneToOne(mappedBy = "meme", cascade = CascadeType.ALL, orphanRemoval = true)
+    private MemeRating rating;
+
+    @OneToMany(mappedBy = "meme", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<MemeReport> reports = new ArrayList<>();
+
+    @OneToMany(mappedBy = "meme", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<MemeSwipeVote> swipeVotes = new ArrayList<>();
 
     public MemeModeration(
             String id,

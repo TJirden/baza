@@ -16,7 +16,9 @@ public class TelegramFileService {
     private final TelegramBot bot;
 
     public String getImageFileId(PhotoSize[] photos) {
-        if (photos == null || photos.length == 0) return null;
+        if (photos == null || photos.length == 0) {
+            return null;
+        }
         return photos[photos.length - 1].fileId();
     }
 
@@ -30,7 +32,9 @@ public class TelegramFileService {
 
     public InputStream downloadFile(String fileId) throws IOException {
         String path = getFullFilePath(fileId);
-        if (path == null) return null;
+        if (path == null) {
+            return null;
+        }
         return new URL(path).openStream();
     }
 }

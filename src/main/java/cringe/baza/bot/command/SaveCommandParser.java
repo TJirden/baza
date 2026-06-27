@@ -15,12 +15,12 @@ public class SaveCommandParser {
         String[] parts = text.split("\\s+");
         String type = parts[0].toLowerCase();
 
-        if (type.equals("private")) {
+        if ("private".equals(type)) {
             return SaveParseResult.success(
                     "PRIVATE", text.substring("private".length()).trim());
         }
 
-        if (type.equals("group")) {
+        if ("group".equals(type)) {
             int i = 1;
             while (i < parts.length && isNumeric(parts[i])) {
                 i++;
@@ -36,7 +36,7 @@ public class SaveCommandParser {
             return SaveParseResult.success("GROUP:" + groupIds, description);
         }
 
-        if (type.equals("public")) {
+        if ("public".equals(type)) {
             return SaveParseResult.success(
                     "PUBLIC", text.substring("public".length()).trim());
         }
@@ -52,11 +52,11 @@ public class SaveCommandParser {
         String[] parts = text.split("\\s+");
         String type = parts[0].toLowerCase();
 
-        if (type.equals("private")) {
+        if ("private".equals(type)) {
             return SaveParseResult.success("PRIVATE", null);
         }
 
-        if (type.equals("group")) {
+        if ("group".equals(type)) {
             int i = 1;
             while (i < parts.length && isNumeric(parts[i])) {
                 i++;
@@ -68,7 +68,7 @@ public class SaveCommandParser {
             return SaveParseResult.success("GROUP:" + groupIds, null);
         }
 
-        if (type.equals("public")) {
+        if ("public".equals(type)) {
             return SaveParseResult.success("PUBLIC", null);
         }
 

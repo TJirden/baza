@@ -5,6 +5,8 @@ import com.pengrad.telegrambot.model.User;
 import com.pengrad.telegrambot.request.BaseRequest;
 import com.pengrad.telegrambot.request.SendMessage;
 import cringe.baza.bot.model.UserState;
+import cringe.baza.user.TelegramUserService;
+import cringe.baza.user.UserSessionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

@@ -3,7 +3,7 @@ package cringe.baza.bot.command;
 import com.pengrad.telegrambot.model.Update;
 import com.pengrad.telegrambot.request.SendMessage;
 import cringe.baza.bot.model.UserState;
-import cringe.baza.bot.service.UserSessionService;
+import cringe.baza.user.UserSessionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

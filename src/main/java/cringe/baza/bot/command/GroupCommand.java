@@ -3,10 +3,10 @@ package cringe.baza.bot.command;
 import com.pengrad.telegrambot.model.Update;
 import com.pengrad.telegrambot.request.BaseRequest;
 import com.pengrad.telegrambot.request.SendMessage;
-import cringe.baza.bot.service.TelegramUserService;
 import cringe.baza.domain.MemeGroup;
 import cringe.baza.domain.TelegramUser;
 import cringe.baza.repository.jpa.MemeGroupRepository;
+import cringe.baza.user.TelegramUserService;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -51,7 +51,9 @@ public class GroupCommand implements Command {
         try {
             switch (action) {
                 case "create":
-                    if (parts.length < 2) return new SendMessage(chatId, "Укажите имя группы: /group create {имя}");
+                    if (parts.length < 2) {
+                        return new SendMessage(chatId, "Укажите имя группы: /group create {имя}");
+                    }
                     MemeGroup group = new MemeGroup();
                     group.setName(parts[1]);
                     group.setOwner(user);
@@ -60,20 +62,28 @@ public class GroupCommand implements Command {
                     return new SendMessage(chatId, "Группа '" + parts[1] + "' создана! ID: " + group.getId());
 
                 case "join":
-                    if (parts.length < 2) return new SendMessage(chatId, "Укажите ID группы: /group join {id}");
+                    if (parts.length < 2) {
+                        return new SendMessage(chatId, "Укажите ID группы: /group join {id}");
+                    }
                     Long joinId = Long.parseLong(parts[1]);
                     Optional<MemeGroup> joinGroupOpt = groupRepository.findById(joinId);
-                    if (joinGroupOpt.isEmpty()) return new SendMessage(chatId, "Группа не найдена");
+                    if (joinGroupOpt.isEmpty()) {
+                        return new SendMessage(chatId, "Группа не найдена");
+                    }
                     MemeGroup joinGroup = joinGroupOpt.get();
                     joinGroup.getMembers().add(user);
                     groupRepository.save(joinGroup);
                     return new SendMessage(chatId, "Вы вступили в группу '" + joinGroup.getName() + "'");
 
                 case "leave":
-                    if (parts.length < 2) return new SendMessage(chatId, "Укажите ID группы: /group leave {id}");
+                    if (parts.length < 2) {
+                        return new SendMessage(chatId, "Укажите ID группы: /group leave {id}");
+                    }
                     Long leaveId = Long.parseLong(parts[1]);
                     Optional<MemeGroup> leaveGroupOpt = groupRepository.findById(leaveId);
-                    if (leaveGroupOpt.isEmpty()) return new SendMessage(chatId, "Группа не найдена");
+                    if (leaveGroupOpt.isEmpty()) {
+                        return new SendMessage(chatId, "Группа не найдена");
+                    }
                     MemeGroup leaveGroup = leaveGroupOpt.get();
                     leaveGroup.getMembers().remove(user);
                     groupRepository.save(leaveGroup);
