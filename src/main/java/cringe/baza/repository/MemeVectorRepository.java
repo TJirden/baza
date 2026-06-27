@@ -51,10 +51,7 @@ public class MemeVectorRepository implements IdRepository {
     @Override
     public List<Meme> findAll(int limit, int offset) {
         List<String> ids = memeModerationRepository.findApprovedIds(limit, offset);
-        return ids.stream()
-                .map(this::findById)
-                .flatMap(Optional::stream)
-                .toList();
+        return ids.stream().map(this::findById).flatMap(Optional::stream).toList();
     }
 
     @Override

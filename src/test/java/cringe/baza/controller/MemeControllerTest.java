@@ -57,4 +57,29 @@ class MemeControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value("1"));
     }
+
+    @Test
+    void getImage_Success() throws Exception {
+        java.io.ByteArrayInputStream is = new java.io.ByteArrayInputStream("image-data".getBytes());
+        when(fileService.downloadFile("file-123")).thenReturn(is);
+
+        mockMvc.perform(get("/api/memes/image/file-123"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.IMAGE_JPEG))
+                .andExpect(content().bytes("image-data".getBytes()));
+    }
+
+    @Test
+    void getImage_NotFound() throws Exception {
+        when(fileService.downloadFile("file-123")).thenReturn(null);
+
+        mockMvc.perform(get("/api/memes/image/file-123")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void getImage_Exception_ReturnsInternalServerError() throws Exception {
+        when(fileService.downloadFile("file-123")).thenThrow(new RuntimeException("File service failed"));
+
+        mockMvc.perform(get("/api/memes/image/file-123")).andExpect(status().isInternalServerError());
+    }
 }

@@ -86,15 +86,8 @@ public class MemeProcessor {
 
         Meme meme = memeOpt.get();
         delete(id);
-        save(
-                new Meme(
-                        id,
-                        newDescription,
-                        meme.ocrText(),
-                        meme.fileId(),
-                        meme.ownerId(),
-                        meme.visibility(),
-                        meme.groupIds()));
+        save(new Meme(
+                id, newDescription, meme.ocrText(), meme.fileId(), meme.ownerId(), meme.visibility(), meme.groupIds()));
         return true;
     }
 }

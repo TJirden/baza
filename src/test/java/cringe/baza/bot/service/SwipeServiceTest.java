@@ -98,12 +98,28 @@ class SwipeServiceTest {
     void registerSwipeVote_AlreadyVoted() {
         long userId = 123L;
         String memeId = "meme-1";
+        MemeModeration meme = new MemeModeration(
+                memeId, "file-1", "Description", "", null, MemeVisibility.PUBLIC, "", ModerationStatus.APPROVED, null);
+
+        when(memeModerationRepository.findById(memeId)).thenReturn(Optional.of(meme));
         when(swipeVoteRepository.existsByMemeIdAndUserId(memeId, userId)).thenReturn(true);
 
         swipeService.registerSwipeVote(userId, memeId, "BASE");
 
         verify(swipeVoteRepository, never()).save(any());
         verify(memeRatingRepository, never()).save(any());
+    }
+
+    @Test
+    void registerSwipeVote_MemeNotFound() {
+        long userId = 123L;
+        String memeId = "meme-1";
+        when(memeModerationRepository.findById(memeId)).thenReturn(Optional.empty());
+
+        swipeService.registerSwipeVote(userId, memeId, "BASE");
+
+        verify(swipeVoteRepository, never()).existsByMemeIdAndUserId(anyString(), anyLong());
+        verify(swipeVoteRepository, never()).save(any());
     }
 
     @Test

@@ -23,12 +23,14 @@ public interface MemeModerationRepository extends JpaRepository<MemeModeration, 
     List<MemeModeration> findByOwnerIdAndStatusAndVisibility(
             Long ownerId, ModerationStatus status, MemeVisibility visibility);
 
-    @Query(value =
-        "SELECT id FROM meme_moderation WHERE status = 'APPROVED' AND (REPLACE(LOWER(ocr_text), 'ё', 'е') ILIKE :query OR REPLACE(LOWER(description), 'ё', 'е') ILIKE :query)",
-        nativeQuery = true
-    )
+    @Query(
+            value =
+                    "SELECT id FROM meme_moderation WHERE status = 'APPROVED' AND (REPLACE(LOWER(ocr_text), 'ё', 'е') ILIKE :query OR REPLACE(LOWER(description), 'ё', 'е') ILIKE :query)",
+            nativeQuery = true)
     List<String> findApprovedIdsByTextSearch(@Param("query") String query);
 
-    @Query(value = "SELECT id FROM meme_moderation WHERE status = 'APPROVED' LIMIT :limit OFFSET :offset", nativeQuery = true)
+    @Query(
+            value = "SELECT id FROM meme_moderation WHERE status = 'APPROVED' LIMIT :limit OFFSET :offset",
+            nativeQuery = true)
     List<String> findApprovedIds(@Param("limit") int limit, @Param("offset") int offset);
 }

@@ -7,6 +7,7 @@ import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.CallbackQuery;
 import com.pengrad.telegrambot.model.User;
 import com.pengrad.telegrambot.request.AnswerCallbackQuery;
+import cringe.baza.model.ReportStatus;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -45,7 +46,7 @@ class CallbackQueryHandlerTest {
         when(callbackQuery.id()).thenReturn("cb-1");
 
         when(moderationService.reportMeme("meme-123", 555L))
-                .thenReturn(new MemeModerationService.ReportResult("REPORT_ADDED", 1L));
+                .thenReturn(new MemeModerationService.ReportResult(ReportStatus.REPORT_ADDED, 1L));
 
         AnswerCallbackQuery result = (AnswerCallbackQuery) handler.handle(callbackQuery);
 
