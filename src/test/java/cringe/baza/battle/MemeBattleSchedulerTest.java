@@ -55,6 +55,20 @@ class MemeBattleSchedulerTest {
     }
 
     @Test
+    void checkAndCompleteExpiredBattles_ThrowsException() {
+        MemeBattle expired = new MemeBattle();
+        expired.setId(1L);
+        expired.setEndTime(LocalDateTime.now().minusMinutes(5));
+
+        when(memeBattleRepository.findByStatus("ACTIVE")).thenReturn(List.of(expired));
+        doThrow(new RuntimeException("Oops")).when(memeBattleService).completeBattle(expired);
+
+        scheduler.checkAndCompleteExpiredBattles();
+
+        verify(memeBattleService).completeBattle(expired);
+    }
+
+    @Test
     void cancelExpiredDuels_ExpiredAndNotExpired() {
         MemeBattle expiredPending = new MemeBattle();
         expiredPending.setId(1L);
@@ -83,5 +97,26 @@ class MemeBattleSchedulerTest {
 
         verify(memeDuelLifecycleService).cancelPendingDuel(expiredSelection, "Время на выбор мемов истекло.");
         verify(memeDuelLifecycleService, never()).cancelPendingDuel(activeSelection, "Время на выбор мемов истекло.");
+    }
+
+    @Test
+    void cancelExpiredDuels_ThrowsException() {
+        MemeBattle expiredPending = new MemeBattle();
+        expiredPending.setId(1L);
+        expiredPending.setStartTime(LocalDateTime.now().minusMinutes(15));
+
+        MemeBattle expiredSelection = new MemeBattle();
+        expiredSelection.setId(3L);
+        expiredSelection.setStartTime(LocalDateTime.now().minusMinutes(15));
+
+        when(memeBattleRepository.findByStatus("PENDING")).thenReturn(List.of(expiredPending));
+        when(memeBattleRepository.findByStatus("MEME_SELECTION")).thenReturn(List.of(expiredSelection));
+
+        doThrow(new RuntimeException("Oops")).when(memeDuelLifecycleService).cancelPendingDuel(any(), anyString());
+
+        scheduler.cancelExpiredDuels();
+
+        verify(memeDuelLifecycleService).cancelPendingDuel(expiredPending, "Время на принятие вызова истекло.");
+        verify(memeDuelLifecycleService).cancelPendingDuel(expiredSelection, "Время на выбор мемов истекло.");
     }
 }

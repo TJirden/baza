@@ -70,6 +70,20 @@ class UpdateProcessorTest {
     }
 
     @Test
+    void processUpdate_CallbackQuery_UserNull() {
+        Update update = mock(Update.class);
+        CallbackQuery callbackQuery = mock(CallbackQuery.class);
+
+        when(update.callbackQuery()).thenReturn(callbackQuery);
+        when(callbackQuery.from()).thenReturn(null);
+
+        updateProcessor.processUpdate(update);
+
+        verifyNoInteractions(userService);
+        verify(callbackQueryHandler).handle(callbackQuery);
+    }
+
+    @Test
     void processUpdate_InlineQuery_DelegatesToInlineHandler() {
         Update update = mock(Update.class);
         InlineQuery inlineQuery = mock(InlineQuery.class);
@@ -87,6 +101,50 @@ class UpdateProcessorTest {
 
         assertEquals(expectedResponse, result);
         verify(userService).getOrCreateUser(123L, "username", "first");
+    }
+
+    @Test
+    void processUpdate_InlineQuery_UserNull() {
+        Update update = mock(Update.class);
+        InlineQuery inlineQuery = mock(InlineQuery.class);
+
+        when(update.inlineQuery()).thenReturn(inlineQuery);
+        when(inlineQuery.from()).thenReturn(null);
+
+        updateProcessor.processUpdate(update);
+
+        verifyNoInteractions(userService);
+        verify(inlineQueryHandler).handle(inlineQuery);
+    }
+
+    @Test
+    void processUpdate_MessageNull() {
+        Update update = mock(Update.class);
+        when(update.callbackQuery()).thenReturn(null);
+        when(update.inlineQuery()).thenReturn(null);
+        when(update.message()).thenReturn(null);
+
+        BaseRequest<?, ?> result = updateProcessor.processUpdate(update);
+
+        assertNull(result);
+    }
+
+    @Test
+    void processUpdate_MessageFromNull() {
+        Update update = mock(Update.class);
+        Message message = mock(Message.class);
+        Chat chat = mock(Chat.class);
+
+        when(update.message()).thenReturn(message);
+        when(message.from()).thenReturn(null);
+        when(message.chat()).thenReturn(chat);
+        when(chat.id()).thenReturn(456L);
+        when(sessionService.getUserState(456L)).thenReturn(UserState.DEFAULT);
+
+        updateProcessor.processUpdate(update);
+
+        verifyNoInteractions(userService);
+        verify(commandRouter).route(update);
     }
 
     @Test
@@ -176,5 +234,36 @@ class UpdateProcessorTest {
                 "Произошла ошибка при обработке команды. Пожалуйста, попробуйте позже.",
                 result.getParameters().get("text"));
         assertEquals(456L, result.getParameters().get("chat_id"));
+    }
+
+    @Test
+    void processUpdate_ExceptionInCallback_ReturnsErrorMessage() {
+        Update update = mock(Update.class);
+        CallbackQuery callbackQuery = mock(CallbackQuery.class);
+        Message message = mock(Message.class);
+        Chat chat = mock(Chat.class);
+
+        when(update.callbackQuery()).thenReturn(callbackQuery);
+        when(callbackQuery.from()).thenReturn(null);
+        when(callbackQueryHandler.handle(callbackQuery)).thenThrow(new RuntimeException("Callback error"));
+        when(callbackQuery.message()).thenReturn(message);
+        when(message.chat()).thenReturn(chat);
+        when(chat.id()).thenReturn(999L);
+
+        SendMessage result = (SendMessage) updateProcessor.processUpdate(update);
+
+        assertNotNull(result);
+        assertEquals(999L, result.getParameters().get("chat_id"));
+    }
+
+    @Test
+    void processUpdate_ExceptionNoChatId_ReturnsNull() {
+        Update update = mock(Update.class);
+        when(update.callbackQuery()).thenReturn(null);
+        when(update.inlineQuery()).thenThrow(new RuntimeException("Error"));
+
+        BaseRequest<?, ?> result = updateProcessor.processUpdate(update);
+
+        assertNull(result);
     }
 }
