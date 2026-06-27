@@ -18,7 +18,14 @@ public class MemeBattleVote {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "battle_id")
     private Long battleId;
+
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "battle_id", referencedColumnName = "id", insertable = false, updatable = false)
+    private MemeBattle battle;
+
     private Long userId;
     private String votedFor; // "A" or "B"
     private LocalDateTime votedAt = LocalDateTime.now();

@@ -18,8 +18,21 @@ public class MemeBattle {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "meme_aid")
     private String memeAId;
+
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "meme_aid", referencedColumnName = "id", insertable = false, updatable = false)
+    private MemeModeration memeA;
+
+    @Column(name = "meme_bid")
     private String memeBId;
+
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "meme_bid", referencedColumnName = "id", insertable = false, updatable = false)
+    private MemeModeration memeB;
 
     private Integer votesA = 0;
     private Integer votesB = 0;
@@ -29,19 +42,18 @@ public class MemeBattle {
     private LocalDateTime startTime;
     private LocalDateTime endTime;
 
-    private String status; // "ACTIVE", "COMPLETED", "PENDING", "MEME_SELECTION", "DECLINED", "EXPIRED"
+    private String status;
 
     private Long telegramChatId;
     private Integer telegramMessageId;
 
-    private String battleType = "AUTO"; // "AUTO", "DUEL"
+    private String battleType = "AUTO";
     private Long challengerId;
     private Long opponentId;
     private Integer bet = 0;
     private Boolean challengerMemeSelected = false;
     private Boolean opponentMemeSelected = false;
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
-    @JoinColumn(name = "battleId")
+    @OneToMany(mappedBy = "battle", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<MemeBattleVote> votes = new ArrayList<>();
 }

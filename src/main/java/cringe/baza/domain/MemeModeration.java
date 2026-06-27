@@ -53,24 +53,19 @@ public class MemeModeration {
 
     private LocalDateTime createdAt = LocalDateTime.now();
 
-    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
-    @PrimaryKeyJoinColumn
+    @OneToOne(mappedBy = "meme", cascade = CascadeType.ALL, orphanRemoval = true)
     private MemeRating rating;
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
-    @JoinColumn(name = "memeId")
+    @OneToMany(mappedBy = "meme", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<MemeReport> reports = new ArrayList<>();
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
-    @JoinColumn(name = "memeId")
+    @OneToMany(mappedBy = "meme", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<MemeSwipeVote> swipeVotes = new ArrayList<>();
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
-    @JoinColumn(name = "memeAId")
+    @OneToMany(mappedBy = "memeA", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<MemeBattle> battlesAsA = new ArrayList<>();
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
-    @JoinColumn(name = "memeBId")
+    @OneToMany(mappedBy = "memeB", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<MemeBattle> battlesAsB = new ArrayList<>();
 
     public MemeModeration(

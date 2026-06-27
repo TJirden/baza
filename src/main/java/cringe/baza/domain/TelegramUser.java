@@ -1,5 +1,6 @@
 package cringe.baza.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.ManyToMany;
@@ -27,6 +28,7 @@ public class TelegramUser {
     private Integer battleWins = 0;
     private Integer points = 0;
 
+    @JsonIgnore
     @ManyToMany(mappedBy = "members")
     private Set<MemeGroup> groups = new HashSet<>();
 }

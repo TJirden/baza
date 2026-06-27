@@ -7,6 +7,7 @@ import com.pengrad.telegrambot.request.BaseRequest;
 import com.pengrad.telegrambot.request.EditMessageCaption;
 import cringe.baza.bot.model.DuelActionResult;
 import cringe.baza.bot.model.UserState;
+import cringe.baza.model.ReportStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -31,14 +32,18 @@ public class CallbackQueryHandler {
 
             MemeModerationService.ReportResult result = moderationService.reportMeme(memeId, userId);
 
-            String status = result.status();
+            ReportStatus status = result.status();
             long count = result.currentReports();
 
-            if ("ALREADY_REPORTED".equals(status)) {
+            if (ReportStatus.NOT_FOUND == status) {
+                return new AnswerCallbackQuery(callbackQuery.id())
+                        .text("Мем не найден или уже был удален!")
+                        .showAlert(true);
+            } else if (ReportStatus.ALREADY_REPORTED == status) {
                 return new AnswerCallbackQuery(callbackQuery.id())
                         .text("Вы уже жаловались на этот мем!")
                         .showAlert(true);
-            } else if ("QUARANTINED".equals(status)) {
+            } else if (ReportStatus.QUARANTINED == status) {
                 return new AnswerCallbackQuery(callbackQuery.id())
                         .text("Мем заблокирован и отправлен на модерацию из-за жалоб!")
                         .showAlert(true);

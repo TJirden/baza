@@ -3,6 +3,7 @@ package cringe.baza.bot.service;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.model.Meme;
 import cringe.baza.model.ModerationStatus;
+import cringe.baza.model.ReportStatus;
 import cringe.baza.processor.MemeProcessor;
 import cringe.baza.repository.jpa.MemeModerationRepository;
 import cringe.baza.repository.jpa.MemeReportRepository;
@@ -122,9 +123,13 @@ public class MemeModerationService {
 
     @org.springframework.transaction.annotation.Transactional
     public ReportResult reportMeme(String memeId, Long userId) {
+        if (!repository.existsById(memeId)) {
+            return new ReportResult(ReportStatus.NOT_FOUND, 0);
+        }
+
         if (memeReportRepository.existsByMemeIdAndReporterUserId(memeId, userId)) {
             long count = memeReportRepository.countByMemeId(memeId);
-            return new ReportResult("ALREADY_REPORTED", count);
+            return new ReportResult(ReportStatus.ALREADY_REPORTED, count);
         }
 
         memeReportRepository.save(new cringe.baza.domain.MemeReport(memeId, userId));
@@ -133,11 +138,11 @@ public class MemeModerationService {
         if (count >= complaintsThreshold) {
             memeProcessor.quarantine(memeId);
             memeReportRepository.deleteByMemeId(memeId);
-            return new ReportResult("QUARANTINED", complaintsThreshold);
+            return new ReportResult(ReportStatus.QUARANTINED, complaintsThreshold);
         }
 
-        return new ReportResult("REPORT_ADDED", count);
+        return new ReportResult(ReportStatus.REPORT_ADDED, count);
     }
 
-    public record ReportResult(String status, long currentReports) {}
+    public record ReportResult(ReportStatus status, long currentReports) {}
 }

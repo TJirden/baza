@@ -56,6 +56,12 @@ public class SwipeService {
 
     @Transactional
     public void registerSwipeVote(long userId, String memeId, String voteType) {
+        Optional<MemeModeration> memeOpt = memeModerationRepository.findById(memeId);
+        if (memeOpt.isEmpty()) {
+            log.error("Meme not found for swipe rating: {}", memeId);
+            return;
+        }
+
         if (swipeVoteRepository.existsByMemeIdAndUserId(memeId, userId)) {
             log.info("User {} already voted for meme {}", userId, memeId);
             return;
@@ -63,12 +69,6 @@ public class SwipeService {
 
         MemeSwipeVote swipeVote = new MemeSwipeVote(memeId, userId, voteType);
         swipeVoteRepository.save(swipeVote);
-
-        Optional<MemeModeration> memeOpt = memeModerationRepository.findById(memeId);
-        if (memeOpt.isEmpty()) {
-            log.error("Meme not found for swipe rating: {}", memeId);
-            return;
-        }
         MemeModeration meme = memeOpt.get();
 
         MemeRating rating =
