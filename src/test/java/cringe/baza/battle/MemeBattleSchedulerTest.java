@@ -1,4 +1,4 @@
-package cringe.baza.bot.service;
+package cringe.baza.battle;
 
 import static org.mockito.Mockito.*;
 

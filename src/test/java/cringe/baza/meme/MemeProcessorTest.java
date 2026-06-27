@@ -1,4 +1,4 @@
-package cringe.baza.processor;
+package cringe.baza.meme;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;

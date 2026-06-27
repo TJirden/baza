@@ -1,4 +1,4 @@
-package cringe.baza.bot.service;
+package cringe.baza.user;
 
 import cringe.baza.domain.MemeGroup;
 import cringe.baza.domain.TelegramUser;

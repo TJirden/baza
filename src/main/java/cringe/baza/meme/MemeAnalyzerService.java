@@ -1,4 +1,6 @@
-package cringe.baza.bot.service;
+package cringe.baza.meme;
+
+import cringe.baza.bot.service.TelegramFileService;
 
 import java.io.IOException;
 import java.io.InputStream;

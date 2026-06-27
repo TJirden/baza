@@ -1,4 +1,7 @@
-package cringe.baza.bot.service;
+package cringe.baza.meme;
+
+import cringe.baza.user.UserSessionService;
+import cringe.baza.bot.service.TelegramService;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;

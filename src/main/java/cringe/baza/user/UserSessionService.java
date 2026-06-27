@@ -1,4 +1,4 @@
-package cringe.baza.bot.service;
+package cringe.baza.user;
 
 import cringe.baza.bot.model.UserState;
 import java.util.Map;

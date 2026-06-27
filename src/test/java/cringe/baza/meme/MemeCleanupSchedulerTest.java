@@ -1,4 +1,4 @@
-package cringe.baza.bot.service;
+package cringe.baza.meme;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;

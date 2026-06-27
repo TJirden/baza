@@ -1,9 +1,9 @@
 package cringe.baza.controller;
 
 import cringe.baza.bot.service.TelegramFileService;
-import cringe.baza.bot.service.TelegramUserService;
+import cringe.baza.user.TelegramUserService;
 import cringe.baza.model.Meme;
-import cringe.baza.processor.MemeProcessor;
+import cringe.baza.meme.MemeProcessor;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;

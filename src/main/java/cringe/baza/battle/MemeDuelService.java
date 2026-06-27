@@ -1,4 +1,6 @@
-package cringe.baza.bot.service;
+package cringe.baza.battle;
+
+import cringe.baza.bot.service.TelegramService;
 
 import cringe.baza.bot.model.DuelActionResult;
 import cringe.baza.domain.MemeBattle;

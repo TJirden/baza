@@ -1,4 +1,4 @@
-package cringe.baza.processor;
+package cringe.baza.meme;
 
 import cringe.baza.model.IdRepository;
 import cringe.baza.model.Meme;

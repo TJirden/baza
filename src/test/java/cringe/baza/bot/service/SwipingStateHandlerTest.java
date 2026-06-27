@@ -1,5 +1,7 @@
 package cringe.baza.bot.service;
 
+import cringe.baza.user.UserSessionService;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 

@@ -3,7 +3,7 @@ package cringe.baza.bot.command;
 import com.pengrad.telegrambot.model.Update;
 import com.pengrad.telegrambot.request.BaseRequest;
 import com.pengrad.telegrambot.request.SendMessage;
-import cringe.baza.bot.service.TelegramUserService;
+import cringe.baza.user.TelegramUserService;
 import cringe.baza.domain.MemeGroup;
 import cringe.baza.domain.TelegramUser;
 import cringe.baza.repository.jpa.MemeGroupRepository;

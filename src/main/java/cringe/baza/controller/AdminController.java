@@ -1,11 +1,11 @@
 package cringe.baza.controller;
 
-import cringe.baza.bot.service.MemeModerationService;
+import cringe.baza.meme.MemeModerationService;
 import cringe.baza.domain.MemeGroup;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.domain.TelegramUser;
 import cringe.baza.model.Meme;
-import cringe.baza.processor.MemeProcessor;
+import cringe.baza.meme.MemeProcessor;
 import cringe.baza.repository.jpa.MemeGroupRepository;
 import cringe.baza.repository.jpa.TelegramUserRepository;
 import java.util.List;

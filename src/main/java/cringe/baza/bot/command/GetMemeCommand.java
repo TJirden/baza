@@ -7,7 +7,7 @@ import com.pengrad.telegrambot.request.BaseRequest;
 import com.pengrad.telegrambot.request.SendMessage;
 import com.pengrad.telegrambot.request.SendPhoto;
 import cringe.baza.model.Meme;
-import cringe.baza.processor.MemeProcessor;
+import cringe.baza.meme.MemeProcessor;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

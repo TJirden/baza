@@ -1,4 +1,4 @@
-package cringe.baza.bot.service;
+package cringe.baza.user;
 
 import static org.junit.jupiter.api.Assertions.*;
 

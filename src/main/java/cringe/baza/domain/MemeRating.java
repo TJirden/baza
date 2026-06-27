@@ -7,6 +7,9 @@ import jakarta.persistence.MapsId;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -20,9 +23,9 @@ public class MemeRating {
     @Id
     private String memeId;
 
-    @com.fasterxml.jackson.annotation.JsonIgnore
     @OneToOne
     @MapsId
+    @JsonIgnore
     @JoinColumn(name = "meme_id")
     private MemeModeration meme;
 

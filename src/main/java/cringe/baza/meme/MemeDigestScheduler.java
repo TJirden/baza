@@ -1,4 +1,4 @@
-package cringe.baza.bot.service;
+package cringe.baza.meme;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

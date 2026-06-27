@@ -1,4 +1,7 @@
-package cringe.baza.bot.service;
+package cringe.baza.meme;
+
+import cringe.baza.user.UserSessionService;
+import cringe.baza.bot.service.TelegramService;
 
 import cringe.baza.bot.model.UserState;
 import cringe.baza.domain.MemeModeration;

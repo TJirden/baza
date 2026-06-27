@@ -1,5 +1,10 @@
 package cringe.baza.bot.service;
 
+import cringe.baza.meme.SwipeService;
+import cringe.baza.meme.MemeModerationService;
+import cringe.baza.battle.MemeBattleService;
+import cringe.baza.user.UserSessionService;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 

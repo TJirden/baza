@@ -1,5 +1,11 @@
 package cringe.baza.bot.service;
 
+import cringe.baza.meme.SwipeService;
+import cringe.baza.meme.MemeModerationService;
+import cringe.baza.battle.MemeDuelService;
+import cringe.baza.battle.MemeBattleService;
+import cringe.baza.user.UserSessionService;
+
 import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.CallbackQuery;
 import com.pengrad.telegrambot.request.AnswerCallbackQuery;

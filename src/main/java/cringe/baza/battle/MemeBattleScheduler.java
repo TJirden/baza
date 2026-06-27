@@ -1,4 +1,4 @@
-package cringe.baza.bot.service;
+package cringe.baza.battle;
 
 import cringe.baza.domain.MemeBattle;
 import cringe.baza.repository.jpa.MemeBattleRepository;
