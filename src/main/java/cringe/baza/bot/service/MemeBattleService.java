@@ -12,6 +12,7 @@ import cringe.baza.repository.jpa.MemeBattleVoteRepository;
 import cringe.baza.repository.jpa.MemeModerationRepository;
 import cringe.baza.repository.jpa.MemeRatingRepository;
 import cringe.baza.repository.jpa.TelegramUserRepository;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -329,7 +330,7 @@ public class MemeBattleService {
                 totalVotes,
                 Math.max(
                         0,
-                        java.time.Duration.between(LocalDateTime.now(), battle.getEndTime())
+                        Duration.between(LocalDateTime.now(), battle.getEndTime())
                                 .toMinutes()));
     }
 }

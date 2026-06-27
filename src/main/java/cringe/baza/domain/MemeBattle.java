@@ -2,6 +2,8 @@ package cringe.baza.domain;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -38,4 +40,8 @@ public class MemeBattle {
     private Integer bet = 0;
     private Boolean challengerMemeSelected = false;
     private Boolean opponentMemeSelected = false;
+
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "battleId")
+    private List<MemeBattleVote> votes = new ArrayList<>();
 }

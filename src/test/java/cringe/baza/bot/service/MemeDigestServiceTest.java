@@ -143,14 +143,14 @@ class MemeDigestServiceTest {
         ChatResponse mockResponse = mock(ChatResponse.class);
         Generation mockGeneration = mock(Generation.class);
         AssistantMessage mockMessage = mock(AssistantMessage.class);
-        when(mockMessage.getText()).thenReturn("Generated digest text from Gemini!");
+        when(mockMessage.getText()).thenReturn("Generated digest text!");
         when(mockGeneration.getOutput()).thenReturn(mockMessage);
         when(mockResponse.getResult()).thenReturn(mockGeneration);
         when(chatModel.call(any(Prompt.class))).thenReturn(mockResponse);
 
         String result = digestService.generateDigestTextWithAI(groupName, List.of(meme));
 
-        assertEquals("Generated digest text from Gemini!", result);
+        assertEquals("Generated digest text!", result);
     }
 
     @Test

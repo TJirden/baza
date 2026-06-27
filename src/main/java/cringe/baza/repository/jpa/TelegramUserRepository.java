@@ -2,6 +2,7 @@ package cringe.baza.repository.jpa;
 
 import cringe.baza.domain.TelegramUser;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -12,5 +13,5 @@ public interface TelegramUserRepository extends JpaRepository<TelegramUser, Long
 
     List<TelegramUser> findTop5ByOrderByPointsDesc();
 
-    java.util.Optional<TelegramUser> findByUsernameIgnoreCase(String username);
+    Optional<TelegramUser> findByUsernameIgnoreCase(String username);
 }

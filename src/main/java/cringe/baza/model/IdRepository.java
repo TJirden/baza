@@ -19,4 +19,6 @@ public interface IdRepository {
     void quarantine(String id);
 
     Optional<Meme> findById(String id);
+
+    List<Meme> findAll(int limit, int offset);
 }

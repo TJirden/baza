@@ -6,6 +6,7 @@ import cringe.baza.domain.TelegramUser;
 import cringe.baza.repository.jpa.MemeBattleRepository;
 import cringe.baza.repository.jpa.MemeModerationRepository;
 import cringe.baza.repository.jpa.TelegramUserRepository;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -97,7 +98,7 @@ public class MemeDuelLifecycleService {
                 totalVotes,
                 Math.max(
                         0,
-                        java.time.Duration.between(LocalDateTime.now(), battle.getEndTime())
+                        Duration.between(LocalDateTime.now(), battle.getEndTime())
                                 .toMinutes()));
     }
 

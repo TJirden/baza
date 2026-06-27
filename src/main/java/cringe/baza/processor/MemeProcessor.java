@@ -7,6 +7,7 @@ import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -29,14 +30,7 @@ public class MemeProcessor {
     }
 
     public List<Meme> getAll(int limit, int offset) {
-        if (idRepository instanceof cringe.baza.repository.MemeVectorRepository repo) {
-            return repo.findAll(limit, offset).stream()
-                    .map(row -> row.get("id").toString())
-                    .map(idRepository::findById)
-                    .flatMap(Optional::stream)
-                    .toList();
-        }
-        return List.of();
+        return idRepository.findAll(limit, offset);
     }
 
     public List<Meme> getMemesByDescription(String description, int limit, Long userId, List<Long> userGroupIds) {
@@ -70,6 +64,7 @@ public class MemeProcessor {
         return idRepository.findById(id);
     }
 
+    @Transactional
     public boolean delete(String id) {
         idRepository.delete(id);
         return true;
@@ -90,9 +85,8 @@ public class MemeProcessor {
         }
 
         Meme meme = memeOpt.get();
-        idRepository.delete(id);
-        idRepository.save(
-                id,
+        delete(id);
+        save(
                 new Meme(
                         id,
                         newDescription,
