@@ -1,9 +1,7 @@
 package cringe.baza.meme;
 
-import cringe.baza.user.UserSessionService;
-import cringe.baza.bot.service.TelegramService;
-
 import cringe.baza.bot.model.UserState;
+import cringe.baza.bot.service.TelegramService;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.domain.MemeRating;
 import cringe.baza.domain.MemeSwipeVote;
@@ -13,6 +11,7 @@ import cringe.baza.repository.jpa.MemeModerationRepository;
 import cringe.baza.repository.jpa.MemeRatingRepository;
 import cringe.baza.repository.jpa.MemeSwipeVoteRepository;
 import cringe.baza.repository.jpa.TelegramUserRepository;
+import cringe.baza.user.UserSessionService;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -122,7 +121,7 @@ public class SwipeService {
 
         String caption = String.format(
                 "🔥 *Оценка мема*\n\n" + "%s\n\n" + "📊 Текущий рейтинг: *%d ELO* (В: %d, П: %d)",
-                (meme.getDescription() != null ? meme.getDescription() : "Без описания"),
+                meme.getDescription() != null ? meme.getDescription() : "Без описания",
                 rating.getEloRating(),
                 rating.getWins(),
                 rating.getLosses());

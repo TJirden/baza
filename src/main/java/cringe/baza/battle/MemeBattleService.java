@@ -1,19 +1,10 @@
 package cringe.baza.battle;
 
 import cringe.baza.bot.service.TelegramService;
-
-import cringe.baza.domain.MemeBattle;
-import cringe.baza.domain.MemeBattleVote;
-import cringe.baza.domain.MemeModeration;
-import cringe.baza.domain.MemeRating;
-import cringe.baza.domain.TelegramUser;
+import cringe.baza.domain.*;
 import cringe.baza.model.MemeVisibility;
 import cringe.baza.model.ModerationStatus;
-import cringe.baza.repository.jpa.MemeBattleRepository;
-import cringe.baza.repository.jpa.MemeBattleVoteRepository;
-import cringe.baza.repository.jpa.MemeModerationRepository;
-import cringe.baza.repository.jpa.MemeRatingRepository;
-import cringe.baza.repository.jpa.TelegramUserRepository;
+import cringe.baza.repository.jpa.*;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -293,17 +284,17 @@ public class MemeBattleService {
             }
 
             resultText.append(String.format(
-                    "%s: *%.1f%%* (%d голосов) | ELO: %d -> *%d*\n",
+                    "%s: *%.1f%%* (%d голосов) | ELO: %d -> *%d*%n",
                     nameA, pctA, battle.getVotesA(), oldEloA, newEloA));
             resultText.append(String.format(
-                    "%s: *%.1f%%* (%d голосов) | ELO: %d -> *%d*\n\n",
+                    "%s: *%.1f%%* (%d голосов) | ELO: %d -> *%d*%n%n",
                     nameB, pctB, battle.getVotesB(), oldEloB, newEloB));
 
             if (winnerId != null) {
                 String winnerTag = winnerId.equals(memeA.getId()) ? nameA : nameB;
                 resultText.append("🏆 Победитель: *").append(winnerTag).append("*!");
                 if (isDuel) {
-                    resultText.append(String.format("\n💰 Выигрыш: *%d очков*!", bet));
+                    resultText.append(String.format("%n💰 Выигрыш: *%d очков*!", bet));
                 }
             } else {
                 resultText.append("🤝 Ничья!");

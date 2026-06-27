@@ -5,10 +5,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import cringe.baza.bot.service.TelegramFileService;
-import cringe.baza.user.TelegramUserService;
+import cringe.baza.meme.MemeProcessor;
 import cringe.baza.model.Meme;
 import cringe.baza.model.MemeVisibility;
-import cringe.baza.meme.MemeProcessor;
+import cringe.baza.user.TelegramUserService;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

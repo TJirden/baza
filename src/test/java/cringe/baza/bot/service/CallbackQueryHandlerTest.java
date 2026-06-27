@@ -1,24 +1,22 @@
 package cringe.baza.bot.service;
 
-import cringe.baza.meme.SwipeService;
-import cringe.baza.meme.MemeModerationService;
-import cringe.baza.battle.MemeDuelService;
-import cringe.baza.battle.MemeBattleService;
-import cringe.baza.user.UserSessionService;
-
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.CallbackQuery;
-import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.Chat;
+import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.User;
 import com.pengrad.telegrambot.request.AnswerCallbackQuery;
-import com.pengrad.telegrambot.request.BaseRequest;
+import cringe.baza.battle.MemeBattleService;
+import cringe.baza.battle.MemeDuelService;
 import cringe.baza.bot.model.DuelActionResult;
 import cringe.baza.bot.model.UserState;
+import cringe.baza.meme.MemeModerationService;
+import cringe.baza.meme.SwipeService;
 import cringe.baza.model.ReportStatus;
+import cringe.baza.user.UserSessionService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;

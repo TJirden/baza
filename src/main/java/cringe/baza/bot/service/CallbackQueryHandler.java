@@ -1,19 +1,18 @@
 package cringe.baza.bot.service;
 
-import cringe.baza.meme.SwipeService;
-import cringe.baza.meme.MemeModerationService;
-import cringe.baza.battle.MemeDuelService;
-import cringe.baza.battle.MemeBattleService;
-import cringe.baza.user.UserSessionService;
-
 import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.CallbackQuery;
 import com.pengrad.telegrambot.request.AnswerCallbackQuery;
 import com.pengrad.telegrambot.request.BaseRequest;
 import com.pengrad.telegrambot.request.EditMessageCaption;
+import cringe.baza.battle.MemeBattleService;
+import cringe.baza.battle.MemeDuelService;
 import cringe.baza.bot.model.DuelActionResult;
 import cringe.baza.bot.model.UserState;
+import cringe.baza.meme.MemeModerationService;
+import cringe.baza.meme.SwipeService;
 import cringe.baza.model.ReportStatus;
+import cringe.baza.user.UserSessionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -179,7 +178,7 @@ public class CallbackQueryHandler {
             }
         }
 
-        if (data != null && "swipe_stop".equals(data)) {
+        if ("swipe_stop".equals(data)) {
             try {
                 long userId = callbackQuery.from().id();
                 long chatId = callbackQuery.message().chat().id();

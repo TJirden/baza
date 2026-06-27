@@ -1,9 +1,9 @@
 package cringe.baza.controller;
 
 import cringe.baza.bot.service.TelegramFileService;
-import cringe.baza.user.TelegramUserService;
-import cringe.baza.model.Meme;
 import cringe.baza.meme.MemeProcessor;
+import cringe.baza.model.Meme;
+import cringe.baza.user.TelegramUserService;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,7 +40,9 @@ public class MemeController {
     public ResponseEntity<InputStreamResource> getImage(@PathVariable String fileId) {
         try {
             InputStream is = fileService.downloadFile(fileId);
-            if (is == null) return ResponseEntity.notFound().build();
+            if (is == null) {
+                return ResponseEntity.notFound().build();
+            }
 
             return ResponseEntity.ok().contentType(MediaType.IMAGE_JPEG).body(new InputStreamResource(is));
         } catch (Exception e) {

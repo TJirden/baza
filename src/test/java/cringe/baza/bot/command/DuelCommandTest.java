@@ -1,5 +1,8 @@
 package cringe.baza.bot.command;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
 import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.Chat;
 import com.pengrad.telegrambot.model.Message;
@@ -23,9 +26,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class DuelCommandTest {
@@ -273,7 +273,8 @@ class DuelCommandTest {
 
         when(telegramUserRepository.findByUsernameIgnoreCase("opponent")).thenReturn(Optional.of(opponent));
         when(telegramUserRepository.findById(200L)).thenReturn(Optional.of(challenger));
-        when(memeModerationRepository.findByOwnerIdAndStatusAndVisibility(200L, ModerationStatus.APPROVED, MemeVisibility.PUBLIC))
+        when(memeModerationRepository.findByOwnerIdAndStatusAndVisibility(
+                        200L, ModerationStatus.APPROVED, MemeVisibility.PUBLIC))
                 .thenReturn(List.of());
 
         SendMessage response = (SendMessage) duelCommand.handle(update);
@@ -304,14 +305,17 @@ class DuelCommandTest {
 
         when(telegramUserRepository.findByUsernameIgnoreCase("opponent")).thenReturn(Optional.of(opponent));
         when(telegramUserRepository.findById(200L)).thenReturn(Optional.of(challenger));
-        when(memeModerationRepository.findByOwnerIdAndStatusAndVisibility(200L, ModerationStatus.APPROVED, MemeVisibility.PUBLIC))
+        when(memeModerationRepository.findByOwnerIdAndStatusAndVisibility(
+                        200L, ModerationStatus.APPROVED, MemeVisibility.PUBLIC))
                 .thenReturn(List.of(new MemeModeration()));
-        when(memeModerationRepository.findByOwnerIdAndStatusAndVisibility(300L, ModerationStatus.APPROVED, MemeVisibility.PUBLIC))
+        when(memeModerationRepository.findByOwnerIdAndStatusAndVisibility(
+                        300L, ModerationStatus.APPROVED, MemeVisibility.PUBLIC))
                 .thenReturn(List.of());
 
         SendMessage response = (SendMessage) duelCommand.handle(update);
         assertNotNull(response);
-        assertTrue(response.getParameters().get("text").toString().contains("нет одобренных публичных мемов для участия"));
+        assertTrue(
+                response.getParameters().get("text").toString().contains("нет одобренных публичных мемов для участия"));
     }
 
     @Test
@@ -339,9 +343,11 @@ class DuelCommandTest {
 
         when(telegramUserRepository.findByUsernameIgnoreCase("opponent")).thenReturn(Optional.of(opponent));
         when(telegramUserRepository.findById(200L)).thenReturn(Optional.of(challenger));
-        when(memeModerationRepository.findByOwnerIdAndStatusAndVisibility(200L, ModerationStatus.APPROVED, MemeVisibility.PUBLIC))
+        when(memeModerationRepository.findByOwnerIdAndStatusAndVisibility(
+                        200L, ModerationStatus.APPROVED, MemeVisibility.PUBLIC))
                 .thenReturn(List.of(new MemeModeration()));
-        when(memeModerationRepository.findByOwnerIdAndStatusAndVisibility(300L, ModerationStatus.APPROVED, MemeVisibility.PUBLIC))
+        when(memeModerationRepository.findByOwnerIdAndStatusAndVisibility(
+                        300L, ModerationStatus.APPROVED, MemeVisibility.PUBLIC))
                 .thenReturn(List.of(new MemeModeration()));
 
         when(memeBattleRepository.save(any(MemeBattle.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -387,9 +393,11 @@ class DuelCommandTest {
 
         when(telegramUserRepository.findByUsernameIgnoreCase("opponent")).thenReturn(Optional.of(opponent));
         when(telegramUserRepository.findById(200L)).thenReturn(Optional.of(challenger));
-        when(memeModerationRepository.findByOwnerIdAndStatusAndVisibility(200L, ModerationStatus.APPROVED, MemeVisibility.PUBLIC))
+        when(memeModerationRepository.findByOwnerIdAndStatusAndVisibility(
+                        200L, ModerationStatus.APPROVED, MemeVisibility.PUBLIC))
                 .thenReturn(List.of(new MemeModeration()));
-        when(memeModerationRepository.findByOwnerIdAndStatusAndVisibility(300L, ModerationStatus.APPROVED, MemeVisibility.PUBLIC))
+        when(memeModerationRepository.findByOwnerIdAndStatusAndVisibility(
+                        300L, ModerationStatus.APPROVED, MemeVisibility.PUBLIC))
                 .thenReturn(List.of(new MemeModeration()));
 
         when(memeBattleRepository.save(any(MemeBattle.class))).thenAnswer(inv -> inv.getArgument(0));

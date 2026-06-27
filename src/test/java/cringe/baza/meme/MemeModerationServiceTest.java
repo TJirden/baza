@@ -1,13 +1,11 @@
 package cringe.baza.meme;
 
-import cringe.baza.bot.service.TelegramService;
-
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import cringe.baza.bot.service.TelegramService;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.model.ReportStatus;
-import cringe.baza.meme.MemeProcessor;
 import cringe.baza.repository.jpa.MemeModerationRepository;
 import cringe.baza.repository.jpa.MemeReportRepository;
 import org.junit.jupiter.api.BeforeEach;

@@ -1,14 +1,17 @@
 package cringe.baza.bot.command;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
 import com.pengrad.telegrambot.model.Chat;
 import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.Update;
 import com.pengrad.telegrambot.model.User;
 import com.pengrad.telegrambot.request.SendMessage;
-import cringe.baza.meme.MemeDigestService;
 import cringe.baza.domain.MemeGroup;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.domain.TelegramUser;
+import cringe.baza.meme.MemeDigestService;
 import cringe.baza.repository.jpa.MemeGroupRepository;
 import cringe.baza.repository.jpa.TelegramUserRepository;
 import java.util.List;
@@ -18,9 +21,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class DigestCommandTest {

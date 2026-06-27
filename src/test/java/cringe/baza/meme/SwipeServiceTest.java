@@ -1,12 +1,10 @@
 package cringe.baza.meme;
 
-import cringe.baza.user.UserSessionService;
-import cringe.baza.bot.service.TelegramService;
-
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import cringe.baza.bot.model.UserState;
+import cringe.baza.bot.service.TelegramService;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.domain.MemeRating;
 import cringe.baza.domain.TelegramUser;
@@ -16,6 +14,7 @@ import cringe.baza.repository.jpa.MemeModerationRepository;
 import cringe.baza.repository.jpa.MemeRatingRepository;
 import cringe.baza.repository.jpa.MemeSwipeVoteRepository;
 import cringe.baza.repository.jpa.TelegramUserRepository;
+import cringe.baza.user.UserSessionService;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;

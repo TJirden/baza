@@ -1,14 +1,13 @@
 package cringe.baza.bot.service;
 
-import cringe.baza.user.TelegramUserService;
-
 import com.pengrad.telegrambot.model.InlineQuery;
 import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import com.pengrad.telegrambot.model.request.InlineQueryResultCachedPhoto;
 import com.pengrad.telegrambot.request.AnswerInlineQuery;
-import cringe.baza.model.Meme;
 import cringe.baza.meme.MemeProcessor;
+import cringe.baza.model.Meme;
+import cringe.baza.user.TelegramUserService;
 import java.util.List;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;

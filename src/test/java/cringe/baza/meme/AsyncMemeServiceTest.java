@@ -1,18 +1,16 @@
 package cringe.baza.meme;
 
-import cringe.baza.bot.service.TelegramFileService;
-import cringe.baza.bot.service.TelegramService;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import com.pengrad.telegrambot.model.PhotoSize;
+import cringe.baza.bot.service.TelegramFileService;
+import cringe.baza.bot.service.TelegramService;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.model.Meme;
 import cringe.baza.model.MemeVisibility;
 import cringe.baza.model.ModerationStatus;
-import cringe.baza.meme.MemeProcessor;
 import cringe.baza.repository.MemeVectorRepository;
 import cringe.baza.repository.jpa.MemeModerationRepository;
 import java.util.List;

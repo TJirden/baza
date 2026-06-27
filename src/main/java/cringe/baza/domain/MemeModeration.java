@@ -60,12 +60,6 @@ public class MemeModeration {
     @OneToMany(mappedBy = "meme", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<MemeSwipeVote> swipeVotes = new ArrayList<>();
 
-    @OneToMany(mappedBy = "memeA", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<MemeBattle> battlesAsA = new ArrayList<>();
-
-    @OneToMany(mappedBy = "memeB", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<MemeBattle> battlesAsB = new ArrayList<>();
-
     public MemeModeration(
             String id,
             String fileId,

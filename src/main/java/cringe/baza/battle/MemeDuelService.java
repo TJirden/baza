@@ -1,8 +1,7 @@
 package cringe.baza.battle;
 
-import cringe.baza.bot.service.TelegramService;
-
 import cringe.baza.bot.model.DuelActionResult;
+import cringe.baza.bot.service.TelegramService;
 import cringe.baza.domain.MemeBattle;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.domain.TelegramUser;
@@ -78,7 +77,7 @@ public class MemeDuelService {
 
         String opponentName = opponent.getUsername() != null ? "@" + opponent.getUsername() : opponent.getFirstName();
         String text = String.format(
-                "*Вызов принят игроком %s!*\n\nУчастники выбирают свои мемы в ЛС с ботом...", opponentName);
+                "*Вызов принят игроком %s!*%n%nУчастники выбирают свои мемы в ЛС с ботом...", opponentName);
         telegramService.editMessageTextWithMarkdown(battle.getTelegramChatId(), battle.getTelegramMessageId(), text);
 
         sendMemeSelectionPrivateMessage(challenger.getId(), battle.getId());
@@ -195,7 +194,7 @@ public class MemeDuelService {
             } else if (desc.length() > 30) {
                 desc = desc.substring(0, 27) + "...";
             }
-            sb.append(String.format("%d. %s\n", i + 1, desc));
+            sb.append(String.format("%d. %s%n", i + 1, desc));
         }
 
         try {

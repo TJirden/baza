@@ -1,15 +1,14 @@
 package cringe.baza.bot.service;
 
-import cringe.baza.user.TelegramUserService;
-
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.pengrad.telegrambot.model.InlineQuery;
 import com.pengrad.telegrambot.model.User;
 import com.pengrad.telegrambot.request.AnswerInlineQuery;
-import cringe.baza.model.Meme;
 import cringe.baza.meme.MemeProcessor;
+import cringe.baza.model.Meme;
+import cringe.baza.user.TelegramUserService;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

@@ -61,7 +61,7 @@ public class LeaderboardCommand implements Command {
                         .orElse("Без описания");
 
                 sb.append(String.format(
-                        "%d. ID: `%s` (%s) — *%d ELO* (В: %d, П: %d)\n",
+                        "%d. ID: `%s` (%s) — *%d ELO* (В: %d, П: %d)%n",
                         i + 1, rating.getMemeId(), desc, rating.getEloRating(), rating.getWins(), rating.getLosses()));
             }
         }
@@ -74,7 +74,7 @@ public class LeaderboardCommand implements Command {
                 TelegramUser user = topUsers.get(i);
                 String name = user.getUsername() != null ? ("@" + user.getUsername()) : user.getFirstName();
                 sb.append(String.format(
-                        "%d. %s — *%d очков* (%d побед)\n",
+                        "%d. %s — *%d очков* (%d побед)%n",
                         i + 1,
                         name,
                         user.getPoints() != null ? user.getPoints() : 0,

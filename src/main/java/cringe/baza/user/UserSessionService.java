@@ -35,8 +35,7 @@ public class UserSessionService {
     }
 
     public String getTempData(Long chatId) {
-        String data = tempData.get(chatId);
-        return data;
+        return tempData.get(chatId);
     }
 
     public void clearTempData(Long chatId) {

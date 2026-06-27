@@ -1,5 +1,6 @@
 package cringe.baza.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -7,6 +8,8 @@ import java.util.List;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 @Entity
 @Table(name = "meme_battles")
@@ -21,17 +24,19 @@ public class MemeBattle {
     @Column(name = "meme_aid")
     private String memeAId;
 
-    @com.fasterxml.jackson.annotation.JsonIgnore
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "meme_aid", referencedColumnName = "id", insertable = false, updatable = false)
+    @OnDelete(action = OnDeleteAction.SET_NULL)
     private MemeModeration memeA;
 
     @Column(name = "meme_bid")
     private String memeBId;
 
-    @com.fasterxml.jackson.annotation.JsonIgnore
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "meme_bid", referencedColumnName = "id", insertable = false, updatable = false)
+    @OnDelete(action = OnDeleteAction.SET_NULL)
     private MemeModeration memeB;
 
     private Integer votesA = 0;

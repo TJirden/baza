@@ -1,22 +1,13 @@
 package cringe.baza.battle;
 
-import cringe.baza.bot.service.TelegramService;
-
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import cringe.baza.domain.MemeBattle;
-import cringe.baza.domain.MemeBattleVote;
-import cringe.baza.domain.MemeModeration;
-import cringe.baza.domain.MemeRating;
-import cringe.baza.domain.TelegramUser;
+import cringe.baza.bot.service.TelegramService;
+import cringe.baza.domain.*;
 import cringe.baza.model.MemeVisibility;
 import cringe.baza.model.ModerationStatus;
-import cringe.baza.repository.jpa.MemeBattleRepository;
-import cringe.baza.repository.jpa.MemeBattleVoteRepository;
-import cringe.baza.repository.jpa.MemeModerationRepository;
-import cringe.baza.repository.jpa.MemeRatingRepository;
-import cringe.baza.repository.jpa.TelegramUserRepository;
+import cringe.baza.repository.jpa.*;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -82,8 +73,26 @@ class MemeBattleServiceTest {
 
     @Test
     void startBattle_SuccessWithVectorSearch() {
-        MemeModeration memeA = new MemeModeration("meme-1", "file-1", "desc1", "ocr", 10L, MemeVisibility.PUBLIC, "tags", ModerationStatus.APPROVED, null);
-        MemeModeration memeB = new MemeModeration("meme-2", "file-2", "desc2", "ocr", 20L, MemeVisibility.PUBLIC, "tags", ModerationStatus.APPROVED, null);
+        MemeModeration memeA = new MemeModeration(
+                "meme-1",
+                "file-1",
+                "desc1",
+                "ocr",
+                10L,
+                MemeVisibility.PUBLIC,
+                "tags",
+                ModerationStatus.APPROVED,
+                null);
+        MemeModeration memeB = new MemeModeration(
+                "meme-2",
+                "file-2",
+                "desc2",
+                "ocr",
+                20L,
+                MemeVisibility.PUBLIC,
+                "tags",
+                ModerationStatus.APPROVED,
+                null);
 
         when(memeModerationRepository.findByStatusAndVisibility(ModerationStatus.APPROVED, MemeVisibility.PUBLIC))
                 .thenReturn(List.of(memeA, memeB));
@@ -97,7 +106,8 @@ class MemeBattleServiceTest {
             b.setId(100L);
             return b;
         });
-        lenient().when(telegramService.sendBattleStart(anyLong(), any(), any(), any(), any(), any(), anyLong()))
+        lenient()
+                .when(telegramService.sendBattleStart(anyLong(), any(), any(), any(), any(), any(), anyLong()))
                 .thenReturn(999);
 
         memeBattleService.startBattle(123L);
@@ -109,20 +119,40 @@ class MemeBattleServiceTest {
 
     @Test
     void startBattle_VectorSearchThrowsAndFallbackSuccess() {
-        MemeModeration memeA = new MemeModeration("meme-1", "file-1", "desc1", "ocr", 10L, MemeVisibility.PUBLIC, "tags", ModerationStatus.APPROVED, null);
-        MemeModeration memeB = new MemeModeration("meme-2", "file-2", "desc2", "ocr", 20L, MemeVisibility.PUBLIC, "tags", ModerationStatus.APPROVED, null);
+        MemeModeration memeA = new MemeModeration(
+                "meme-1",
+                "file-1",
+                "desc1",
+                "ocr",
+                10L,
+                MemeVisibility.PUBLIC,
+                "tags",
+                ModerationStatus.APPROVED,
+                null);
+        MemeModeration memeB = new MemeModeration(
+                "meme-2",
+                "file-2",
+                "desc2",
+                "ocr",
+                20L,
+                MemeVisibility.PUBLIC,
+                "tags",
+                ModerationStatus.APPROVED,
+                null);
 
         when(memeModerationRepository.findByStatusAndVisibility(ModerationStatus.APPROVED, MemeVisibility.PUBLIC))
                 .thenReturn(List.of(memeA, memeB));
 
-        when(vectorStore.similaritySearch(any(SearchRequest.class))).thenThrow(new RuntimeException("Vector store unavailable"));
+        when(vectorStore.similaritySearch(any(SearchRequest.class)))
+                .thenThrow(new RuntimeException("Vector store unavailable"));
 
         when(memeBattleRepository.save(any(MemeBattle.class))).thenAnswer(invocation -> {
             MemeBattle b = invocation.getArgument(0);
             b.setId(100L);
             return b;
         });
-        lenient().when(telegramService.sendBattleStart(anyLong(), any(), any(), any(), any(), any(), anyLong()))
+        lenient()
+                .when(telegramService.sendBattleStart(anyLong(), any(), any(), any(), any(), any(), anyLong()))
                 .thenReturn(999);
 
         memeBattleService.startBattle(123L);
@@ -132,8 +162,26 @@ class MemeBattleServiceTest {
 
     @Test
     void startBattle_FailedToSendVoteCard() {
-        MemeModeration memeA = new MemeModeration("meme-1", "file-1", "desc1", "ocr", 10L, MemeVisibility.PUBLIC, "tags", ModerationStatus.APPROVED, null);
-        MemeModeration memeB = new MemeModeration("meme-2", "file-2", "desc2", "ocr", 20L, MemeVisibility.PUBLIC, "tags", ModerationStatus.APPROVED, null);
+        MemeModeration memeA = new MemeModeration(
+                "meme-1",
+                "file-1",
+                "desc1",
+                "ocr",
+                10L,
+                MemeVisibility.PUBLIC,
+                "tags",
+                ModerationStatus.APPROVED,
+                null);
+        MemeModeration memeB = new MemeModeration(
+                "meme-2",
+                "file-2",
+                "desc2",
+                "ocr",
+                20L,
+                MemeVisibility.PUBLIC,
+                "tags",
+                ModerationStatus.APPROVED,
+                null);
 
         when(memeModerationRepository.findByStatusAndVisibility(ModerationStatus.APPROVED, MemeVisibility.PUBLIC))
                 .thenReturn(List.of(memeA, memeB));
@@ -143,7 +191,8 @@ class MemeBattleServiceTest {
             b.setId(100L);
             return b;
         });
-        lenient().when(telegramService.sendBattleStart(anyLong(), any(), any(), any(), any(), any(), anyLong()))
+        lenient()
+                .when(telegramService.sendBattleStart(anyLong(), any(), any(), any(), any(), any(), anyLong()))
                 .thenReturn(null);
 
         memeBattleService.startBattle(123L);
@@ -248,8 +297,10 @@ class MemeBattleServiceTest {
         battle.setTelegramChatId(12345L);
         battle.setTelegramMessageId(67890);
 
-        MemeModeration memeA = new MemeModeration("meme-A", "file-A", "Cat meme", "", 111L, MemeVisibility.PUBLIC, "", ModerationStatus.APPROVED, null);
-        MemeModeration memeB = new MemeModeration("meme-B", "file-B", "Dog meme", "", 222L, MemeVisibility.PUBLIC, "", ModerationStatus.APPROVED, null);
+        MemeModeration memeA = new MemeModeration(
+                "meme-A", "file-A", "Cat meme", "", 111L, MemeVisibility.PUBLIC, "", ModerationStatus.APPROVED, null);
+        MemeModeration memeB = new MemeModeration(
+                "meme-B", "file-B", "Dog meme", "", 222L, MemeVisibility.PUBLIC, "", ModerationStatus.APPROVED, null);
 
         when(memeModerationRepository.findById("meme-A")).thenReturn(Optional.of(memeA));
         when(memeModerationRepository.findById("meme-B")).thenReturn(Optional.of(memeB));
@@ -313,8 +364,10 @@ class MemeBattleServiceTest {
         battle.setTelegramChatId(12345L);
         battle.setTelegramMessageId(67890);
 
-        MemeModeration memeA = new MemeModeration("meme-A", "file-A", "Cat meme", "", 111L, MemeVisibility.PUBLIC, "", ModerationStatus.APPROVED, null);
-        MemeModeration memeB = new MemeModeration("meme-B", "file-B", "Dog meme", "", 222L, MemeVisibility.PUBLIC, "", ModerationStatus.APPROVED, null);
+        MemeModeration memeA = new MemeModeration(
+                "meme-A", "file-A", "Cat meme", "", 111L, MemeVisibility.PUBLIC, "", ModerationStatus.APPROVED, null);
+        MemeModeration memeB = new MemeModeration(
+                "meme-B", "file-B", "Dog meme", "", 222L, MemeVisibility.PUBLIC, "", ModerationStatus.APPROVED, null);
 
         when(memeModerationRepository.findById("meme-A")).thenReturn(Optional.of(memeA));
         when(memeModerationRepository.findById("meme-B")).thenReturn(Optional.of(memeB));
@@ -361,8 +414,10 @@ class MemeBattleServiceTest {
         battle.setVotesA(5);
         battle.setVotesB(5);
 
-        MemeModeration memeA = new MemeModeration("meme-A", "file-A", "Cat meme", "", 111L, MemeVisibility.PUBLIC, "", ModerationStatus.APPROVED, null);
-        MemeModeration memeB = new MemeModeration("meme-B", "file-B", "Dog meme", "", 222L, MemeVisibility.PUBLIC, "", ModerationStatus.APPROVED, null);
+        MemeModeration memeA = new MemeModeration(
+                "meme-A", "file-A", "Cat meme", "", 111L, MemeVisibility.PUBLIC, "", ModerationStatus.APPROVED, null);
+        MemeModeration memeB = new MemeModeration(
+                "meme-B", "file-B", "Dog meme", "", 222L, MemeVisibility.PUBLIC, "", ModerationStatus.APPROVED, null);
 
         when(memeModerationRepository.findById("meme-A")).thenReturn(Optional.of(memeA));
         when(memeModerationRepository.findById("meme-B")).thenReturn(Optional.of(memeB));

@@ -1,10 +1,9 @@
 package cringe.baza.battle;
 
-import cringe.baza.bot.service.TelegramService;
-
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import cringe.baza.bot.service.TelegramService;
 import cringe.baza.domain.MemeBattle;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.domain.TelegramUser;
@@ -69,8 +68,10 @@ class MemeDuelLifecycleServiceTest {
         battle.setOpponentId(222L);
         battle.setTelegramChatId(999L);
 
-        MemeModeration memeA = new MemeModeration("meme-A", "file-A", "desc-A", "", 111L, MemeVisibility.PUBLIC, "", ModerationStatus.APPROVED, null);
-        MemeModeration memeB = new MemeModeration("meme-B", "file-B", "desc-B", "", 222L, MemeVisibility.PUBLIC, "", ModerationStatus.APPROVED, null);
+        MemeModeration memeA = new MemeModeration(
+                "meme-A", "file-A", "desc-A", "", 111L, MemeVisibility.PUBLIC, "", ModerationStatus.APPROVED, null);
+        MemeModeration memeB = new MemeModeration(
+                "meme-B", "file-B", "desc-B", "", 222L, MemeVisibility.PUBLIC, "", ModerationStatus.APPROVED, null);
 
         TelegramUser challenger = new TelegramUser();
         challenger.setId(111L);
@@ -84,7 +85,8 @@ class MemeDuelLifecycleServiceTest {
         when(memeModerationRepository.findById("meme-B")).thenReturn(Optional.of(memeB));
         when(telegramUserRepository.findById(111L)).thenReturn(Optional.of(challenger));
         when(telegramUserRepository.findById(222L)).thenReturn(Optional.of(opponent));
-        when(telegramService.sendBattleStart(eq(999L), eq("file-A"), anyString(), eq("file-B"), anyString(), anyString(), eq(100L)))
+        when(telegramService.sendBattleStart(
+                        eq(999L), eq("file-A"), anyString(), eq("file-B"), anyString(), anyString(), eq(100L)))
                 .thenReturn(777);
 
         memeDuelLifecycleService.startActiveDuel(battle);
@@ -104,8 +106,10 @@ class MemeDuelLifecycleServiceTest {
         battle.setOpponentId(222L);
         battle.setTelegramChatId(999L);
 
-        MemeModeration memeA = new MemeModeration("meme-A", "file-A", "desc-A", "", 111L, MemeVisibility.PUBLIC, "", ModerationStatus.APPROVED, null);
-        MemeModeration memeB = new MemeModeration("meme-B", "file-B", "desc-B", "", 222L, MemeVisibility.PUBLIC, "", ModerationStatus.APPROVED, null);
+        MemeModeration memeA = new MemeModeration(
+                "meme-A", "file-A", "desc-A", "", 111L, MemeVisibility.PUBLIC, "", ModerationStatus.APPROVED, null);
+        MemeModeration memeB = new MemeModeration(
+                "meme-B", "file-B", "desc-B", "", 222L, MemeVisibility.PUBLIC, "", ModerationStatus.APPROVED, null);
 
         TelegramUser challenger = new TelegramUser();
         challenger.setId(111L);
@@ -119,7 +123,8 @@ class MemeDuelLifecycleServiceTest {
         when(memeModerationRepository.findById("meme-B")).thenReturn(Optional.of(memeB));
         when(telegramUserRepository.findById(111L)).thenReturn(Optional.of(challenger));
         when(telegramUserRepository.findById(222L)).thenReturn(Optional.of(opponent));
-        when(telegramService.sendBattleStart(eq(999L), eq("file-A"), anyString(), eq("file-B"), anyString(), anyString(), eq(100L)))
+        when(telegramService.sendBattleStart(
+                        eq(999L), eq("file-A"), anyString(), eq("file-B"), anyString(), anyString(), eq(100L)))
                 .thenReturn(null);
 
         memeDuelLifecycleService.startActiveDuel(battle);

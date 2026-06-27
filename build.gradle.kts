@@ -3,6 +3,7 @@ plugins {
 	id("org.springframework.boot") version "4.0.3"
 	id("io.spring.dependency-management") version "1.1.7"
 	id("com.diffplug.spotless") version "6.25.0"
+	id("org.openrewrite.rewrite") version "7.23.0"
 }
 
 group = "cringe"
@@ -48,6 +49,7 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+	rewrite("org.openrewrite.recipe:rewrite-static-analysis:2.37.0")
 }
 
 tasks.withType<Test> {
@@ -62,3 +64,8 @@ spotless {
 		endWithNewline()
 	}
 }
+
+configure<org.openrewrite.gradle.RewriteExtension> {
+	activeRecipe("org.openrewrite.staticanalysis.CommonStaticAnalysis")
+}
+

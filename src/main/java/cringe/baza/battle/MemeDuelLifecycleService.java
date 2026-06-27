@@ -1,7 +1,6 @@
 package cringe.baza.battle;
 
 import cringe.baza.bot.service.TelegramService;
-
 import cringe.baza.domain.MemeBattle;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.domain.TelegramUser;
@@ -142,7 +141,7 @@ public class MemeDuelLifecycleService {
         }
 
         if (duel.getTelegramChatId() != null && duel.getTelegramMessageId() != null) {
-            String text = String.format("*Дуэль отменена!*\n_%s_", reason);
+            String text = String.format("*Дуэль отменена!*%n_%s_", reason);
             telegramService.editMessageTextWithMarkdown(duel.getTelegramChatId(), duel.getTelegramMessageId(), text);
         }
     }
@@ -177,7 +176,7 @@ public class MemeDuelLifecycleService {
                 telegramService.sendMessageWithMarkdown(
                         loser.getId(),
                         String.format(
-                                "*Дуэль проиграна!*\nТвой мем уступил мему %s.\nСписано *-%d очков* ставки.",
+                                "*Дуэль проиграна!*%nТвой мем уступил мему %s.%nСписано *-%d очков* ставки.",
                                 winner.getUsername() != null ? "@" + winner.getUsername() : winner.getFirstName(),
                                 bet));
             } catch (Exception e) {

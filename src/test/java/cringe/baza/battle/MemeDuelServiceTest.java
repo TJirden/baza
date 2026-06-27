@@ -1,11 +1,10 @@
 package cringe.baza.battle;
 
-import cringe.baza.bot.service.TelegramService;
-
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import cringe.baza.bot.model.DuelActionResult;
+import cringe.baza.bot.service.TelegramService;
 import cringe.baza.domain.MemeBattle;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.domain.TelegramUser;
@@ -148,8 +147,18 @@ class MemeDuelServiceTest {
         when(telegramUserRepository.findById(10L)).thenReturn(Optional.of(challenger));
         when(telegramUserRepository.findById(20L)).thenReturn(Optional.of(opponent));
 
-        MemeModeration meme = new MemeModeration("meme-1", "file-1", "description", "ocr", 10L, MemeVisibility.PUBLIC, "tags", ModerationStatus.APPROVED, null);
-        when(memeModerationRepository.findByOwnerIdAndStatusAndVisibility(anyLong(), eq(ModerationStatus.APPROVED), eq(MemeVisibility.PUBLIC)))
+        MemeModeration meme = new MemeModeration(
+                "meme-1",
+                "file-1",
+                "description",
+                "ocr",
+                10L,
+                MemeVisibility.PUBLIC,
+                "tags",
+                ModerationStatus.APPROVED,
+                null);
+        when(memeModerationRepository.findByOwnerIdAndStatusAndVisibility(
+                        anyLong(), eq(ModerationStatus.APPROVED), eq(MemeVisibility.PUBLIC)))
                 .thenReturn(List.of(meme));
 
         assertEquals(DuelActionResult.SUCCESS, memeDuelService.acceptDuel(1L, 20L));

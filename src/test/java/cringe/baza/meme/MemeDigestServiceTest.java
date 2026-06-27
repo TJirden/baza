@@ -1,10 +1,9 @@
 package cringe.baza.meme;
 
-import cringe.baza.bot.service.TelegramService;
-
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import cringe.baza.bot.service.TelegramService;
 import cringe.baza.domain.MemeGroup;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.domain.MemeRating;

@@ -1,7 +1,6 @@
 package cringe.baza.meme;
 
 import cringe.baza.bot.service.TelegramFileService;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
@@ -114,7 +113,7 @@ public class MemeAnalyzerService {
             description = descBuilder.toString().trim();
         }
 
-        if (ocrText.equalsIgnoreCase("EMPTY") || ocrText.equalsIgnoreCase("<EMPTY>")) {
+        if ("EMPTY".equalsIgnoreCase(ocrText) || "<EMPTY>".equalsIgnoreCase(ocrText)) {
             ocrText = "";
         }
 
