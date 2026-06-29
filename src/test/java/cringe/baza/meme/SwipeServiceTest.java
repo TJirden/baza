@@ -154,7 +154,7 @@ class SwipeServiceTest {
         assertEquals(1008, rating.getEloRating());
         assertEquals(1, rating.getWins());
         assertEquals(101, owner.getPoints());
-        verify(memeRatingRepository).save(rating);
+        verify(memeModerationRepository).save(meme);
         verify(telegramUserRepository).save(owner);
     }
 
@@ -176,7 +176,7 @@ class SwipeServiceTest {
         verify(swipeVoteRepository).save(any());
         assertEquals(992, rating.getEloRating());
         assertEquals(1, rating.getLosses());
-        verify(memeRatingRepository).save(rating);
+        verify(memeModerationRepository).save(meme);
         verifyNoInteractions(telegramUserRepository);
     }
 

@@ -73,8 +73,18 @@ public class SwipeService {
         swipeVoteRepository.save(swipeVote);
         MemeModeration meme = memeOpt.get();
 
-        MemeRating rating =
-                memeRatingRepository.findById(memeId).orElse(new MemeRating(memeId, defaultElo, 0, 0, null));
+        MemeRating rating = memeRatingRepository.findById(memeId).orElseGet(() -> {
+            MemeRating r = new MemeRating(memeId, defaultElo, 0, 0, null);
+            r.setMeme(meme);
+            meme.setRating(r);
+            return r;
+        });
+        if (rating.getMeme() == null) {
+            rating.setMeme(meme);
+        }
+        if (meme.getRating() == null) {
+            meme.setRating(rating);
+        }
 
         int oldElo = rating.getEloRating();
         double expected = 1.0 / (1.0 + Math.pow(10.0, (1000.0 - oldElo) / 400.0));
@@ -99,7 +109,7 @@ public class SwipeService {
             rating.setLosses(rating.getLosses() + 1);
         }
 
-        memeRatingRepository.save(rating);
+        memeModerationRepository.save(meme);
         log.info("Meme {} ELO updated: {} -> {}", memeId, oldElo, newElo);
     }
 
@@ -115,9 +125,11 @@ public class SwipeService {
         }
 
         MemeModeration meme = memeOpt.get();
-        MemeRating rating = memeRatingRepository
-                .findById(meme.getId())
-                .orElse(new MemeRating(meme.getId(), defaultElo, 0, 0, null));
+        MemeRating rating = memeRatingRepository.findById(meme.getId()).orElseGet(() -> {
+            MemeRating r = new MemeRating(meme.getId(), defaultElo, 0, 0, null);
+            r.setMeme(meme);
+            return r;
+        });
 
         String caption = String.format(
                 "🔥 *Оценка мема*\n\n" + "%s\n\n" + "📊 Текущий рейтинг: *%d ELO* (В: %d, П: %d)",

@@ -196,12 +196,32 @@ public class MemeBattleService {
         battle.setWinnerMemeId(winnerId);
         memeBattleRepository.save(battle);
 
-        MemeRating ratingA = memeRatingRepository
-                .findById(memeA.getId())
-                .orElse(new MemeRating(memeA.getId(), defaultElo, 0, 0, null));
-        MemeRating ratingB = memeRatingRepository
-                .findById(memeB.getId())
-                .orElse(new MemeRating(memeB.getId(), defaultElo, 0, 0, null));
+        MemeRating ratingA = memeRatingRepository.findById(memeA.getId()).orElseGet(() -> {
+            MemeRating r = new MemeRating(memeA.getId(), defaultElo, 0, 0, null);
+            r.setMeme(memeA);
+            memeA.setRating(r);
+            return r;
+        });
+        MemeRating ratingB = memeRatingRepository.findById(memeB.getId()).orElseGet(() -> {
+            MemeRating r = new MemeRating(memeB.getId(), defaultElo, 0, 0, null);
+            r.setMeme(memeB);
+            memeB.setRating(r);
+            return r;
+        });
+
+        if (ratingA.getMeme() == null) {
+            ratingA.setMeme(memeA);
+        }
+        if (memeA.getRating() == null) {
+            memeA.setRating(ratingA);
+        }
+
+        if (ratingB.getMeme() == null) {
+            ratingB.setMeme(memeB);
+        }
+        if (memeB.getRating() == null) {
+            memeB.setRating(ratingB);
+        }
 
         int oldEloA = ratingA.getEloRating();
         int oldEloB = ratingB.getEloRating();
@@ -226,8 +246,8 @@ public class MemeBattleService {
         ratingB.setEloRating(newEloB);
         ratingB.setLastBattleTime(LocalDateTime.now());
 
-        memeRatingRepository.save(ratingA);
-        memeRatingRepository.save(ratingB);
+        memeModerationRepository.save(memeA);
+        memeModerationRepository.save(memeB);
 
         boolean isDuel = "DUEL".equals(battle.getBattleType());
         int bet = battle.getBet() != null ? battle.getBet() : 0;

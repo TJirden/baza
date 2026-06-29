@@ -324,17 +324,20 @@ class MemeBattleServiceTest {
         assertEquals("meme-A", battle.getWinnerMemeId());
         verify(memeBattleRepository).save(battle);
 
-        ArgumentCaptor<MemeRating> ratingCaptor = ArgumentCaptor.forClass(MemeRating.class);
-        verify(memeRatingRepository, times(2)).save(ratingCaptor.capture());
+        ArgumentCaptor<MemeModeration> memeCaptor = ArgumentCaptor.forClass(MemeModeration.class);
+        verify(memeModerationRepository, times(2)).save(memeCaptor.capture());
 
-        MemeRating savedRatingA = ratingCaptor.getAllValues().stream()
-                .filter(r -> "meme-A".equals(r.getMemeId()))
+        MemeModeration savedMemeA = memeCaptor.getAllValues().stream()
+                .filter(m -> "meme-A".equals(m.getId()))
                 .findFirst()
                 .orElseThrow();
-        MemeRating savedRatingB = ratingCaptor.getAllValues().stream()
-                .filter(r -> "meme-B".equals(r.getMemeId()))
+        MemeModeration savedMemeB = memeCaptor.getAllValues().stream()
+                .filter(m -> "meme-B".equals(m.getId()))
                 .findFirst()
                 .orElseThrow();
+
+        MemeRating savedRatingA = savedMemeA.getRating();
+        MemeRating savedRatingB = savedMemeB.getRating();
 
         assertEquals(1016, savedRatingA.getEloRating());
         assertEquals(1, savedRatingA.getWins());
