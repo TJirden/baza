@@ -7,7 +7,6 @@ import cringe.baza.analysis.MemeDescriptionService;
 import cringe.baza.analysis.MemeOcrService;
 import cringe.baza.bot.service.TelegramFileService;
 import cringe.baza.domain.CensorshipResult;
-import cringe.baza.exception.CensorshipUnavailableException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
@@ -16,6 +15,7 @@ import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.content.Media;
+import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
@@ -28,9 +28,16 @@ public class AiMemeAnalysisService implements MemeCensorshipService, MemeDescrip
     private final ChatModel chatModel;
     private final TelegramFileService fileService;
     private final Cache<String, MemeAnalysisResult> cache =
-            Caffeine.newBuilder().softValues().build();
+            Caffeine.newBuilder()
+                    .maximumSize(1000)
+                    .expireAfterWrite(java.time.Duration.ofHours(24))
+                    .softValues()
+                    .build();
 
-    private record MemeAnalysisResult(CensorshipResult censorshipResult, String description, String ocrText) {}
+    private final BeanOutputConverter<MemeAnalysisResult> converter =
+            new BeanOutputConverter<>(MemeAnalysisResult.class);
+
+    public record MemeAnalysisResult(CensorshipResult censorshipResult, String description, String ocrText) {}
 
     @Override
     public CensorshipResult checkCensorship(String fileId) {
@@ -48,7 +55,15 @@ public class AiMemeAnalysisService implements MemeCensorshipService, MemeDescrip
     }
 
     private MemeAnalysisResult getAnalysisResult(String fileId) {
-        return cache.get(fileId, this::performAnalysis);
+        try {
+            return cache.get(fileId, this::performAnalysis);
+        } catch (Exception e) {
+            Throwable cause = e.getCause() != null ? e.getCause() : e;
+            return new MemeAnalysisResult(
+                    new CensorshipResult(false, "Сбой при анализе ИИ: " + cause.getMessage()),
+                    "Описание временно недоступно",
+                    "");
+        }
     }
 
     private MemeAnalysisResult performAnalysis(String fileId) {
@@ -57,7 +72,7 @@ public class AiMemeAnalysisService implements MemeCensorshipService, MemeDescrip
             String reply = callModelForAnalysis(imageResource);
             return parseReply(reply);
         } catch (Exception e) {
-            throw new CensorshipUnavailableException("Ошибка при анализе мема через ИИ: " + e.getMessage(), e);
+            throw e instanceof RuntimeException ? (RuntimeException) e : new RuntimeException(e);
         }
     }
 
@@ -76,13 +91,10 @@ public class AiMemeAnalysisService implements MemeCensorshipService, MemeDescrip
                 .text(
                         "You are an AI meme analyzer. Perform censorship check, OCR text extraction, and visual description.\n"
                                 + "Block criteria for censorship: explicit erotica/nudity (NSFW), violence, severe insults, hate speech, or drug/illegal substance promotion.\n"
-                                + "For OCR: Extract any visible text exactly.\n"
+                                + "For OCR: Extract any visible text exactly. If there is no text, set ocrText to an empty string.\n"
                                 + "For description: Describe the visual context in Russian.\n"
-                                + "Respond STRICTLY in this format:\n"
-                                + "SAFE: <TRUE or FALSE>\n"
-                                + "REASON: <short reason for block in Russian if FALSE, otherwise empty>\n"
-                                + "TEXT: <exact text on image or EMPTY if none>\n"
-                                + "DESCRIPTION: <visual description of the image in Russian>")
+                                + "You must respond strictly in JSON format matching the schema instructions below.\n"
+                                + converter.getFormat())
                 .media(new Media(MimeTypeUtils.IMAGE_JPEG, imageResource))
                 .build();
 
@@ -91,51 +103,37 @@ public class AiMemeAnalysisService implements MemeCensorshipService, MemeDescrip
     }
 
     private MemeAnalysisResult parseReply(String reply) {
-        boolean safe = true;
-        String reason = "";
-        String ocrText = "";
-        String description = "";
+        if (reply == null || reply.isBlank()) {
+            return new MemeAnalysisResult(new CensorshipResult(false, "ИИ вернул пустой ответ"), "Без описания", "");
+        }
+        try {
+            MemeAnalysisResult parsed = converter.convert(reply);
 
-        if (reply != null) {
-            String[] lines = reply.split("\n");
-            StringBuilder descBuilder = new StringBuilder();
-            boolean buildingDesc = false;
+            CensorshipResult parsedCens = parsed.censorshipResult();
+            boolean safe = parsedCens != null && parsedCens.safe();
+            String reason = parsedCens != null && parsedCens.reason() != null
+                    ? parsedCens.reason().trim()
+                    : "";
 
-            for (String line : lines) {
-                String trimmed = line.trim();
-                if (trimmed.toUpperCase().startsWith("SAFE:")) {
-                    String val = trimmed.substring(5).trim().toUpperCase();
-                    if (val.contains("FALSE")) {
-                        safe = false;
-                    }
-                    buildingDesc = false;
-                } else if (trimmed.toUpperCase().startsWith("REASON:")) {
-                    reason = trimmed.substring(7).trim();
-                    buildingDesc = false;
-                } else if (trimmed.toUpperCase().startsWith("TEXT:")) {
-                    ocrText = trimmed.substring(5).trim();
-                    buildingDesc = false;
-                } else if (trimmed.toUpperCase().startsWith("DESCRIPTION:")) {
-                    descBuilder.append(trimmed.substring(12).trim());
-                    buildingDesc = true;
-                } else if (buildingDesc) {
-                    if (!descBuilder.isEmpty()) {
-                        descBuilder.append("\n");
-                    }
-                    descBuilder.append(trimmed);
-                }
+            if (!safe && reason.isBlank()) {
+                reason = "Заблокировано ИИ-цензурой";
             }
-            description = descBuilder.toString().trim();
-        }
 
-        if ("EMPTY".equalsIgnoreCase(ocrText) || "<EMPTY>".equalsIgnoreCase(ocrText)) {
-            ocrText = "";
-        }
+            String description =
+                    parsed.description() != null ? parsed.description().trim() : "Без описания";
+            if (description.isBlank()) {
+                description = "Без описания";
+            }
 
-        if (description.isBlank()) {
-            description = "Без описания";
-        }
+            String ocrText = parsed.ocrText() != null ? parsed.ocrText().trim() : "";
+            if ("EMPTY".equalsIgnoreCase(ocrText) || "<EMPTY>".equalsIgnoreCase(ocrText)) {
+                ocrText = "";
+            }
 
-        return new MemeAnalysisResult(new CensorshipResult(safe, reason), description, ocrText);
+            return new MemeAnalysisResult(new CensorshipResult(safe, reason), description, ocrText);
+        } catch (Exception e) {
+            return new MemeAnalysisResult(
+                    new CensorshipResult(false, "Ошибка разбора JSON: " + e.getMessage()), "Без описания", "");
+        }
     }
 }

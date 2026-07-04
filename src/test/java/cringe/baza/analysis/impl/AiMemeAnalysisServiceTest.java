@@ -46,8 +46,8 @@ class AiMemeAnalysisServiceTest {
 
         ChatResponse mockResponse = mock(ChatResponse.class);
         Generation mockGeneration = mock(Generation.class);
-        AssistantMessage assistantMessage =
-                new AssistantMessage("SAFE: TRUE\nREASON: \nTEXT: Hello World\nDESCRIPTION: A funny meme description");
+        AssistantMessage assistantMessage = new AssistantMessage(
+                "{\"censorshipResult\":{\"safe\":true,\"reason\":\"\"},\"description\":\"A funny meme description\",\"ocrText\":\"Hello World\"}");
 
         when(mockResponse.getResult()).thenReturn(mockGeneration);
         when(mockGeneration.getOutput()).thenReturn(assistantMessage);
@@ -82,8 +82,8 @@ class AiMemeAnalysisServiceTest {
 
         ChatResponse mockResponse = mock(ChatResponse.class);
         Generation mockGeneration = mock(Generation.class);
-        AssistantMessage assistantMessage =
-                new AssistantMessage("SAFE: TRUE\nREASON: \nTEXT: Hello World\nDESCRIPTION: A funny meme description");
+        AssistantMessage assistantMessage = new AssistantMessage(
+                "{\"censorshipResult\":{\"safe\":true,\"reason\":\"\"},\"description\":\"A funny meme description\",\"ocrText\":\"Hello World\"}");
 
         when(mockResponse.getResult()).thenReturn(mockGeneration);
         when(mockGeneration.getOutput()).thenReturn(assistantMessage);
@@ -110,6 +110,86 @@ class AiMemeAnalysisServiceTest {
         assertEquals("A funny meme description", description2);
 
         // Should have called the AI model again (total of 2 times)
+        verify(chatModel, times(2)).call(any(Prompt.class));
+    }
+
+    @Test
+    void testFallbackOnParsingError() throws IOException {
+        String fileId = "test-file-err";
+        byte[] dummyBytes = new byte[] {1, 2, 3};
+
+        when(fileService.downloadFile(fileId)).thenReturn(new ByteArrayInputStream(dummyBytes));
+
+        ChatResponse mockResponse = mock(ChatResponse.class);
+        Generation mockGeneration = mock(Generation.class);
+        AssistantMessage assistantMessage = new AssistantMessage("INVALID JSON CONTENT");
+
+        when(mockResponse.getResult()).thenReturn(mockGeneration);
+        when(mockGeneration.getOutput()).thenReturn(assistantMessage);
+        when(chatModel.call(any(Prompt.class))).thenReturn(mockResponse);
+
+        CensorshipResult censorship = analysisService.checkCensorship(fileId);
+        assertFalse(censorship.safe());
+        assertTrue(censorship.reason().contains("Ошибка разбора JSON"));
+
+        String description = analysisService.generateDescription(fileId);
+        assertEquals("Без описания", description);
+
+        String ocrText = analysisService.extractText(fileId);
+        assertEquals("", ocrText);
+    }
+
+    @Test
+    void testFallbackOnChatModelException() throws IOException {
+        String fileId = "test-file-exc";
+        byte[] dummyBytes = new byte[] {1, 2, 3};
+
+        when(fileService.downloadFile(fileId)).thenReturn(new ByteArrayInputStream(dummyBytes));
+        when(chatModel.call(any(Prompt.class))).thenThrow(new RuntimeException("API Timeout"));
+
+        CensorshipResult censorship = analysisService.checkCensorship(fileId);
+        assertFalse(censorship.safe());
+        assertTrue(censorship.reason().contains("Сбой при анализе ИИ: API Timeout"));
+
+        String description = analysisService.generateDescription(fileId);
+        assertEquals("Описание временно недоступно", description);
+
+        String ocrText = analysisService.extractText(fileId);
+        assertEquals("", ocrText);
+    }
+
+    @Test
+    void testTransientFailureIsNotCached() throws IOException {
+        String fileId = "test-file-transient";
+        byte[] dummyBytes = new byte[] {1, 2, 3};
+
+        when(fileService.downloadFile(fileId)).thenAnswer(inv -> new ByteArrayInputStream(dummyBytes));
+
+        ChatResponse mockResponse = mock(ChatResponse.class);
+        Generation mockGeneration = mock(Generation.class);
+        AssistantMessage assistantMessage = new AssistantMessage(
+                "{\"censorshipResult\":{\"safe\":true,\"reason\":\"\"},\"description\":\"A funny meme description\",\"ocrText\":\"Hello World\"}");
+
+        when(mockResponse.getResult()).thenReturn(mockGeneration);
+        when(mockGeneration.getOutput()).thenReturn(assistantMessage);
+
+        when(chatModel.call(any(Prompt.class)))
+                .thenThrow(new RuntimeException("API Timeout"))
+                .thenReturn(mockResponse);
+
+        // 1. First call fails -> should return fallback
+        CensorshipResult censorship = analysisService.checkCensorship(fileId);
+        assertFalse(censorship.safe());
+        assertTrue(censorship.reason().contains("Сбой при анализе ИИ: API Timeout"));
+
+        // 2. Second call succeeds -> should hit ChatModel again and return actual description
+        String description = analysisService.generateDescription(fileId);
+        assertEquals("A funny meme description", description);
+
+        // 3. Third call should hit the cache (which now has the successful result)
+        String ocrText = analysisService.extractText(fileId);
+        assertEquals("Hello World", ocrText);
+
         verify(chatModel, times(2)).call(any(Prompt.class));
     }
 }
