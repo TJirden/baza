@@ -3,6 +3,8 @@ package cringe.baza.meme;
 import com.pengrad.telegrambot.model.PhotoSize;
 import cringe.baza.bot.service.TelegramFileService;
 import cringe.baza.bot.service.TelegramService;
+import cringe.baza.domain.CensorshipResult;
+import cringe.baza.domain.MemeAnalysis;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.model.Meme;
 import cringe.baza.model.MemeVisibility;
@@ -58,7 +60,7 @@ public class AsyncMemeService {
 
             try {
                 telegramService.editMessageText(chatId, messageIdToEdit, "Анализирую изображение с помощью ИИ...");
-                MemeAnalyzerService.MemeAnalysis analysis = memeAnalyzerService.analyzeMemeDetails(fileId);
+                MemeAnalysis analysis = memeAnalyzerService.analyzeMemeDetails(fileId);
                 ocrText = analysis.ocrText();
                 aiDescription = analysis.description();
             } catch (Exception e) {
@@ -161,7 +163,7 @@ public class AsyncMemeService {
             String groupIdsStr) {
 
         telegramService.editMessageText(chatId, messageIdToEdit, "Проверяю мем на цензуру с помощью ИИ...");
-        MemeAnalyzerService.CensorshipResult censorship = memeAnalyzerService.checkCensorship(fileId);
+        CensorshipResult censorship = memeAnalyzerService.checkCensorship(fileId);
 
         if (!censorship.safe()) {
             log.warn("Мем {} не прошел цензуру ИИ. Причина: {}", memeId, censorship.reason());

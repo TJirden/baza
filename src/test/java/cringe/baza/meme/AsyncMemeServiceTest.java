@@ -7,6 +7,8 @@ import static org.mockito.Mockito.*;
 import com.pengrad.telegrambot.model.PhotoSize;
 import cringe.baza.bot.service.TelegramFileService;
 import cringe.baza.bot.service.TelegramService;
+import cringe.baza.domain.CensorshipResult;
+import cringe.baza.domain.MemeAnalysis;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.model.Meme;
 import cringe.baza.model.MemeVisibility;
@@ -57,9 +59,8 @@ class AsyncMemeServiceTest {
 
         when(fileService.getImageFileId(photo)).thenReturn("file-123");
         when(memeAnalyzerService.analyzeMemeDetails("file-123"))
-                .thenReturn(new MemeAnalyzerService.MemeAnalysis("puppy text ocr", "puppy playing tag"));
-        when(memeAnalyzerService.checkCensorship("file-123"))
-                .thenReturn(new MemeAnalyzerService.CensorshipResult(true, ""));
+                .thenReturn(new MemeAnalysis("puppy text ocr", "puppy playing tag"));
+        when(memeAnalyzerService.checkCensorship("file-123")).thenReturn(new CensorshipResult(true, ""));
         when(memeVectorRepository.findDuplicateMemeId(anyString(), anyDouble())).thenReturn(Optional.empty());
         when(memeProcessor.save(any(Meme.class))).thenReturn("meme-uuid-1");
 
@@ -97,9 +98,8 @@ class AsyncMemeServiceTest {
 
         when(fileService.getImageFileId(photo)).thenReturn("file-123");
         when(memeAnalyzerService.analyzeMemeDetails("file-123"))
-                .thenReturn(new MemeAnalyzerService.MemeAnalysis("cat text ocr", "AI generated description of a cat"));
-        when(memeAnalyzerService.checkCensorship("file-123"))
-                .thenReturn(new MemeAnalyzerService.CensorshipResult(true, ""));
+                .thenReturn(new MemeAnalysis("cat text ocr", "AI generated description of a cat"));
+        when(memeAnalyzerService.checkCensorship("file-123")).thenReturn(new CensorshipResult(true, ""));
         when(memeVectorRepository.findDuplicateMemeId(anyString(), anyDouble())).thenReturn(Optional.empty());
         when(memeProcessor.save(any(Meme.class))).thenReturn("meme-uuid-1");
 
@@ -129,8 +129,7 @@ class AsyncMemeServiceTest {
 
         when(fileService.getImageFileId(photo)).thenReturn("file-123");
         when(memeAnalyzerService.analyzeMemeDetails("file-123")).thenThrow(new RuntimeException("AI offline"));
-        when(memeAnalyzerService.checkCensorship("file-123"))
-                .thenReturn(new MemeAnalyzerService.CensorshipResult(true, ""));
+        when(memeAnalyzerService.checkCensorship("file-123")).thenReturn(new CensorshipResult(true, ""));
         when(memeVectorRepository.findDuplicateMemeId(anyString(), anyDouble())).thenReturn(Optional.empty());
         when(memeProcessor.save(any(Meme.class))).thenReturn("meme-uuid-1");
 
@@ -159,9 +158,8 @@ class AsyncMemeServiceTest {
 
         when(fileService.getImageFileId(photo)).thenReturn("file-456");
         when(memeAnalyzerService.analyzeMemeDetails("file-456"))
-                .thenReturn(new MemeAnalyzerService.MemeAnalysis("cat text ocr", "cat jumping around"));
-        when(memeAnalyzerService.checkCensorship("file-456"))
-                .thenReturn(new MemeAnalyzerService.CensorshipResult(true, ""));
+                .thenReturn(new MemeAnalysis("cat text ocr", "cat jumping around"));
+        when(memeAnalyzerService.checkCensorship("file-456")).thenReturn(new CensorshipResult(true, ""));
         when(memeVectorRepository.findDuplicateMemeId(anyString(), anyDouble())).thenReturn(Optional.empty());
         when(memeProcessor.save(any(Meme.class))).thenReturn("meme-uuid-2");
 
@@ -192,9 +190,9 @@ class AsyncMemeServiceTest {
 
         when(fileService.getImageFileId(photo)).thenReturn("file-unsafe");
         when(memeAnalyzerService.analyzeMemeDetails("file-unsafe"))
-                .thenReturn(new MemeAnalyzerService.MemeAnalysis("unsafe text ocr", "unsafe image contents"));
+                .thenReturn(new MemeAnalysis("unsafe text ocr", "unsafe image contents"));
         when(memeAnalyzerService.checkCensorship("file-unsafe"))
-                .thenReturn(new MemeAnalyzerService.CensorshipResult(false, "Подозрение на NSFW"));
+                .thenReturn(new CensorshipResult(false, "Подозрение на NSFW"));
 
         asyncMemeService.saveMemeAsync(chatId, userId, photo, description, visibilityContext, messageIdToEdit);
 
@@ -223,10 +221,8 @@ class AsyncMemeServiceTest {
 
         when(fileService.getImageFileId(photo)).thenReturn("file-duplicate");
         when(memeAnalyzerService.analyzeMemeDetails("file-duplicate"))
-                .thenReturn(
-                        new MemeAnalyzerService.MemeAnalysis("duplicate text ocr", "duplicate content description"));
-        when(memeAnalyzerService.checkCensorship("file-duplicate"))
-                .thenReturn(new MemeAnalyzerService.CensorshipResult(true, ""));
+                .thenReturn(new MemeAnalysis("duplicate text ocr", "duplicate content description"));
+        when(memeAnalyzerService.checkCensorship("file-duplicate")).thenReturn(new CensorshipResult(true, ""));
         when(memeVectorRepository.findDuplicateMemeId(anyString(), anyDouble()))
                 .thenReturn(Optional.of("existing-meme-id-999"));
 

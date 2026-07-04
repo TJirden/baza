@@ -1,6 +1,8 @@
 package cringe.baza.meme;
 
 import cringe.baza.bot.service.TelegramFileService;
+import cringe.baza.domain.CensorshipResult;
+import cringe.baza.domain.MemeAnalysis;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
@@ -22,10 +24,6 @@ public class MemeAnalyzerService {
 
     private final ChatModel chatModel;
     private final TelegramFileService fileService;
-
-    public record MemeAnalysis(String ocrText, String description) {}
-
-    public record CensorshipResult(boolean safe, String reason) {}
 
     public MemeAnalysis analyzeMemeDetails(String fileId) {
         log.info("Начало детального анализа мема ИИ для fileId: {}", fileId);

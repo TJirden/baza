@@ -45,6 +45,7 @@ dependencies {
 	compileOnly("org.projectlombok:lombok")
     runtimeOnly("org.postgresql:postgresql")
     implementation("com.github.pengrad:java-telegram-bot-api:9.6.0")
+    implementation("com.github.ben-manes.caffeine:caffeine")
 	annotationProcessor("org.projectlombok:lombok")
 	testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
