@@ -20,6 +20,8 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class AiMemeAnalysisServiceTest {
@@ -35,6 +37,11 @@ class AiMemeAnalysisServiceTest {
     @BeforeEach
     void setUp() {
         analysisService = new AiMemeAnalysisService(chatModel, fileService);
+        ReflectionTestUtils.setField(
+                analysisService,
+                "systemPromptResource",
+                new ByteArrayResource("test-prompt {format}".getBytes())
+        );
     }
 
     @Test
@@ -130,7 +137,7 @@ class AiMemeAnalysisServiceTest {
 
         CensorshipResult censorship = analysisService.checkCensorship(fileId);
         assertFalse(censorship.safe());
-        assertTrue(censorship.reason().contains("Ошибка разбора JSON"));
+        assertEquals("Ошибка при анализе изображения", censorship.reason());
 
         String description = analysisService.generateDescription(fileId);
         assertEquals("Без описания", description);
@@ -149,7 +156,7 @@ class AiMemeAnalysisServiceTest {
 
         CensorshipResult censorship = analysisService.checkCensorship(fileId);
         assertFalse(censorship.safe());
-        assertTrue(censorship.reason().contains("Сбой при анализе ИИ: API Timeout"));
+        assertEquals("Ошибка при анализе изображения", censorship.reason());
 
         String description = analysisService.generateDescription(fileId);
         assertEquals("Описание временно недоступно", description);
@@ -180,7 +187,7 @@ class AiMemeAnalysisServiceTest {
         // 1. First call fails -> should return fallback
         CensorshipResult censorship = analysisService.checkCensorship(fileId);
         assertFalse(censorship.safe());
-        assertTrue(censorship.reason().contains("Сбой при анализе ИИ: API Timeout"));
+        assertEquals("Ошибка при анализе изображения", censorship.reason());
 
         // 2. Second call succeeds -> should hit ChatModel again and return actual description
         String description = analysisService.generateDescription(fileId);
@@ -191,5 +198,38 @@ class AiMemeAnalysisServiceTest {
         assertEquals("Hello World", ocrText);
 
         verify(chatModel, times(2)).call(any(Prompt.class));
+    }
+
+    @Test
+    void testParserHandlesMarkdownCodeBlocks() throws IOException {
+        String fileId = "test-file-md";
+        byte[] dummyBytes = new byte[] {1, 2, 3};
+
+        when(fileService.downloadFile(fileId)).thenReturn(new ByteArrayInputStream(dummyBytes));
+
+        ChatResponse mockResponse = mock(ChatResponse.class);
+        Generation mockGeneration = mock(Generation.class);
+        AssistantMessage assistantMessage = new AssistantMessage(
+                "```json\n" +
+                "{\n" +
+                "  \"censorshipResult\": {\n" +
+                "    \"safe\": true,\n" +
+                "    \"reason\": \"\"\n" +
+                "  },\n" +
+                "  \"description\": \"A funny meme description\",\n" +
+                "  \"ocrText\": \"Hello World\"\n" +
+                "}\n" +
+                "```");
+
+        when(mockResponse.getResult()).thenReturn(mockGeneration);
+        when(mockGeneration.getOutput()).thenReturn(assistantMessage);
+        when(chatModel.call(any(Prompt.class))).thenReturn(mockResponse);
+
+        CensorshipResult censorship = analysisService.checkCensorship(fileId);
+        assertTrue(censorship.safe());
+        assertEquals("", censorship.reason());
+
+        String description = analysisService.generateDescription(fileId);
+        assertEquals("A funny meme description", description);
     }
 }
