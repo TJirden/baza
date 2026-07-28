@@ -1,8 +1,5 @@
 package cringe.baza.meme;
 
-import cringe.baza.bot.service.TelegramFileService;
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,16 +18,15 @@ import org.springframework.util.MimeTypeUtils;
 public class MemeAnalyzerService {
 
     private final ChatModel chatModel;
-    private final TelegramFileService fileService;
 
     public record MemeAnalysis(String ocrText, String description) {}
 
     public record CensorshipResult(boolean safe, String reason) {}
 
-    public MemeAnalysis analyzeMemeDetails(String fileId) {
-        log.info("Начало детального анализа мема ИИ для fileId: {}", fileId);
+    public MemeAnalysis analyzeMemeDetails(byte[] imageBytes) {
+        log.info("Начало детального анализа мема ИИ ({} байт)", imageBytes.length);
         try {
-            Resource imageResource = getImageResource(fileId, "для анализа");
+            Resource imageResource = toResource(imageBytes);
             String reply = callModelForAnalysis(imageResource);
             return parseAnalysisReply(reply);
         } catch (Exception e) {
@@ -39,18 +35,18 @@ public class MemeAnalyzerService {
         }
     }
 
-    public String analyzeMeme(String fileId) {
-        MemeAnalysis analysis = analyzeMemeDetails(fileId);
+    public String analyzeMeme(byte[] imageBytes) {
+        MemeAnalysis analysis = analyzeMemeDetails(imageBytes);
         if (analysis.ocrText().isBlank()) {
             return analysis.description();
         }
         return analysis.description() + " [Текст]: " + analysis.ocrText();
     }
 
-    public CensorshipResult checkCensorship(String fileId) {
-        log.info("Запуск ИИ-цензуры для fileId: {}", fileId);
+    public CensorshipResult checkCensorship(byte[] imageBytes) {
+        log.info("Запуск ИИ-цензуры ({} байт)", imageBytes.length);
         try {
-            Resource imageResource = getImageResource(fileId, "для цензуры");
+            Resource imageResource = toResource(imageBytes);
             String reply = callModelForCensorship(imageResource);
             return parseCensorshipReply(reply);
         } catch (Exception e) {
@@ -59,14 +55,8 @@ public class MemeAnalyzerService {
         }
     }
 
-    private Resource getImageResource(String fileId, String context) throws IOException {
-        try (InputStream inputStream = fileService.downloadFile(fileId)) {
-            if (inputStream == null) {
-                throw new IOException("Не удалось скачать файл из Telegram " + context);
-            }
-            byte[] imageBytes = inputStream.readAllBytes();
-            return new ByteArrayResource(imageBytes);
-        }
+    private static Resource toResource(byte[] imageBytes) {
+        return new ByteArrayResource(imageBytes);
     }
 
     private String callModelForAnalysis(Resource imageResource) {

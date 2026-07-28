@@ -9,6 +9,7 @@ import cringe.baza.model.Meme;
 import cringe.baza.repository.jpa.MemeGroupRepository;
 import cringe.baza.repository.jpa.TelegramUserRepository;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -86,11 +87,16 @@ public class AdminController {
     }
 
     @PostMapping("/moderation/{id}/approve")
-    public ResponseEntity<Void> approveQuarantined(@PathVariable String id) {
-        if (moderationService.approveMeme(id)) {
-            return ResponseEntity.ok().build();
-        }
-        return ResponseEntity.notFound().build();
+    public ResponseEntity<?> approveQuarantined(@PathVariable String id) {
+        return switch (moderationService.approveMeme(id)) {
+            case MemeModerationService.ApprovalResult.Approved ignored ->
+                ResponseEntity.ok().build();
+            case MemeModerationService.ApprovalResult.NotFound ignored ->
+                ResponseEntity.notFound().build();
+            case MemeModerationService.ApprovalResult.DuplicateBlocked dup ->
+                ResponseEntity.status(409)
+                        .body(Map.of("status", "DUPLICATE_BLOCKED", "duplicateOf", dup.duplicateOf()));
+        };
     }
 
     @PostMapping("/moderation/{id}/reject")

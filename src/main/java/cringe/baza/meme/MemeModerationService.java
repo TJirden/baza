@@ -1,10 +1,12 @@
 package cringe.baza.meme;
 
 import cringe.baza.bot.service.TelegramService;
+import cringe.baza.domain.MemeImageHash;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.model.Meme;
 import cringe.baza.model.ModerationStatus;
 import cringe.baza.model.ReportStatus;
+import cringe.baza.repository.jpa.MemeImageHashRepository;
 import cringe.baza.repository.jpa.MemeModerationRepository;
 import cringe.baza.repository.jpa.MemeReportRepository;
 import java.util.ArrayList;
@@ -13,6 +15,7 @@ import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
@@ -22,34 +25,66 @@ public class MemeModerationService {
     private final MemeModerationRepository repository;
     private final MemeProcessor memeProcessor;
     private final MemeReportRepository memeReportRepository;
+    private final MemeImageHashRepository memeImageHashRepository;
     private final int complaintsThreshold;
+    private final int imagePhashThreshold;
 
     public MemeModerationService(
             TelegramService telegramService,
             MemeModerationRepository repository,
             MemeProcessor memeProcessor,
             MemeReportRepository memeReportRepository,
-            @Value("${app.bot.complaints-threshold}") int complaintsThreshold) {
+            MemeImageHashRepository memeImageHashRepository,
+            @Value("${app.bot.complaints-threshold}") int complaintsThreshold,
+            @Value("${app.dedup.image-phash-threshold}") int imagePhashThreshold) {
         this.telegramService = telegramService;
         this.repository = repository;
         this.memeProcessor = memeProcessor;
         this.memeReportRepository = memeReportRepository;
+        this.memeImageHashRepository = memeImageHashRepository;
         this.complaintsThreshold = complaintsThreshold;
+        this.imagePhashThreshold = imagePhashThreshold;
+    }
+
+    public sealed interface ApprovalResult {
+        record Approved() implements ApprovalResult {}
+
+        record NotFound() implements ApprovalResult {}
+
+        record DuplicateBlocked(String duplicateOf) implements ApprovalResult {}
     }
 
     public List<MemeModeration> getQuarantinedMemes() {
         return repository.findByStatus(ModerationStatus.QUARANTINED);
     }
 
-    public boolean approveMeme(String id) {
+    @Transactional
+    public ApprovalResult approveMeme(String id) {
         Optional<MemeModeration> moderationOpt = repository.findById(id);
         if (moderationOpt.isEmpty()) {
-            return false;
+            return new ApprovalResult.NotFound();
         }
 
         MemeModeration moderation = moderationOpt.get();
         if (ModerationStatus.APPROVED == moderation.getStatus()) {
-            return true;
+            return new ApprovalResult.Approved();
+        }
+
+        Optional<MemeImageHash> hashOpt = memeImageHashRepository.findById(id);
+        if (hashOpt.isPresent()) {
+            long imageHash = hashOpt.get().getImageHash();
+            Optional<String> duplicateIdOpt =
+                    memeImageHashRepository.findNearestApprovedExcluding(imageHash, imagePhashThreshold, id);
+            if (duplicateIdOpt.isPresent()) {
+                String duplicateId = duplicateIdOpt.get();
+                log.warn("Одобрение мема {} заблокировано: визуальный дубликат одобренного мема {}", id, duplicateId);
+                moderation.setStatus(ModerationStatus.QUARANTINED);
+                moderation.setModerationReason("Визуальный дубликат одобренного мема: " + duplicateId);
+                repository.save(moderation);
+                return new ApprovalResult.DuplicateBlocked(duplicateId);
+            }
+        } else {
+            log.warn("Визуальный хеш для мема {} не найден, проверка дубликатов при одобрении пропущена", id);
         }
 
         List<Long> groupIds = new ArrayList<>();
@@ -89,7 +124,7 @@ public class MemeModerationService {
                         e.getMessage());
             }
         }
-        return true;
+        return new ApprovalResult.Approved();
     }
 
     public boolean rejectMeme(String id, String reason) {
