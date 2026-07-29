@@ -4,18 +4,22 @@ import com.pengrad.telegrambot.model.PhotoSize;
 import cringe.baza.bot.service.TelegramFileService;
 import cringe.baza.bot.service.TelegramService;
 import cringe.baza.domain.MemeModeration;
+import cringe.baza.meme.phash.MemeImageHasher;
+import cringe.baza.model.IdRepository;
 import cringe.baza.model.Meme;
 import cringe.baza.model.MemeVisibility;
 import cringe.baza.model.ModerationStatus;
-import cringe.baza.repository.MemeVectorRepository;
-import cringe.baza.repository.jpa.MemeModerationRepository;
+import cringe.baza.repository.jpa.MemeImageHashRepository;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -28,8 +32,15 @@ public class AsyncMemeService {
     private final MemeProcessor memeProcessor;
     private final TelegramFileService fileService;
     private final MemeAnalyzerService memeAnalyzerService;
-    private final MemeVectorRepository memeVectorRepository;
-    private final MemeModerationRepository memeModerationRepository;
+    private final IdRepository memeRepository;
+    private final MemeImageHasher memeImageHasher;
+    private final MemeImageHashRepository memeImageHashRepository;
+
+    @Value("${app.dedup.text-threshold}")
+    private double textDedupThreshold;
+
+    @Value("${app.dedup.image-phash-threshold}")
+    private int imagePhashThreshold;
 
     @Async("memeAsyncExecutor")
     public void saveMemeAsync(
@@ -53,12 +64,35 @@ public class AsyncMemeService {
 
             String memeId = UUID.randomUUID().toString();
 
+            telegramService.editMessageText(chatId, messageIdToEdit, "Загружаю изображение...");
+            byte[] imageBytes = fileService.downloadFileBytes(fileId);
+            if (imageBytes == null || imageBytes.length == 0) {
+                throw new IOException("Не удалось скачать изображение из Telegram");
+            }
+
+            telegramService.editMessageText(chatId, messageIdToEdit, "Вычисляю визуальный хеш...");
+            OptionalLong imageHash = computeHashOrThrow(imageBytes);
+
+            if (checkImageDuplicateAndQuarantine(
+                    chatId,
+                    messageIdToEdit,
+                    memeId,
+                    fileId,
+                    description != null ? description : "",
+                    "",
+                    userId,
+                    visibility,
+                    groupIdsStr,
+                    imageHash.getAsLong())) {
+                return;
+            }
+
             String ocrText = "";
             String aiDescription = "";
 
             try {
                 telegramService.editMessageText(chatId, messageIdToEdit, "Анализирую изображение с помощью ИИ...");
-                MemeAnalyzerService.MemeAnalysis analysis = memeAnalyzerService.analyzeMemeDetails(fileId);
+                MemeAnalyzerService.MemeAnalysis analysis = memeAnalyzerService.analyzeMemeDetails(imageBytes);
                 ocrText = analysis.ocrText();
                 aiDescription = analysis.description();
             } catch (Exception e) {
@@ -88,7 +122,9 @@ public class AsyncMemeService {
                     ocrText,
                     userId,
                     visibility,
-                    groupIdsStr)) {
+                    groupIdsStr,
+                    imageBytes,
+                    imageHash.getAsLong())) {
                 return;
             }
 
@@ -101,7 +137,8 @@ public class AsyncMemeService {
                     ocrText,
                     userId,
                     visibility,
-                    groupIdsStr)) {
+                    groupIdsStr,
+                    imageHash.getAsLong())) {
                 return;
             }
 
@@ -115,7 +152,8 @@ public class AsyncMemeService {
                     userId,
                     visibility,
                     groupIds,
-                    groupIdsStr);
+                    groupIdsStr,
+                    imageHash);
 
         } catch (Exception e) {
             log.error("Критическая ошибка при асинхронном сохранении изображения: {}", e.getMessage(), e);
@@ -158,10 +196,12 @@ public class AsyncMemeService {
             String ocrText,
             long userId,
             MemeVisibility visibility,
-            String groupIdsStr) {
+            String groupIdsStr,
+            byte[] imageBytes,
+            long imageHash) {
 
         telegramService.editMessageText(chatId, messageIdToEdit, "Проверяю мем на цензуру с помощью ИИ...");
-        MemeAnalyzerService.CensorshipResult censorship = memeAnalyzerService.checkCensorship(fileId);
+        MemeAnalyzerService.CensorshipResult censorship = memeAnalyzerService.checkCensorship(imageBytes);
 
         if (!censorship.safe()) {
             log.warn("Мем {} не прошел цензуру ИИ. Причина: {}", memeId, censorship.reason());
@@ -175,12 +215,75 @@ public class AsyncMemeService {
                     groupIdsStr,
                     ModerationStatus.QUARANTINED,
                     "ИИ-цензура: " + censorship.reason());
-            memeModerationRepository.save(moderation);
+            memeRepository.saveQuarantined(moderation, OptionalLong.of(imageHash));
 
             String text = "*Мем помещен в карантин по соображениям ИИ-цензуры!*\n\n"
                     + "*Причина:* " + censorship.reason() + "\n"
                     + "Мем будет доступен только после ручного одобрения модератором.\n\n"
                     + "*ID мема:* `" + memeId + "`";
+
+            telegramService.editMessageTextWithMarkdown(chatId, messageIdToEdit, text);
+            return true;
+        }
+        return false;
+    }
+
+    private boolean checkImageDuplicateAndQuarantine(
+            long chatId,
+            int messageIdToEdit,
+            String memeId,
+            String fileId,
+            String finalDescription,
+            String ocrText,
+            long userId,
+            MemeVisibility visibility,
+            String groupIdsStr,
+            long imageHash) {
+
+        telegramService.editMessageText(chatId, messageIdToEdit, "Проверяю визуальные дубликаты...");
+        try {
+            Optional<String> duplicateIdOpt =
+                    memeImageHashRepository.findNearestApproved(imageHash, imagePhashThreshold);
+            if (duplicateIdOpt.isPresent()) {
+                String duplicateId = duplicateIdOpt.get();
+                log.warn("Обнаружен визуальный дубликат мема {}. Оригинал: {}", memeId, duplicateId);
+                MemeModeration moderation = new MemeModeration(
+                        memeId,
+                        fileId,
+                        finalDescription,
+                        ocrText,
+                        userId,
+                        visibility,
+                        groupIdsStr,
+                        ModerationStatus.QUARANTINED,
+                        "Визуальный дубликат мема: " + duplicateId);
+                memeRepository.saveQuarantined(moderation, OptionalLong.of(imageHash));
+
+                String text = "*Обнаружен визуальный дубликат оригинального мема!*\n\n"
+                        + "Ваш мем визуально совпадает с существующим мемом (ID: `" + duplicateId + "`).\n"
+                        + "Мем сохранен в карантин до подтверждения модератором.\n\n"
+                        + "*ID вашего мема:* `" + memeId + "`";
+
+                telegramService.editMessageTextWithMarkdown(chatId, messageIdToEdit, text);
+                return true;
+            }
+        } catch (Exception e) {
+            log.warn("Ошибка при визуальной проверке дубликатов мема {}: {}", memeId, e.getMessage());
+            MemeModeration moderation = new MemeModeration(
+                    memeId,
+                    fileId,
+                    finalDescription,
+                    ocrText,
+                    userId,
+                    visibility,
+                    groupIdsStr,
+                    ModerationStatus.QUARANTINED,
+                    "Ошибка визуальной проверки дубликатов: " + e.getMessage());
+            memeRepository.saveQuarantined(moderation, OptionalLong.of(imageHash));
+
+            String text = "*Не удалось проверить мем на визуальные дубликаты.*\n\n"
+                    + "Мем сохранен в карантин до подтверждения модератором.\n\n"
+                    + "*ID вашего мема:* `" + memeId + "`";
 
             telegramService.editMessageTextWithMarkdown(chatId, messageIdToEdit, text);
             return true;
@@ -197,10 +300,34 @@ public class AsyncMemeService {
             String ocrText,
             long userId,
             MemeVisibility visibility,
-            String groupIdsStr) {
+            String groupIdsStr,
+            long imageHash) {
 
         telegramService.editMessageText(chatId, messageIdToEdit, "Проверяю на наличие дубликатов в базе...");
-        Optional<String> duplicateIdOpt = memeVectorRepository.findDuplicateMemeId(finalDescription, 0.95);
+        Optional<String> duplicateIdOpt;
+        try {
+            duplicateIdOpt = memeRepository.findDuplicateMemeId(finalDescription, textDedupThreshold);
+        } catch (Exception e) {
+            log.warn("Ошибка при текстовой проверке дубликатов мема {}: {}", memeId, e.getMessage());
+            MemeModeration moderation = new MemeModeration(
+                    memeId,
+                    fileId,
+                    finalDescription,
+                    ocrText,
+                    userId,
+                    visibility,
+                    groupIdsStr,
+                    ModerationStatus.QUARANTINED,
+                    "Ошибка текстовой проверки дубликатов: " + e.getMessage());
+            memeRepository.saveQuarantined(moderation, OptionalLong.of(imageHash));
+
+            String text = "*Не удалось проверить мем на текстовые дубликаты.*\n\n"
+                    + "Мем сохранен в карантин до подтверждения модератором.\n\n"
+                    + "*ID вашего мема:* `" + memeId + "`";
+
+            telegramService.editMessageTextWithMarkdown(chatId, messageIdToEdit, text);
+            return true;
+        }
 
         if (duplicateIdOpt.isPresent()) {
             String duplicateId = duplicateIdOpt.get();
@@ -215,7 +342,7 @@ public class AsyncMemeService {
                     groupIdsStr,
                     ModerationStatus.QUARANTINED,
                     "Дубликат мема: " + duplicateId);
-            memeModerationRepository.save(moderation);
+            memeRepository.saveQuarantined(moderation, OptionalLong.of(imageHash));
 
             String text = "*Обнаружен дубликат оригинального мема!*\n\n"
                     + "Ваш мем совпадает с существующим мемом (ID: `" + duplicateId + "`).\n"
@@ -238,23 +365,12 @@ public class AsyncMemeService {
             long userId,
             MemeVisibility visibility,
             List<Long> groupIds,
-            String groupIdsStr) {
+            String groupIdsStr,
+            OptionalLong imageHash) {
 
-        String imageId =
-                memeProcessor.save(new Meme(memeId, finalDescription, ocrText, fileId, userId, visibility, groupIds));
+        String imageId = memeProcessor.save(
+                new Meme(memeId, finalDescription, ocrText, fileId, userId, visibility, groupIds), imageHash);
         log.info("Мем успешно сохранен и проиндексирован. ID: {}", imageId);
-
-        MemeModeration moderation = new MemeModeration(
-                memeId,
-                fileId,
-                finalDescription,
-                ocrText,
-                userId,
-                visibility,
-                groupIdsStr,
-                ModerationStatus.APPROVED,
-                null);
-        memeModerationRepository.save(moderation);
 
         String text = "*Мем успешно сохранен!*\n\n"
                 + "*ID*: `" + imageId + "`\n"
@@ -262,5 +378,13 @@ public class AsyncMemeService {
                 + "*Доступ*: " + visibility;
 
         telegramService.editMessageTextWithMarkdown(chatId, messageIdToEdit, text);
+    }
+
+    private OptionalLong computeHashOrThrow(byte[] imageBytes) {
+        OptionalLong hash = memeImageHasher.computeHash(imageBytes);
+        if (hash.isEmpty()) {
+            throw new RuntimeException("Не удалось вычислить perceptual hash изображения");
+        }
+        return hash;
     }
 }

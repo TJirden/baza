@@ -4,6 +4,7 @@ import cringe.baza.model.IdRepository;
 import cringe.baza.model.Meme;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,6 +17,10 @@ public class MemeProcessor {
     private final IdRepository idRepository;
 
     public String save(Meme meme) {
+        return save(meme, OptionalLong.empty());
+    }
+
+    public String save(Meme meme, OptionalLong imageHash) {
         String id = meme.id() != null ? meme.id() : UUID.randomUUID().toString();
         Meme memeWithId = new Meme(
                 id,
@@ -25,7 +30,7 @@ public class MemeProcessor {
                 meme.ownerId(),
                 meme.visibility(),
                 meme.groupIds());
-        idRepository.save(id, memeWithId);
+        idRepository.save(id, memeWithId, imageHash);
         return id;
     }
 
@@ -78,6 +83,7 @@ public class MemeProcessor {
         return false;
     }
 
+    @Transactional
     public boolean update(String id, String newDescription) {
         Optional<Meme> memeOpt = idRepository.findById(id);
         if (memeOpt.isEmpty()) {
@@ -85,9 +91,16 @@ public class MemeProcessor {
         }
 
         Meme meme = memeOpt.get();
-        delete(id);
-        save(new Meme(
-                id, newDescription, meme.ocrText(), meme.fileId(), meme.ownerId(), meme.visibility(), meme.groupIds()));
+        idRepository.updateMeme(
+                id,
+                new Meme(
+                        id,
+                        newDescription,
+                        meme.ocrText(),
+                        meme.fileId(),
+                        meme.ownerId(),
+                        meme.visibility(),
+                        meme.groupIds()));
         return true;
     }
 }

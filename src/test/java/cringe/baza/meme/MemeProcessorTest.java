@@ -8,6 +8,7 @@ import cringe.baza.model.Meme;
 import cringe.baza.model.MemeVisibility;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -30,7 +31,7 @@ class MemeProcessorTest {
         String savedId = processor.save(meme);
 
         assertEquals("meme-123", savedId);
-        verify(idRepository).save(eq("meme-123"), any(Meme.class));
+        verify(idRepository).save(eq("meme-123"), any(Meme.class), any(OptionalLong.class));
     }
 
     @Test
@@ -41,7 +42,7 @@ class MemeProcessorTest {
 
         assertNotNull(savedId);
         assertFalse(savedId.isEmpty());
-        verify(idRepository).save(eq(savedId), any(Meme.class));
+        verify(idRepository).save(eq(savedId), any(Meme.class), any(OptionalLong.class));
     }
 
     @Test
@@ -158,8 +159,21 @@ class MemeProcessorTest {
         boolean result = processor.update("meme-123", "new description");
 
         assertTrue(result);
-        verify(idRepository).delete("meme-123");
-        verify(idRepository).save(eq("meme-123"), argThat(m -> "new description".equals(m.description())));
+        verify(idRepository, never()).delete(anyString());
+        verify(idRepository, never()).save(anyString(), any(Meme.class), any(OptionalLong.class));
+        verify(idRepository).updateMeme(eq("meme-123"), argThat(m -> "new description".equals(m.description())));
+    }
+
+    @Test
+    void update_DoesNotTouchImageHash() {
+        Meme meme = new Meme("meme-123", "desc", "ocr", "file", 1L, MemeVisibility.PUBLIC, List.of());
+        when(idRepository.findById("meme-123")).thenReturn(Optional.of(meme));
+
+        processor.update("meme-123", "new description");
+
+        verify(idRepository).updateMeme(eq("meme-123"), any(Meme.class));
+        verify(idRepository, never()).delete(anyString());
+        verify(idRepository, never()).save(anyString(), any(Meme.class), any(OptionalLong.class));
     }
 
     @Test
@@ -170,6 +184,6 @@ class MemeProcessorTest {
 
         assertFalse(result);
         verify(idRepository, never()).delete(anyString());
-        verify(idRepository, never()).save(anyString(), any(Meme.class));
+        verify(idRepository, never()).updateMeme(anyString(), any(Meme.class));
     }
 }

@@ -1,16 +1,19 @@
 package cringe.baza.repository;
 
+import cringe.baza.domain.MemeImageHash;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.model.IdRepository;
 import cringe.baza.model.Meme;
 import cringe.baza.model.MemeVisibility;
 import cringe.baza.model.ModerationStatus;
+import cringe.baza.repository.jpa.MemeImageHashRepository;
 import cringe.baza.repository.jpa.MemeModerationRepository;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.document.Document;
@@ -25,9 +28,18 @@ public class MemeVectorRepository implements IdRepository {
 
     private final VectorStore vectorStore;
     private final MemeModerationRepository memeModerationRepository;
+    private final MemeImageHashRepository memeImageHashRepository;
 
     @Override
-    public void save(String id, Meme meme) {
+    @Transactional
+    public void save(String id, Meme meme, OptionalLong imageHash) {
+        persistMeme(id, meme);
+        if (imageHash.isPresent()) {
+            memeImageHashRepository.save(new MemeImageHash(id, imageHash.getAsLong()));
+        }
+    }
+
+    private void persistMeme(String id, Meme meme) {
         Document document = new Document(id, meme.description(), Map.of());
         vectorStore.add(List.of(document));
 
@@ -140,8 +152,10 @@ public class MemeVectorRepository implements IdRepository {
     public void delete(String id) {
         vectorStore.delete(List.of(id));
         memeModerationRepository.deleteById(id);
+        memeImageHashRepository.deleteByMemeId(id);
     }
 
+    @Transactional
     @Override
     public void quarantine(String id) {
         vectorStore.delete(List.of(id));
@@ -178,19 +192,33 @@ public class MemeVectorRepository implements IdRepository {
                 });
     }
 
-    public Optional<String> findDuplicateMemeId(String description, double similarityThreshold) {
-        try {
-            SearchRequest request = SearchRequest.builder()
-                    .query(description)
-                    .topK(1)
-                    .similarityThreshold(similarityThreshold)
-                    .build();
+    @Transactional
+    @Override
+    public void saveQuarantined(MemeModeration moderation, OptionalLong imageHash) {
+        memeModerationRepository.save(moderation);
+        if (imageHash.isPresent()) {
+            memeImageHashRepository.save(new MemeImageHash(moderation.getId(), imageHash.getAsLong()));
+        }
+    }
 
-            List<Document> results = vectorStore.similaritySearch(request);
-            if (results != null && !results.isEmpty()) {
-                return Optional.of(results.get(0).getId());
-            }
-        } catch (Exception e) {
+    @Transactional
+    @Override
+    public void updateMeme(String id, Meme meme) {
+        vectorStore.delete(List.of(id));
+        persistMeme(id, meme);
+    }
+
+    @Override
+    public Optional<String> findDuplicateMemeId(String description, double similarityThreshold) {
+        SearchRequest request = SearchRequest.builder()
+                .query(description)
+                .topK(1)
+                .similarityThreshold(similarityThreshold)
+                .build();
+
+        List<Document> results = vectorStore.similaritySearch(request);
+        if (results != null && !results.isEmpty()) {
+            return Optional.of(results.get(0).getId());
         }
         return Optional.empty();
     }

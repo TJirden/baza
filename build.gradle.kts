@@ -31,6 +31,7 @@ repositories {
 dependencyManagement {
     imports {
         mavenBom("org.springframework.ai:spring-ai-bom:2.0.0-M1")
+        mavenBom("org.testcontainers:testcontainers-bom:1.20.4")
     }
 }
 
@@ -48,6 +49,8 @@ dependencies {
 	annotationProcessor("org.projectlombok:lombok")
 	testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
+	testImplementation("org.testcontainers:postgresql")
+	testImplementation("org.testcontainers:junit-jupiter")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 	rewrite("org.openrewrite.recipe:rewrite-static-analysis:2.37.0")
 }

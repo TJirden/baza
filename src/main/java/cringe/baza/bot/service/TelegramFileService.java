@@ -37,4 +37,13 @@ public class TelegramFileService {
         }
         return new URL(path).openStream();
     }
+
+    public byte[] downloadFileBytes(String fileId) throws IOException {
+        try (InputStream is = downloadFile(fileId)) {
+            if (is == null) {
+                return null;
+            }
+            return is.readAllBytes();
+        }
+    }
 }

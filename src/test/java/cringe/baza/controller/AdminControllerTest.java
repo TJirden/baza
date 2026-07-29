@@ -163,16 +163,27 @@ class AdminControllerTest {
 
     @Test
     void approveQuarantined_Success() throws Exception {
-        when(moderationService.approveMeme("meme-1")).thenReturn(true);
+        when(moderationService.approveMeme("meme-1")).thenReturn(new MemeModerationService.ApprovalResult.Approved());
 
         mockMvc.perform(post("/api/admin/moderation/meme-1/approve")).andExpect(status().isOk());
     }
 
     @Test
     void approveQuarantined_NotFound() throws Exception {
-        when(moderationService.approveMeme("meme-1")).thenReturn(false);
+        when(moderationService.approveMeme("meme-1")).thenReturn(new MemeModerationService.ApprovalResult.NotFound());
 
         mockMvc.perform(post("/api/admin/moderation/meme-1/approve")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void approveQuarantined_DuplicateBlocked() throws Exception {
+        when(moderationService.approveMeme("meme-1"))
+                .thenReturn(new MemeModerationService.ApprovalResult.DuplicateBlocked("approved-original"));
+
+        mockMvc.perform(post("/api/admin/moderation/meme-1/approve"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value("DUPLICATE_BLOCKED"))
+                .andExpect(jsonPath("$.duplicateOf").value("approved-original"));
     }
 
     @Test

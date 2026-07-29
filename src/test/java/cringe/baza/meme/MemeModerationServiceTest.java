@@ -4,10 +4,13 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import cringe.baza.bot.service.TelegramService;
+import cringe.baza.domain.MemeImageHash;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.model.ReportStatus;
+import cringe.baza.repository.jpa.MemeImageHashRepository;
 import cringe.baza.repository.jpa.MemeModerationRepository;
 import cringe.baza.repository.jpa.MemeReportRepository;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,14 +30,17 @@ class MemeModerationServiceTest {
     private MemeReportRepository memeReportRepository;
 
     @Mock
+    private MemeImageHashRepository memeImageHashRepository;
+
+    @Mock
     private TelegramService telegramService;
 
     private MemeModerationService moderationService;
 
     @BeforeEach
     void setUp() {
-        moderationService =
-                new MemeModerationService(telegramService, repository, memeProcessor, memeReportRepository, 3);
+        moderationService = new MemeModerationService(
+                telegramService, repository, memeProcessor, memeReportRepository, memeImageHashRepository, 3, 5);
     }
 
     @Test
@@ -95,9 +101,9 @@ class MemeModerationServiceTest {
 
     @Test
     void approveMeme_NotFound() {
-        when(repository.findById("meme-1")).thenReturn(java.util.Optional.empty());
-        boolean result = moderationService.approveMeme("meme-1");
-        assertFalse(result);
+        when(repository.findById("meme-1")).thenReturn(Optional.empty());
+        MemeModerationService.ApprovalResult result = moderationService.approveMeme("meme-1");
+        assertInstanceOf(MemeModerationService.ApprovalResult.NotFound.class, result);
     }
 
     @Test
@@ -106,11 +112,12 @@ class MemeModerationServiceTest {
         meme.setId("meme-1");
         meme.setStatus(cringe.baza.model.ModerationStatus.APPROVED);
 
-        when(repository.findById("meme-1")).thenReturn(java.util.Optional.of(meme));
+        when(repository.findById("meme-1")).thenReturn(Optional.of(meme));
 
-        boolean result = moderationService.approveMeme("meme-1");
-        assertTrue(result);
+        MemeModerationService.ApprovalResult result = moderationService.approveMeme("meme-1");
+        assertInstanceOf(MemeModerationService.ApprovalResult.Approved.class, result);
         verify(memeProcessor, never()).save(any());
+        verify(memeImageHashRepository, never()).findById(anyString());
     }
 
     @Test
@@ -124,15 +131,44 @@ class MemeModerationServiceTest {
         meme.setOwnerId(123L);
         meme.setVisibility(cringe.baza.model.MemeVisibility.PUBLIC);
 
-        when(repository.findById("meme-1")).thenReturn(java.util.Optional.of(meme));
+        when(repository.findById("meme-1")).thenReturn(Optional.of(meme));
+        when(memeImageHashRepository.findById("meme-1")).thenReturn(Optional.empty());
 
-        boolean result = moderationService.approveMeme("meme-1");
-        assertTrue(result);
+        MemeModerationService.ApprovalResult result = moderationService.approveMeme("meme-1");
+        assertInstanceOf(MemeModerationService.ApprovalResult.Approved.class, result);
 
         verify(memeProcessor).save(any());
         assertEquals(cringe.baza.model.ModerationStatus.APPROVED, meme.getStatus());
         verify(repository).save(meme);
         verify(telegramService).sendMessageWithMarkdown(eq(123L), anyString());
+    }
+
+    @Test
+    void approveMeme_DuplicateBlocked() {
+        MemeModeration meme = new MemeModeration();
+        meme.setId("meme-1");
+        meme.setStatus(cringe.baza.model.ModerationStatus.QUARANTINED);
+        meme.setDescription("Duplicate");
+        meme.setOwnerId(123L);
+        meme.setVisibility(cringe.baza.model.MemeVisibility.PUBLIC);
+
+        MemeImageHash hash = new MemeImageHash("meme-1", 0xDEADBEEFL);
+
+        when(repository.findById("meme-1")).thenReturn(Optional.of(meme));
+        when(memeImageHashRepository.findById("meme-1")).thenReturn(Optional.of(hash));
+        when(memeImageHashRepository.findNearestApprovedExcluding(0xDEADBEEFL, 5, "meme-1"))
+                .thenReturn(Optional.of("approved-original"));
+
+        MemeModerationService.ApprovalResult result = moderationService.approveMeme("meme-1");
+        assertInstanceOf(MemeModerationService.ApprovalResult.DuplicateBlocked.class, result);
+        assertEquals(
+                "approved-original", ((MemeModerationService.ApprovalResult.DuplicateBlocked) result).duplicateOf());
+
+        verify(memeProcessor, never()).save(any());
+        assertEquals(cringe.baza.model.ModerationStatus.QUARANTINED, meme.getStatus());
+        assertEquals("Визуальный дубликат одобренного мема: approved-original", meme.getModerationReason());
+        verify(repository).save(meme);
+        verify(telegramService, never()).sendMessageWithMarkdown(anyLong(), anyString());
     }
 
     @Test
