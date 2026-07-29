@@ -33,6 +33,13 @@ public class MemeVectorRepository implements IdRepository {
     @Override
     @Transactional
     public void save(String id, Meme meme, OptionalLong imageHash) {
+        persistMeme(id, meme);
+        if (imageHash.isPresent()) {
+            memeImageHashRepository.save(new MemeImageHash(id, imageHash.getAsLong()));
+        }
+    }
+
+    private void persistMeme(String id, Meme meme) {
         Document document = new Document(id, meme.description(), Map.of());
         vectorStore.add(List.of(document));
 
@@ -51,10 +58,6 @@ public class MemeVectorRepository implements IdRepository {
                 ModerationStatus.APPROVED,
                 null);
         memeModerationRepository.save(moderation);
-
-        if (imageHash.isPresent()) {
-            memeImageHashRepository.save(new MemeImageHash(id, imageHash.getAsLong()));
-        }
     }
 
     @Override
@@ -164,15 +167,6 @@ public class MemeVectorRepository implements IdRepository {
     }
 
     @Override
-    public OptionalLong findImageHash(String id) {
-        return memeImageHashRepository
-                .findById(id)
-                .map(MemeImageHash::getImageHash)
-                .map(OptionalLong::of)
-                .orElse(OptionalLong.empty());
-    }
-
-    @Override
     public Optional<Meme> findById(String id) {
         return memeModerationRepository
                 .findById(id)
@@ -199,6 +193,7 @@ public class MemeVectorRepository implements IdRepository {
     }
 
     @Transactional
+    @Override
     public void saveQuarantined(MemeModeration moderation, OptionalLong imageHash) {
         memeModerationRepository.save(moderation);
         if (imageHash.isPresent()) {
@@ -206,6 +201,14 @@ public class MemeVectorRepository implements IdRepository {
         }
     }
 
+    @Transactional
+    @Override
+    public void updateMeme(String id, Meme meme) {
+        vectorStore.delete(List.of(id));
+        persistMeme(id, meme);
+    }
+
+    @Override
     public Optional<String> findDuplicateMemeId(String description, double similarityThreshold) {
         SearchRequest request = SearchRequest.builder()
                 .query(description)

@@ -91,9 +91,8 @@ public class MemeProcessor {
         }
 
         Meme meme = memeOpt.get();
-        OptionalLong imageHash = idRepository.findImageHash(id);
-        delete(id);
-        save(
+        idRepository.updateMeme(
+                id,
                 new Meme(
                         id,
                         newDescription,
@@ -101,8 +100,7 @@ public class MemeProcessor {
                         meme.fileId(),
                         meme.ownerId(),
                         meme.visibility(),
-                        meme.groupIds()),
-                imageHash);
+                        meme.groupIds()));
         return true;
     }
 }

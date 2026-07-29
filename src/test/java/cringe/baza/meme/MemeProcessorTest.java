@@ -159,27 +159,21 @@ class MemeProcessorTest {
         boolean result = processor.update("meme-123", "new description");
 
         assertTrue(result);
-        verify(idRepository).delete("meme-123");
-        verify(idRepository)
-                .save(eq("meme-123"), argThat(m -> "new description".equals(m.description())), any(OptionalLong.class));
+        verify(idRepository, never()).delete(anyString());
+        verify(idRepository, never()).save(anyString(), any(Meme.class), any(OptionalLong.class));
+        verify(idRepository).updateMeme(eq("meme-123"), argThat(m -> "new description".equals(m.description())));
     }
 
     @Test
-    void update_PreservesImageHash() {
+    void update_DoesNotTouchImageHash() {
         Meme meme = new Meme("meme-123", "desc", "ocr", "file", 1L, MemeVisibility.PUBLIC, List.of());
-        long sampleHash = 0xDEADBEEFL;
         when(idRepository.findById("meme-123")).thenReturn(Optional.of(meme));
-        when(idRepository.findImageHash("meme-123")).thenReturn(OptionalLong.of(sampleHash));
 
-        boolean result = processor.update("meme-123", "new description");
+        processor.update("meme-123", "new description");
 
-        assertTrue(result);
-        verify(idRepository).delete("meme-123");
-        verify(idRepository)
-                .save(
-                        eq("meme-123"),
-                        argThat(m -> "new description".equals(m.description())),
-                        eq(OptionalLong.of(sampleHash)));
+        verify(idRepository).updateMeme(eq("meme-123"), any(Meme.class));
+        verify(idRepository, never()).delete(anyString());
+        verify(idRepository, never()).save(anyString(), any(Meme.class), any(OptionalLong.class));
     }
 
     @Test
@@ -190,6 +184,6 @@ class MemeProcessorTest {
 
         assertFalse(result);
         verify(idRepository, never()).delete(anyString());
-        verify(idRepository, never()).save(anyString(), any(Meme.class), any(OptionalLong.class));
+        verify(idRepository, never()).updateMeme(anyString(), any(Meme.class));
     }
 }

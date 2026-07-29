@@ -8,10 +8,10 @@ import cringe.baza.bot.service.TelegramFileService;
 import cringe.baza.bot.service.TelegramService;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.meme.phash.MemeImageHasher;
+import cringe.baza.model.IdRepository;
 import cringe.baza.model.Meme;
 import cringe.baza.model.MemeVisibility;
 import cringe.baza.model.ModerationStatus;
-import cringe.baza.repository.MemeVectorRepository;
 import cringe.baza.repository.jpa.MemeImageHashRepository;
 import java.util.List;
 import java.util.Optional;
@@ -42,7 +42,7 @@ class AsyncMemeServiceTest {
     private MemeAnalyzerService memeAnalyzerService;
 
     @Mock
-    private MemeVectorRepository memeVectorRepository;
+    private IdRepository memeRepository;
 
     @Mock
     private MemeImageHasher memeImageHasher;
@@ -57,7 +57,9 @@ class AsyncMemeServiceTest {
     void setUp() throws Exception {
         lenient().doReturn(new byte[] {1, 2, 3}).when(fileService).downloadFileBytes(anyString());
         lenient().when(memeImageHasher.computeHash(any(byte[].class))).thenReturn(OptionalLong.of(SAMPLE_HASH));
-        lenient().when(memeImageHashRepository.findNearest(anyLong(), anyInt())).thenReturn(Optional.empty());
+        lenient()
+                .when(memeImageHashRepository.findNearestApproved(anyLong(), anyInt()))
+                .thenReturn(Optional.empty());
     }
 
     @Test
@@ -74,7 +76,7 @@ class AsyncMemeServiceTest {
                 .thenReturn(new MemeAnalyzerService.MemeAnalysis("puppy text ocr", "puppy playing tag"));
         when(memeAnalyzerService.checkCensorship(any(byte[].class)))
                 .thenReturn(new MemeAnalyzerService.CensorshipResult(true, ""));
-        when(memeVectorRepository.findDuplicateMemeId(anyString(), anyDouble())).thenReturn(Optional.empty());
+        when(memeRepository.findDuplicateMemeId(anyString(), anyDouble())).thenReturn(Optional.empty());
         when(memeProcessor.save(any(Meme.class), any(OptionalLong.class))).thenReturn("meme-uuid-1");
 
         asyncMemeService.saveMemeAsync(chatId, userId, photo, description, visibilityContext, messageIdToEdit);
@@ -110,7 +112,7 @@ class AsyncMemeServiceTest {
                 .thenReturn(new MemeAnalyzerService.MemeAnalysis("cat text ocr", "AI generated description of a cat"));
         when(memeAnalyzerService.checkCensorship(any(byte[].class)))
                 .thenReturn(new MemeAnalyzerService.CensorshipResult(true, ""));
-        when(memeVectorRepository.findDuplicateMemeId(anyString(), anyDouble())).thenReturn(Optional.empty());
+        when(memeRepository.findDuplicateMemeId(anyString(), anyDouble())).thenReturn(Optional.empty());
         when(memeProcessor.save(any(Meme.class), any(OptionalLong.class))).thenReturn("meme-uuid-1");
 
         asyncMemeService.saveMemeAsync(chatId, userId, photo, description, visibilityContext, messageIdToEdit);
@@ -143,7 +145,7 @@ class AsyncMemeServiceTest {
         when(memeAnalyzerService.analyzeMemeDetails(any(byte[].class))).thenThrow(new RuntimeException("AI offline"));
         when(memeAnalyzerService.checkCensorship(any(byte[].class)))
                 .thenReturn(new MemeAnalyzerService.CensorshipResult(true, ""));
-        when(memeVectorRepository.findDuplicateMemeId(anyString(), anyDouble())).thenReturn(Optional.empty());
+        when(memeRepository.findDuplicateMemeId(anyString(), anyDouble())).thenReturn(Optional.empty());
         when(memeProcessor.save(any(Meme.class), any(OptionalLong.class))).thenReturn("meme-uuid-1");
 
         asyncMemeService.saveMemeAsync(chatId, userId, photo, description, visibilityContext, messageIdToEdit);
@@ -176,7 +178,7 @@ class AsyncMemeServiceTest {
                 .thenReturn(new MemeAnalyzerService.MemeAnalysis("cat text ocr", "cat jumping around"));
         when(memeAnalyzerService.checkCensorship(any(byte[].class)))
                 .thenReturn(new MemeAnalyzerService.CensorshipResult(true, ""));
-        when(memeVectorRepository.findDuplicateMemeId(anyString(), anyDouble())).thenReturn(Optional.empty());
+        when(memeRepository.findDuplicateMemeId(anyString(), anyDouble())).thenReturn(Optional.empty());
         when(memeProcessor.save(any(Meme.class), any(OptionalLong.class))).thenReturn("meme-uuid-2");
 
         asyncMemeService.saveMemeAsync(chatId, userId, photo, description, visibilityContext, messageIdToEdit);
@@ -218,7 +220,7 @@ class AsyncMemeServiceTest {
         verify(memeImageHasher, times(1)).computeHash(any(byte[].class));
 
         ArgumentCaptor<MemeModeration> moderationCaptor = ArgumentCaptor.forClass(MemeModeration.class);
-        verify(memeVectorRepository).saveQuarantined(moderationCaptor.capture(), eq(OptionalLong.of(SAMPLE_HASH)));
+        verify(memeRepository).saveQuarantined(moderationCaptor.capture(), eq(OptionalLong.of(SAMPLE_HASH)));
         MemeModeration moderation = moderationCaptor.getValue();
         assertEquals(ModerationStatus.QUARANTINED, moderation.getStatus());
         assertEquals("ИИ-цензура: Подозрение на NSFW", moderation.getModerationReason());
@@ -244,7 +246,7 @@ class AsyncMemeServiceTest {
                         new MemeAnalyzerService.MemeAnalysis("duplicate text ocr", "duplicate content description"));
         when(memeAnalyzerService.checkCensorship(any(byte[].class)))
                 .thenReturn(new MemeAnalyzerService.CensorshipResult(true, ""));
-        when(memeVectorRepository.findDuplicateMemeId(anyString(), anyDouble()))
+        when(memeRepository.findDuplicateMemeId(anyString(), anyDouble()))
                 .thenReturn(Optional.of("existing-meme-id-999"));
 
         asyncMemeService.saveMemeAsync(chatId, userId, photo, description, visibilityContext, messageIdToEdit);
@@ -252,7 +254,7 @@ class AsyncMemeServiceTest {
         verify(memeProcessor, never()).save(any(Meme.class), any(OptionalLong.class));
 
         ArgumentCaptor<MemeModeration> moderationCaptor = ArgumentCaptor.forClass(MemeModeration.class);
-        verify(memeVectorRepository).saveQuarantined(moderationCaptor.capture(), eq(OptionalLong.of(SAMPLE_HASH)));
+        verify(memeRepository).saveQuarantined(moderationCaptor.capture(), eq(OptionalLong.of(SAMPLE_HASH)));
         MemeModeration moderation = moderationCaptor.getValue();
         assertEquals(ModerationStatus.QUARANTINED, moderation.getStatus());
         assertEquals("Дубликат мема: existing-meme-id-999", moderation.getModerationReason());
@@ -273,7 +275,8 @@ class AsyncMemeServiceTest {
         int messageIdToEdit = 500;
 
         when(fileService.getImageFileId(photo)).thenReturn("file-vis-dup");
-        when(memeImageHashRepository.findNearest(anyLong(), anyInt())).thenReturn(Optional.of("existing-vis-id"));
+        when(memeImageHashRepository.findNearestApproved(anyLong(), anyInt()))
+                .thenReturn(Optional.of("existing-vis-id"));
 
         asyncMemeService.saveMemeAsync(chatId, userId, photo, description, visibilityContext, messageIdToEdit);
 
@@ -282,7 +285,7 @@ class AsyncMemeServiceTest {
         verify(memeAnalyzerService, never()).checkCensorship(any(byte[].class));
 
         ArgumentCaptor<MemeModeration> moderationCaptor = ArgumentCaptor.forClass(MemeModeration.class);
-        verify(memeVectorRepository).saveQuarantined(moderationCaptor.capture(), eq(OptionalLong.of(SAMPLE_HASH)));
+        verify(memeRepository).saveQuarantined(moderationCaptor.capture(), eq(OptionalLong.of(SAMPLE_HASH)));
         MemeModeration moderation = moderationCaptor.getValue();
         assertEquals(ModerationStatus.QUARANTINED, moderation.getStatus());
         assertEquals("Визуальный дубликат мема: existing-vis-id", moderation.getModerationReason());
@@ -303,7 +306,7 @@ class AsyncMemeServiceTest {
         int messageIdToEdit = 500;
 
         when(fileService.getImageFileId(photo)).thenReturn("file-123");
-        when(memeImageHashRepository.findNearest(anyLong(), anyInt()))
+        when(memeImageHashRepository.findNearestApproved(anyLong(), anyInt()))
                 .thenThrow(new RuntimeException("db connection lost"));
 
         asyncMemeService.saveMemeAsync(chatId, userId, photo, description, visibilityContext, messageIdToEdit);
@@ -312,7 +315,7 @@ class AsyncMemeServiceTest {
         verify(memeAnalyzerService, never()).analyzeMemeDetails(any(byte[].class));
 
         ArgumentCaptor<MemeModeration> moderationCaptor = ArgumentCaptor.forClass(MemeModeration.class);
-        verify(memeVectorRepository).saveQuarantined(moderationCaptor.capture(), eq(OptionalLong.of(SAMPLE_HASH)));
+        verify(memeRepository).saveQuarantined(moderationCaptor.capture(), eq(OptionalLong.of(SAMPLE_HASH)));
         MemeModeration moderation = moderationCaptor.getValue();
         assertEquals(ModerationStatus.QUARANTINED, moderation.getStatus());
         assertEquals("Ошибка визуальной проверки дубликатов: db connection lost", moderation.getModerationReason());
@@ -336,7 +339,7 @@ class AsyncMemeServiceTest {
                 .thenReturn(new MemeAnalyzerService.MemeAnalysis("puppy text ocr", "puppy playing tag"));
         when(memeAnalyzerService.checkCensorship(any(byte[].class)))
                 .thenReturn(new MemeAnalyzerService.CensorshipResult(true, ""));
-        when(memeVectorRepository.findDuplicateMemeId(anyString(), anyDouble()))
+        when(memeRepository.findDuplicateMemeId(anyString(), anyDouble()))
                 .thenThrow(new RuntimeException("vector store down"));
 
         asyncMemeService.saveMemeAsync(chatId, userId, photo, description, visibilityContext, messageIdToEdit);
@@ -344,7 +347,7 @@ class AsyncMemeServiceTest {
         verify(memeProcessor, never()).save(any(Meme.class), any(OptionalLong.class));
 
         ArgumentCaptor<MemeModeration> moderationCaptor = ArgumentCaptor.forClass(MemeModeration.class);
-        verify(memeVectorRepository).saveQuarantined(moderationCaptor.capture(), eq(OptionalLong.of(SAMPLE_HASH)));
+        verify(memeRepository).saveQuarantined(moderationCaptor.capture(), eq(OptionalLong.of(SAMPLE_HASH)));
         MemeModeration moderation = moderationCaptor.getValue();
         assertEquals(ModerationStatus.QUARANTINED, moderation.getStatus());
         assertEquals("Ошибка текстовой проверки дубликатов: vector store down", moderation.getModerationReason());
@@ -369,7 +372,7 @@ class AsyncMemeServiceTest {
         asyncMemeService.saveMemeAsync(chatId, userId, photo, description, visibilityContext, messageIdToEdit);
 
         verify(memeProcessor, never()).save(any(Meme.class), any(OptionalLong.class));
-        verify(memeVectorRepository, never()).saveQuarantined(any(MemeModeration.class), any(OptionalLong.class));
+        verify(memeRepository, never()).saveQuarantined(any(MemeModeration.class), any(OptionalLong.class));
         verify(memeAnalyzerService, never()).analyzeMemeDetails(any(byte[].class));
 
         verify(telegramService).editMessageTextWithMarkdown(eq(chatId), eq(messageIdToEdit), anyString());
@@ -391,7 +394,7 @@ class AsyncMemeServiceTest {
 
         verify(memeImageHasher, never()).computeHash(any(byte[].class));
         verify(memeProcessor, never()).save(any(Meme.class), any(OptionalLong.class));
-        verify(memeVectorRepository, never()).saveQuarantined(any(MemeModeration.class), any(OptionalLong.class));
+        verify(memeRepository, never()).saveQuarantined(any(MemeModeration.class), any(OptionalLong.class));
 
         verify(telegramService).editMessageTextWithMarkdown(eq(chatId), eq(messageIdToEdit), anyString());
     }

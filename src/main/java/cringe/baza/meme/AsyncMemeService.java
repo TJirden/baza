@@ -5,10 +5,10 @@ import cringe.baza.bot.service.TelegramFileService;
 import cringe.baza.bot.service.TelegramService;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.meme.phash.MemeImageHasher;
+import cringe.baza.model.IdRepository;
 import cringe.baza.model.Meme;
 import cringe.baza.model.MemeVisibility;
 import cringe.baza.model.ModerationStatus;
-import cringe.baza.repository.MemeVectorRepository;
 import cringe.baza.repository.jpa.MemeImageHashRepository;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -32,7 +32,7 @@ public class AsyncMemeService {
     private final MemeProcessor memeProcessor;
     private final TelegramFileService fileService;
     private final MemeAnalyzerService memeAnalyzerService;
-    private final MemeVectorRepository memeVectorRepository;
+    private final IdRepository memeRepository;
     private final MemeImageHasher memeImageHasher;
     private final MemeImageHashRepository memeImageHashRepository;
 
@@ -215,7 +215,7 @@ public class AsyncMemeService {
                     groupIdsStr,
                     ModerationStatus.QUARANTINED,
                     "ИИ-цензура: " + censorship.reason());
-            memeVectorRepository.saveQuarantined(moderation, OptionalLong.of(imageHash));
+            memeRepository.saveQuarantined(moderation, OptionalLong.of(imageHash));
 
             String text = "*Мем помещен в карантин по соображениям ИИ-цензуры!*\n\n"
                     + "*Причина:* " + censorship.reason() + "\n"
@@ -242,7 +242,8 @@ public class AsyncMemeService {
 
         telegramService.editMessageText(chatId, messageIdToEdit, "Проверяю визуальные дубликаты...");
         try {
-            Optional<String> duplicateIdOpt = memeImageHashRepository.findNearest(imageHash, imagePhashThreshold);
+            Optional<String> duplicateIdOpt =
+                    memeImageHashRepository.findNearestApproved(imageHash, imagePhashThreshold);
             if (duplicateIdOpt.isPresent()) {
                 String duplicateId = duplicateIdOpt.get();
                 log.warn("Обнаружен визуальный дубликат мема {}. Оригинал: {}", memeId, duplicateId);
@@ -256,7 +257,7 @@ public class AsyncMemeService {
                         groupIdsStr,
                         ModerationStatus.QUARANTINED,
                         "Визуальный дубликат мема: " + duplicateId);
-                memeVectorRepository.saveQuarantined(moderation, OptionalLong.of(imageHash));
+                memeRepository.saveQuarantined(moderation, OptionalLong.of(imageHash));
 
                 String text = "*Обнаружен визуальный дубликат оригинального мема!*\n\n"
                         + "Ваш мем визуально совпадает с существующим мемом (ID: `" + duplicateId + "`).\n"
@@ -278,7 +279,7 @@ public class AsyncMemeService {
                     groupIdsStr,
                     ModerationStatus.QUARANTINED,
                     "Ошибка визуальной проверки дубликатов: " + e.getMessage());
-            memeVectorRepository.saveQuarantined(moderation, OptionalLong.of(imageHash));
+            memeRepository.saveQuarantined(moderation, OptionalLong.of(imageHash));
 
             String text = "*Не удалось проверить мем на визуальные дубликаты.*\n\n"
                     + "Мем сохранен в карантин до подтверждения модератором.\n\n"
@@ -305,7 +306,7 @@ public class AsyncMemeService {
         telegramService.editMessageText(chatId, messageIdToEdit, "Проверяю на наличие дубликатов в базе...");
         Optional<String> duplicateIdOpt;
         try {
-            duplicateIdOpt = memeVectorRepository.findDuplicateMemeId(finalDescription, textDedupThreshold);
+            duplicateIdOpt = memeRepository.findDuplicateMemeId(finalDescription, textDedupThreshold);
         } catch (Exception e) {
             log.warn("Ошибка при текстовой проверке дубликатов мема {}: {}", memeId, e.getMessage());
             MemeModeration moderation = new MemeModeration(
@@ -318,7 +319,7 @@ public class AsyncMemeService {
                     groupIdsStr,
                     ModerationStatus.QUARANTINED,
                     "Ошибка текстовой проверки дубликатов: " + e.getMessage());
-            memeVectorRepository.saveQuarantined(moderation, OptionalLong.of(imageHash));
+            memeRepository.saveQuarantined(moderation, OptionalLong.of(imageHash));
 
             String text = "*Не удалось проверить мем на текстовые дубликаты.*\n\n"
                     + "Мем сохранен в карантин до подтверждения модератором.\n\n"
@@ -341,7 +342,7 @@ public class AsyncMemeService {
                     groupIdsStr,
                     ModerationStatus.QUARANTINED,
                     "Дубликат мема: " + duplicateId);
-            memeVectorRepository.saveQuarantined(moderation, OptionalLong.of(imageHash));
+            memeRepository.saveQuarantined(moderation, OptionalLong.of(imageHash));
 
             String text = "*Обнаружен дубликат оригинального мема!*\n\n"
                     + "Ваш мем совпадает с существующим мемом (ID: `" + duplicateId + "`).\n"

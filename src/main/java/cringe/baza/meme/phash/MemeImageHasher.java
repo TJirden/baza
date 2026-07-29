@@ -1,9 +1,11 @@
 package cringe.baza.meme.phash;
 
+import jakarta.annotation.PostConstruct;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.util.OptionalLong;
 import javax.imageio.ImageIO;
 import lombok.extern.slf4j.Slf4j;
@@ -19,17 +21,27 @@ public class MemeImageHasher {
     private static final double[][] DCT_COS = precomputeCosines(DCT_SIZE);
     private static final double[] DCT_ALPHA = precomputeAlphas(DCT_SIZE);
 
+    @PostConstruct
+    void warmUp() {
+        ImageIO.scanForPlugins();
+        try {
+            BufferedImage img = new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB);
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            ImageIO.write(img, "png", baos);
+            ImageIO.read(new ByteArrayInputStream(baos.toByteArray()));
+        } catch (Exception e) {
+            log.warn("Не удалось прогреть ImageIO: {}", e.getMessage());
+        }
+    }
+
     public OptionalLong computeHash(byte[] imageBytes) {
         if (imageBytes == null || imageBytes.length == 0) {
             return OptionalLong.empty();
         }
         try {
-            BufferedImage image;
-            synchronized (MemeImageHasher.class) {
-                image = ImageIO.read(new ByteArrayInputStream(imageBytes));
-            }
+            BufferedImage image = ImageIO.read(new ByteArrayInputStream(imageBytes));
             if (image == null) {
-                log.warn("ImageIO returned null — unsupported or corrupted image format");
+                log.warn("ImageIO returned null - unsupported or corrupted image format");
                 return OptionalLong.empty();
             }
             BufferedImage gray = resizeToGray(image, DCT_SIZE);

@@ -57,41 +57,55 @@ class MemeImageHashRepositoryIntegrationTest {
     }
 
     @Test
-    void findNearest_ExactMatch_FoundsIt() {
+    void findNearestApproved_ExactMatch_FindsIt() {
+        saveModeration("meme-1", ModerationStatus.APPROVED);
         memeImageHashRepository.save(new MemeImageHash("meme-1", 0xDEADBEEFL));
 
-        Optional<String> result = memeImageHashRepository.findNearest(0xDEADBEEFL, 0);
+        Optional<String> result = memeImageHashRepository.findNearestApproved(0xDEADBEEFL, 0);
 
         assertTrue(result.isPresent());
         assertEquals("meme-1", result.get());
     }
 
     @Test
-    void findNearest_NegativeLongHighBit_Works() {
+    void findNearestApproved_NegativeLongHighBit_Works() {
         long hashWithMsb = 0x8000000000000000L;
+        saveModeration("meme-msb", ModerationStatus.APPROVED);
         memeImageHashRepository.save(new MemeImageHash("meme-msb", hashWithMsb));
 
-        Optional<String> result = memeImageHashRepository.findNearest(hashWithMsb, 0);
+        Optional<String> result = memeImageHashRepository.findNearestApproved(hashWithMsb, 0);
 
         assertTrue(result.isPresent());
         assertEquals("meme-msb", result.get());
     }
 
     @Test
-    void findNearest_WithinThreshold_FoundsIt() {
+    void findNearestApproved_WithinThreshold_FindsIt() {
+        saveModeration("meme-a", ModerationStatus.APPROVED);
         memeImageHashRepository.save(new MemeImageHash("meme-a", 0L));
 
-        Optional<String> result = memeImageHashRepository.findNearest(31L, 5);
+        Optional<String> result = memeImageHashRepository.findNearestApproved(31L, 5);
 
         assertTrue(result.isPresent());
         assertEquals("meme-a", result.get());
     }
 
     @Test
-    void findNearest_BeyondThreshold_NotFound() {
+    void findNearestApproved_BeyondThreshold_NotFound() {
+        saveModeration("meme-a", ModerationStatus.APPROVED);
         memeImageHashRepository.save(new MemeImageHash("meme-a", 0L));
 
-        Optional<String> result = memeImageHashRepository.findNearest(63L, 5);
+        Optional<String> result = memeImageHashRepository.findNearestApproved(63L, 5);
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void findNearestApproved_OnlyQuarantinedExists_NotFound() {
+        saveModeration("meme-quarantined", ModerationStatus.QUARANTINED);
+        memeImageHashRepository.save(new MemeImageHash("meme-quarantined", 0xDEADBEEFL));
+
+        Optional<String> result = memeImageHashRepository.findNearestApproved(0xDEADBEEFL, 0);
 
         assertTrue(result.isEmpty());
     }
