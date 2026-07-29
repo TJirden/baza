@@ -12,6 +12,8 @@ import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.core.retry.RetryTemplate;
+import org.springframework.core.retry.Retryable;
 
 @ExtendWith(MockitoExtension.class)
 class MemeAnalyzerServiceTest {
@@ -19,11 +21,18 @@ class MemeAnalyzerServiceTest {
     @Mock
     private ChatModel chatModel;
 
+    @Mock
+    private RetryTemplate retryTemplate;
+
     private MemeAnalyzerService service;
 
     @BeforeEach
-    void setUp() {
-        service = new MemeAnalyzerService(chatModel);
+    void setUp() throws Exception {
+        service = new MemeAnalyzerService(chatModel, retryTemplate);
+        lenient().when(retryTemplate.execute(any(Retryable.class))).thenAnswer(invocation -> {
+            Retryable<?> retryable = invocation.getArgument(0);
+            return retryable.execute();
+        });
     }
 
     private void mockReply(String reply) {
@@ -99,7 +108,7 @@ class MemeAnalyzerServiceTest {
     }
 
     @Test
-    void analyze_NullReply_ThrowsAiUnavailableException() {
+    void analyze_NullReply_ReturnsDefaults() {
         ChatResponse mockResponse = mock(ChatResponse.class);
         var generation = mock(org.springframework.ai.chat.model.Generation.class);
         var output = mock(AssistantMessage.class);

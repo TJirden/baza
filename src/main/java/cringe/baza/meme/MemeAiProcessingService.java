@@ -1,17 +1,14 @@
 package cringe.baza.meme;
 
 import cringe.baza.bot.service.TelegramService;
-import cringe.baza.domain.MemeModeration;
 import cringe.baza.model.IdRepository;
 import cringe.baza.model.Meme;
 import cringe.baza.model.MemeVisibility;
-import cringe.baza.model.ModerationStatus;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalLong;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -86,8 +83,12 @@ public class MemeAiProcessingService {
         }
 
         List<Long> groupIds = parseGroupIds(groupIdsStr);
-        idRepository.promoteToApproved(
+        boolean promoted = idRepository.promoteToApproved(
                 memeId, new Meme(memeId, finalDescription, ocrText, null, userId, visibility, groupIds));
+        if (!promoted) {
+            log.warn("Мем {} уже не PENDING, промоут пропущен", memeId);
+            return AiProcessingResult.APPROVED;
+        }
         log.info("Мем {} успешно одобрен после AI-обработки", memeId);
         notifyUserApproved(userId, memeId);
         return AiProcessingResult.APPROVED;
@@ -104,17 +105,10 @@ public class MemeAiProcessingService {
     }
 
     private void updateToQuarantined(String memeId, String reason, String description, String ocrText) {
-        Optional<MemeModeration> moderationOpt = idRepository.findModerationById(memeId);
-        if (moderationOpt.isEmpty()) {
-            log.error("Мем {} не найден при обновлении статуса на QUARANTINED", memeId);
-            return;
+        boolean updated = idRepository.updateToQuarantinedIfPending(memeId, description, ocrText, reason);
+        if (!updated) {
+            log.warn("Мем {} уже не PENDING, перевод в QUARANTINED пропущен", memeId);
         }
-        MemeModeration moderation = moderationOpt.get();
-        moderation.setStatus(ModerationStatus.QUARANTINED);
-        moderation.setModerationReason(reason);
-        moderation.setDescription(description);
-        moderation.setOcrText(ocrText);
-        idRepository.saveQuarantined(moderation, OptionalLong.empty());
     }
 
     private List<Long> parseGroupIds(String groupIdsStr) {

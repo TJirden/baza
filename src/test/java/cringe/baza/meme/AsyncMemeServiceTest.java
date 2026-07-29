@@ -3,6 +3,7 @@ package cringe.baza.meme;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
 
+import com.github.benmanes.caffeine.cache.Cache;
 import com.pengrad.telegrambot.model.PhotoSize;
 import cringe.baza.bot.service.TelegramFileService;
 import cringe.baza.bot.service.TelegramService;
@@ -47,6 +48,9 @@ class AsyncMemeServiceTest {
 
     @Mock
     private MemeAiProducer aiProducer;
+
+    @Mock
+    private Cache<String, byte[]> imageBytesCache;
 
     @InjectMocks
     private AsyncMemeService asyncMemeService;

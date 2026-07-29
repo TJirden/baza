@@ -5,7 +5,7 @@ import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueBuilder;
-import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
+import org.springframework.amqp.support.converter.JacksonJsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,6 +14,7 @@ import org.springframework.context.annotation.Configuration;
 public class MemeAiQueueConfig {
 
     public static final String AI_PROCESS_QUEUE = "ai.process";
+    public static final String AI_PROCESS_RETRY_QUEUE = "ai.process.retry";
     public static final String AI_PROCESS_DLQ = "ai.process.dlq";
     public static final String AI_DLX_EXCHANGE = "ai.dlx";
 
@@ -31,13 +32,26 @@ public class MemeAiQueueConfig {
     }
 
     @Bean
+    Queue aiProcessRetryQueue() {
+        return QueueBuilder.durable(AI_PROCESS_RETRY_QUEUE)
+                .withArgument("x-dead-letter-exchange", AI_DLX_EXCHANGE)
+                .withArgument("x-dead-letter-routing-key", AI_PROCESS_QUEUE)
+                .build();
+    }
+
+    @Bean
     Queue aiProcessDlq() {
         return QueueBuilder.durable(AI_PROCESS_DLQ).build();
     }
 
     @Bean
-    Binding aiProcessBinding(Queue aiProcessQueue, DirectExchange aiDlxExchange) {
+    Binding aiProcessFromDlxBinding(Queue aiProcessQueue, DirectExchange aiDlxExchange) {
         return BindingBuilder.bind(aiProcessQueue).to(aiDlxExchange).with(AI_PROCESS_QUEUE);
+    }
+
+    @Bean
+    Binding aiProcessRetryBinding(Queue aiProcessRetryQueue, DirectExchange aiDlxExchange) {
+        return BindingBuilder.bind(aiProcessRetryQueue).to(aiDlxExchange).with(AI_PROCESS_RETRY_QUEUE);
     }
 
     @Bean
@@ -47,6 +61,6 @@ public class MemeAiQueueConfig {
 
     @Bean
     MessageConverter jacksonMessageConverter() {
-        return new Jackson2JsonMessageConverter();
+        return new JacksonJsonMessageConverter();
     }
 }

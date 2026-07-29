@@ -1,6 +1,7 @@
 package cringe.baza.meme;
 
 import cringe.baza.repository.jpa.MemeModerationRepository;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -20,16 +21,24 @@ public class MemeReprocessScheduler {
     @Value("${app.ai.reprocess.minutes-threshold:5}")
     private int minutesThreshold;
 
+    @Value("${app.ai.reprocess.interval-ms:300000}")
+    private long intervalMs;
+
     @Scheduled(fixedDelayString = "${app.ai.reprocess.interval-ms:300000}")
     public void reenqueuePendingMemes() {
         LocalDateTime threshold = LocalDateTime.now().minusMinutes(minutesThreshold);
-        List<String> pendingIds = moderationRepository.findPendingIdsOlderThan(threshold);
+        LocalDateTime enqueueThreshold = LocalDateTime.now().minus(Duration.ofMillis(intervalMs * 2));
+        List<String> pendingIds = moderationRepository.findPendingIdsOlderThan(threshold, enqueueThreshold);
 
         if (pendingIds.isEmpty()) {
             return;
         }
 
-        log.info("Re-enqueueing {} PENDING memes older than {} minutes", pendingIds.size(), minutesThreshold);
+        log.info(
+                "Re-enqueueing {} PENDING memes older than {} minutes (not enqueued in last {} ms)",
+                pendingIds.size(),
+                minutesThreshold,
+                intervalMs * 2);
         for (String memeId : pendingIds) {
             try {
                 aiProducer.enqueueForProcessing(memeId);

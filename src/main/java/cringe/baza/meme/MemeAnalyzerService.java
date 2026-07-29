@@ -9,6 +9,7 @@ import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.content.Media;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
+import org.springframework.core.retry.RetryTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.MimeTypeUtils;
 
@@ -18,6 +19,7 @@ import org.springframework.util.MimeTypeUtils;
 public class MemeAnalyzerService {
 
     private final ChatModel chatModel;
+    private final RetryTemplate retryTemplate;
 
     public record MemeAnalysis(String ocrText, String description, boolean safe, String censorshipReason) {}
 
@@ -25,7 +27,7 @@ public class MemeAnalyzerService {
         log.info("Начало комбинированного анализа мема ИИ ({} байт)", imageBytes.length);
         try {
             Resource imageResource = toResource(imageBytes);
-            String reply = callModel(imageResource);
+            String reply = retryTemplate.execute(() -> callModel(imageResource));
             return parseReply(reply);
         } catch (Exception e) {
             log.error("Ошибка при анализе мема через ИИ: {}", e.getMessage(), e);

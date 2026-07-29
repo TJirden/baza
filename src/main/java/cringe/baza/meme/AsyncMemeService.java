@@ -1,5 +1,6 @@
 package cringe.baza.meme;
 
+import com.github.benmanes.caffeine.cache.Cache;
 import com.pengrad.telegrambot.model.PhotoSize;
 import cringe.baza.bot.service.TelegramFileService;
 import cringe.baza.bot.service.TelegramService;
@@ -34,6 +35,7 @@ public class AsyncMemeService {
     private final IdRepository memeRepository;
     private final MemeAiProcessingService aiProcessingService;
     private final MemeAiProducer aiProducer;
+    private final Cache<String, byte[]> imageBytesCache;
 
     @Value("${app.dedup.image-phash-threshold}")
     private int imagePhashThreshold;
@@ -65,6 +67,7 @@ public class AsyncMemeService {
             if (imageBytes == null || imageBytes.length == 0) {
                 throw new IOException("Не удалось скачать изображение из Telegram");
             }
+            imageBytesCache.put(memeId, imageBytes);
 
             telegramService.editMessageText(chatId, messageIdToEdit, "Вычисляю визуальный хеш...");
             OptionalLong imageHash = computeHashOrThrow(imageBytes);
@@ -100,17 +103,21 @@ public class AsyncMemeService {
                     memeId, imageBytes, description, userId, visibility, groupIdsStr);
 
             switch (result) {
-                case APPROVED ->
+                case APPROVED -> {
+                    imageBytesCache.invalidate(memeId);
                     telegramService.editMessageTextWithMarkdown(
                             chatId,
                             messageIdToEdit,
                             "*Мем успешно сохранен и одобрен!*\n\n*ID мема:* `" + memeId + "`");
-                case QUARANTINED_CENSORSHIP, QUARANTINED_DUPLICATE ->
+                }
+                case QUARANTINED_CENSORSHIP, QUARANTINED_DUPLICATE -> {
+                    imageBytesCache.invalidate(memeId);
                     telegramService.editMessageTextWithMarkdown(
                             chatId,
                             messageIdToEdit,
                             "*Мем помещен в карантин.*\n\n*ID мема:* `" + memeId
                                     + "`\nМем будет доступен после ручного одобрения модератором.");
+                }
                 case AI_UNAVAILABLE -> {
                     aiProducer.enqueueForProcessing(memeId);
                     telegramService.editMessageTextWithMarkdown(

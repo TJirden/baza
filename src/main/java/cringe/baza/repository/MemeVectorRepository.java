@@ -8,6 +8,7 @@ import cringe.baza.model.MemeVisibility;
 import cringe.baza.model.ModerationStatus;
 import cringe.baza.repository.jpa.MemeImageHashRepository;
 import cringe.baza.repository.jpa.MemeModerationRepository;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -212,15 +213,30 @@ public class MemeVectorRepository implements IdRepository {
 
     @Transactional
     @Override
-    public void promoteToApproved(String id, Meme meme) {
+    public boolean promoteToApproved(String id, Meme meme) {
+        int updated = memeModerationRepository.updateToApprovedIfPending(id, meme.description(), meme.ocrText());
+        if (updated == 0) {
+            return false;
+        }
         Document document = new Document(id, meme.description(), Map.of());
         vectorStore.add(List.of(document));
-        MemeModeration moderation = memeModerationRepository.findById(id).orElseThrow();
-        moderation.setStatus(ModerationStatus.APPROVED);
-        moderation.setDescription(meme.description());
-        moderation.setOcrText(meme.ocrText());
-        moderation.setModerationReason(null);
-        memeModerationRepository.save(moderation);
+        return true;
+    }
+
+    @Transactional
+    @Override
+    public boolean updateToQuarantinedIfPending(String id, String description, String ocrText, String reason) {
+        int updated = memeModerationRepository.updateToQuarantinedIfPending(id, description, ocrText, reason);
+        return updated > 0;
+    }
+
+    @Transactional
+    @Override
+    public void markEnqueued(String id) {
+        memeModerationRepository.findById(id).ifPresent(m -> {
+            m.setLastEnqueuedAt(LocalDateTime.now());
+            memeModerationRepository.save(m);
+        });
     }
 
     @Override
