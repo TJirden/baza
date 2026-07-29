@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -47,15 +48,24 @@ public class MemeAiProcessingService {
         if (!analysis.safe()) {
             log.warn("Мем {} не прошел цензуру ИИ. Причина: {}", memeId, analysis.censorshipReason());
             String reason = "ИИ-цензура: " + analysis.censorshipReason();
-            if (updateToQuarantined(memeId, reason, finalDescription, ocrText)) {
-                notifyUserQuarantined(userId, memeId, reason);
+            try {
+                if (updateToQuarantined(memeId, reason, finalDescription, ocrText)) {
+                    notifyUserQuarantined(userId, memeId, reason);
+                }
+            } catch (DataAccessException e) {
+                throw new TransientProcessingException("Ошибка БД при карантине мема " + memeId, e);
             }
             return AiProcessingResult.QUARANTINED_CENSORSHIP;
         }
 
         List<Long> groupIds = parseGroupIds(groupIdsStr);
-        boolean promoted = idRepository.promoteToApproved(
-                memeId, new Meme(memeId, finalDescription, ocrText, null, userId, visibility, groupIds));
+        boolean promoted;
+        try {
+            promoted = idRepository.promoteToApproved(
+                    memeId, new Meme(memeId, finalDescription, ocrText, null, userId, visibility, groupIds));
+        } catch (DataAccessException e) {
+            throw new TransientProcessingException("Ошибка БД при промоуте мема " + memeId, e);
+        }
         if (!promoted) {
             log.warn("Мем {} уже не PENDING, промоут пропущен", memeId);
             return AiProcessingResult.APPROVED;

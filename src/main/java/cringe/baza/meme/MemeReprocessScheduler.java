@@ -21,13 +21,13 @@ public class MemeReprocessScheduler {
     @Value("${app.ai.reprocess.minutes-threshold:5}")
     private int minutesThreshold;
 
-    @Value("${app.ai.reprocess.interval-ms:300000}")
-    private long intervalMs;
+    @Value("${app.ai.queue.retry-max-delay-ms:3600000}")
+    private long retryMaxDelayMs;
 
     @Scheduled(fixedDelayString = "${app.ai.reprocess.interval-ms:300000}")
     public void reenqueuePendingMemes() {
         LocalDateTime threshold = LocalDateTime.now().minusMinutes(minutesThreshold);
-        LocalDateTime enqueueThreshold = LocalDateTime.now().minus(Duration.ofMillis(intervalMs * 2));
+        LocalDateTime enqueueThreshold = LocalDateTime.now().minus(Duration.ofMillis(retryMaxDelayMs * 2));
         List<String> pendingIds = moderationRepository.findPendingIdsOlderThan(threshold, enqueueThreshold);
 
         if (pendingIds.isEmpty()) {
@@ -38,7 +38,7 @@ public class MemeReprocessScheduler {
                 "Re-enqueueing {} PENDING memes older than {} minutes (not enqueued in last {} ms)",
                 pendingIds.size(),
                 minutesThreshold,
-                intervalMs * 2);
+                retryMaxDelayMs * 2);
         for (String memeId : pendingIds) {
             try {
                 aiProducer.enqueueForProcessing(memeId);

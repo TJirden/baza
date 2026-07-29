@@ -4,6 +4,7 @@ import static org.mockito.Mockito.*;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import cringe.baza.bot.service.TelegramFileService;
+import cringe.baza.bot.service.TelegramService;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.model.IdRepository;
 import cringe.baza.model.MemeVisibility;
@@ -30,6 +31,9 @@ class MemeAiConsumerTest {
 
     @Mock
     private TelegramFileService fileService;
+
+    @Mock
+    private TelegramService telegramService;
 
     @Mock
     private RabbitTemplate rabbitTemplate;
@@ -189,13 +193,34 @@ class MemeAiConsumerTest {
     }
 
     @Test
-    void processMeme_UnexpectedException_PublishesRetry() {
+    void processMeme_PermanentError_SendsToDlqAndDeletes() {
         MemeModeration moderation = pendingMeme("meme-1", "file-1", 0);
         when(idRepository.findModerationById("meme-1")).thenReturn(Optional.of(moderation));
         when(imageBytesCache.getIfPresent("meme-1")).thenReturn(new byte[] {1, 2, 3});
         when(aiProcessingService.processAiAndFinalize(
                         anyString(), any(byte[].class), anyString(), anyLong(), any(), anyString()))
                 .thenThrow(new RuntimeException("NPE somewhere"));
+
+        consumer.processMeme("meme-1");
+
+        verify(rabbitTemplate)
+                .convertAndSend(eq("ai.dlx"), eq("ai.process.dlq"), eq("meme-1"));
+        verify(idRepository).delete("meme-1");
+        verify(telegramService).sendMessageWithMarkdown(eq(111L), anyString());
+        verify(imageBytesCache).invalidate("meme-1");
+        verify(idRepository, never()).incrementRetryCount(anyString());
+        verify(rabbitTemplate, never())
+                .convertAndSend(eq("ai.dlx"), eq("ai.process.retry"), any(), any(MessagePostProcessor.class));
+    }
+
+    @Test
+    void processMeme_TransientError_PublishesRetry() {
+        MemeModeration moderation = pendingMeme("meme-1", "file-1", 0);
+        when(idRepository.findModerationById("meme-1")).thenReturn(Optional.of(moderation));
+        when(imageBytesCache.getIfPresent("meme-1")).thenReturn(new byte[] {1, 2, 3});
+        when(aiProcessingService.processAiAndFinalize(
+                        anyString(), any(byte[].class), anyString(), anyLong(), any(), anyString()))
+                .thenThrow(new TransientProcessingException("DB down", new RuntimeException("conn lost")));
         when(idRepository.incrementRetryCount("meme-1")).thenReturn(1);
 
         consumer.processMeme("meme-1");
@@ -203,6 +228,10 @@ class MemeAiConsumerTest {
         verify(idRepository).incrementRetryCount("meme-1");
         verify(rabbitTemplate)
                 .convertAndSend(eq("ai.dlx"), eq("ai.process.retry"), eq("meme-1"), any(MessagePostProcessor.class));
+        verify(rabbitTemplate, never())
+                .convertAndSend(eq("ai.dlx"), eq("ai.process.retry"), any(), any(MessagePostProcessor.class));
+        verify(idRepository, never()).delete(anyString());
+        verify(telegramService, never()).sendMessageWithMarkdown(anyLong(), anyString());
     }
 
     @Test

@@ -3,6 +3,7 @@ package cringe.baza.meme;
 import com.github.benmanes.caffeine.cache.Cache;
 import cringe.baza.bot.config.MemeAiQueueConfig;
 import cringe.baza.bot.service.TelegramFileService;
+import cringe.baza.bot.service.TelegramService;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.model.IdRepository;
 import cringe.baza.model.MemeVisibility;
@@ -23,6 +24,7 @@ public class MemeAiConsumer {
     private final MemeAiProcessingService aiProcessingService;
     private final IdRepository idRepository;
     private final TelegramFileService fileService;
+    private final TelegramService telegramService;
     private final RabbitTemplate rabbitTemplate;
     private final Cache<String, byte[]> imageBytesCache;
 
@@ -77,9 +79,13 @@ public class MemeAiConsumer {
         try {
             result = aiProcessingService.processAiAndFinalize(
                     memeId, imageBytes, userDescription, userId, visibility, groupIdsStr);
+        } catch (TransientProcessingException | AiUnavailableException e) {
+            log.warn("Транзитная ошибка при AI-обработке мема {}: {}", memeId, e.getMessage());
+            publishRetry(memeId, "transient: " + e.getMessage());
+            return;
         } catch (Exception e) {
-            log.error("Непредвиденная ошибка при AI-обработке мема {}: {}", memeId, e.getMessage(), e);
-            publishRetry(memeId, "unexpected: " + e.getMessage());
+            log.error("Неустранимая ошибка при AI-обработке мема {}: {}", memeId, e.getMessage(), e);
+            handlePermanentFailure(memeId, moderation, "permanent: " + e.getMessage());
             return;
         }
 
@@ -90,6 +96,29 @@ public class MemeAiConsumer {
 
         imageBytesCache.invalidate(memeId);
         log.info("AI-обработка мема {} завершена: {}", memeId, result);
+    }
+
+    private void handlePermanentFailure(String memeId, MemeModeration moderation, String reason) {
+        log.error("Мем {} отправлен в DLQ (permanent failure): {}", memeId, reason);
+        rabbitTemplate.convertAndSend(
+                MemeAiQueueConfig.AI_DLX_EXCHANGE, MemeAiQueueConfig.AI_PROCESS_DLQ, memeId);
+        imageBytesCache.invalidate(memeId);
+        try {
+            idRepository.delete(memeId);
+        } catch (Exception e) {
+            log.warn("Не удалось удалить мем {} из БД: {}", memeId, e.getMessage());
+        }
+        Long ownerId = moderation.getOwnerId();
+        if (ownerId != null) {
+            try {
+                telegramService.sendMessageWithMarkdown(
+                        ownerId,
+                        "*Не удалось обработать мем.*\n\nПроизошла внутренняя ошибка, мем удалён. "
+                                + "Попробуйте загрузить его снова.");
+            } catch (Exception e) {
+                log.warn("Не удалось уведомить пользователя {} о неудаче мема {}: {}", ownerId, memeId, e.getMessage());
+            }
+        }
     }
 
     private void publishRetry(String memeId, String reason) {
