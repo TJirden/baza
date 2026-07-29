@@ -19,39 +19,17 @@ public class MemeAnalyzerService {
 
     private final ChatModel chatModel;
 
-    public record MemeAnalysis(String ocrText, String description) {}
+    public record MemeAnalysis(String ocrText, String description, boolean safe, String censorshipReason) {}
 
-    public record CensorshipResult(boolean safe, String reason) {}
-
-    public MemeAnalysis analyzeMemeDetails(byte[] imageBytes) {
-        log.info("Начало детального анализа мема ИИ ({} байт)", imageBytes.length);
+    public MemeAnalysis analyze(byte[] imageBytes) {
+        log.info("Начало комбинированного анализа мема ИИ ({} байт)", imageBytes.length);
         try {
             Resource imageResource = toResource(imageBytes);
-            String reply = callModelForAnalysis(imageResource);
-            return parseAnalysisReply(reply);
+            String reply = callModel(imageResource);
+            return parseReply(reply);
         } catch (Exception e) {
-            log.error("Ошибка при детальном анализе мема через ИИ: {}", e.getMessage(), e);
-            throw new RuntimeException("Ошибка ИИ при анализе изображения: " + e.getMessage(), e);
-        }
-    }
-
-    public String analyzeMeme(byte[] imageBytes) {
-        MemeAnalysis analysis = analyzeMemeDetails(imageBytes);
-        if (analysis.ocrText().isBlank()) {
-            return analysis.description();
-        }
-        return analysis.description() + " [Текст]: " + analysis.ocrText();
-    }
-
-    public CensorshipResult checkCensorship(byte[] imageBytes) {
-        log.info("Запуск ИИ-цензуры ({} байт)", imageBytes.length);
-        try {
-            Resource imageResource = toResource(imageBytes);
-            String reply = callModelForCensorship(imageResource);
-            return parseCensorshipReply(reply);
-        } catch (Exception e) {
-            log.error("Ошибка при проверке цензуры мема: {}", e.getMessage(), e);
-            return new CensorshipResult(true, "");
+            log.error("Ошибка при анализе мема через ИИ: {}", e.getMessage(), e);
+            throw new AiUnavailableException("ИИ-анализ недоступен: " + e.getMessage(), e);
         }
     }
 
@@ -59,25 +37,29 @@ public class MemeAnalyzerService {
         return new ByteArrayResource(imageBytes);
     }
 
-    private String callModelForAnalysis(Resource imageResource) {
+    private String callModel(Resource imageResource) {
         UserMessage userMessage = UserMessage.builder()
-                .text(
-                        "Extract any visible text exactly as OCR. Describe the rest of the image contextually in Russian. "
-                                + "You MUST reply STRICTLY in this format:\n"
-                                + "TEXT: <exact text on image or EMPTY if none>\n"
-                                + "DESCRIPTION: <visual description of the image in Russian>")
+                .text("You are an AI meme analyzer. Analyze the image and reply STRICTLY in this format:\n"
+                        + "TEXT: <exact text visible on the image, or EMPTY if none>\n"
+                        + "SAFE: <TRUE or FALSE>\n"
+                        + "REASON: <short reason in English if FALSE, otherwise empty>\n"
+                        + "DESCRIPTION: <visual description of the image in Russian>\n\n"
+                        + "Block criteria for SAFE=FALSE: explicit erotica/nudity (NSFW), violence, "
+                        + "severe insults, hate speech, or drug/illegal substance promotion.")
                 .media(new Media(MimeTypeUtils.IMAGE_JPEG, imageResource))
                 .build();
 
-        log.info("Отправка запроса детального анализа в ИИ...");
+        log.info("Отправка комбинированного запроса в ИИ...");
         var response = chatModel.call(new Prompt(List.of(userMessage)));
         String reply = response.getResult().getOutput().getText();
         log.info("Ответ ИИ:\n{}", reply);
         return reply;
     }
 
-    private MemeAnalysis parseAnalysisReply(String reply) {
+    private MemeAnalysis parseReply(String reply) {
         String ocrText = "";
+        boolean safe = true;
+        String reason = "";
         String description = "";
 
         if (reply != null) {
@@ -89,6 +71,15 @@ public class MemeAnalyzerService {
                 String trimmed = line.trim();
                 if (trimmed.toUpperCase().startsWith("TEXT:")) {
                     ocrText = trimmed.substring(5).trim();
+                    buildingDesc = false;
+                } else if (trimmed.toUpperCase().startsWith("SAFE:")) {
+                    String val = trimmed.substring(5).trim().toUpperCase();
+                    if (val.contains("FALSE")) {
+                        safe = false;
+                    }
+                    buildingDesc = false;
+                } else if (trimmed.toUpperCase().startsWith("REASON:")) {
+                    reason = trimmed.substring(7).trim();
                     buildingDesc = false;
                 } else if (trimmed.toUpperCase().startsWith("DESCRIPTION:")) {
                     descBuilder.append(trimmed.substring(12).trim());
@@ -111,45 +102,6 @@ public class MemeAnalyzerService {
             description = "Без описания";
         }
 
-        return new MemeAnalysis(ocrText, description);
-    }
-
-    private String callModelForCensorship(Resource imageResource) {
-        UserMessage userMessage = UserMessage.builder()
-                .text("You are an AI meme moderator. Assess if this meme is safe. "
-                        + "Block criteria: explicit erotica/nudity (NSFW), violence, severe insults, hate speech, or drug/illegal substance promotion. "
-                        + "Respond STRICTLY in this format:\n"
-                        + "SAFE: <TRUE or FALSE>\n"
-                        + "REASON: <short reason for block in English if FALSE, otherwise empty>")
-                .media(new Media(MimeTypeUtils.IMAGE_JPEG, imageResource))
-                .build();
-
-        log.info("Отправка запроса цензуры в ИИ...");
-        var response = chatModel.call(new Prompt(List.of(userMessage)));
-        String reply = response.getResult().getOutput().getText();
-        log.info("Ответ ИИ-цензуры: {}", reply);
-        return reply;
-    }
-
-    private CensorshipResult parseCensorshipReply(String reply) {
-        boolean safe = true;
-        String reason = "";
-
-        if (reply != null) {
-            String[] lines = reply.split("\n");
-            for (String line : lines) {
-                String trimmed = line.trim();
-                if (trimmed.toUpperCase().startsWith("SAFE:")) {
-                    String val = trimmed.substring(5).trim().toUpperCase();
-                    if (val.contains("FALSE")) {
-                        safe = false;
-                    }
-                } else if (trimmed.toUpperCase().startsWith("REASON:")) {
-                    reason = trimmed.substring(7).trim();
-                }
-            }
-        }
-
-        return new CensorshipResult(safe, reason);
+        return new MemeAnalysis(ocrText, description, safe, reason);
     }
 }

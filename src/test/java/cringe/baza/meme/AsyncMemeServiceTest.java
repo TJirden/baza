@@ -9,11 +9,9 @@ import cringe.baza.bot.service.TelegramService;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.meme.phash.MemeImageHasher;
 import cringe.baza.model.IdRepository;
-import cringe.baza.model.Meme;
 import cringe.baza.model.MemeVisibility;
 import cringe.baza.model.ModerationStatus;
 import cringe.baza.repository.jpa.MemeImageHashRepository;
-import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,22 +31,22 @@ class AsyncMemeServiceTest {
     private TelegramService telegramService;
 
     @Mock
-    private MemeProcessor memeProcessor;
-
-    @Mock
     private TelegramFileService fileService;
-
-    @Mock
-    private MemeAnalyzerService memeAnalyzerService;
-
-    @Mock
-    private IdRepository memeRepository;
 
     @Mock
     private MemeImageHasher memeImageHasher;
 
     @Mock
     private MemeImageHashRepository memeImageHashRepository;
+
+    @Mock
+    private IdRepository memeRepository;
+
+    @Mock
+    private MemeAiProcessingService aiProcessingService;
+
+    @Mock
+    private MemeAiProducer aiProducer;
 
     @InjectMocks
     private AsyncMemeService asyncMemeService;
@@ -64,355 +62,174 @@ class AsyncMemeServiceTest {
 
     @Test
     void saveMemeAsync_Success_Public() {
-        long chatId = 111L;
-        long userId = 222L;
-        PhotoSize[] photo = new PhotoSize[] {mock(PhotoSize.class)};
-        String description = "Cute puppy";
-        String visibilityContext = "PUBLIC";
-        int messageIdToEdit = 500;
+        when(fileService.getImageFileId(any(PhotoSize[].class))).thenReturn("file-123");
+        when(aiProcessingService.processAiAndFinalize(
+                        anyString(), any(byte[].class), anyString(), anyLong(), any(), anyString()))
+                .thenReturn(MemeAiProcessingService.AiProcessingResult.APPROVED);
 
-        when(fileService.getImageFileId(photo)).thenReturn("file-123");
-        when(memeAnalyzerService.analyzeMemeDetails(any(byte[].class)))
-                .thenReturn(new MemeAnalyzerService.MemeAnalysis("puppy text ocr", "puppy playing tag"));
-        when(memeAnalyzerService.checkCensorship(any(byte[].class)))
-                .thenReturn(new MemeAnalyzerService.CensorshipResult(true, ""));
-        when(memeRepository.findDuplicateMemeId(anyString(), anyDouble())).thenReturn(Optional.empty());
-        when(memeProcessor.save(any(Meme.class), any(OptionalLong.class))).thenReturn("meme-uuid-1");
+        asyncMemeService.saveMemeAsync(
+                111L, 222L, new PhotoSize[] {mock(PhotoSize.class)}, "Cute puppy", "PUBLIC", 500);
 
-        asyncMemeService.saveMemeAsync(chatId, userId, photo, description, visibilityContext, messageIdToEdit);
+        ArgumentCaptor<MemeModeration> pendingCaptor = ArgumentCaptor.forClass(MemeModeration.class);
+        verify(memeRepository).savePending(pendingCaptor.capture(), eq(OptionalLong.of(SAMPLE_HASH)));
+        MemeModeration pending = pendingCaptor.getValue();
+        assertEquals(ModerationStatus.PENDING, pending.getStatus());
+        assertEquals("Cute puppy", pending.getDescription());
+        assertEquals(MemeVisibility.PUBLIC, pending.getVisibility());
 
-        ArgumentCaptor<Meme> memeCaptor = ArgumentCaptor.forClass(Meme.class);
-        verify(memeProcessor).save(memeCaptor.capture(), eq(OptionalLong.of(SAMPLE_HASH)));
-        Meme savedMeme = memeCaptor.getValue();
-        assertEquals("file-123", savedMeme.fileId());
-        assertEquals(MemeVisibility.PUBLIC, savedMeme.visibility());
-        assertEquals(userId, savedMeme.ownerId());
-        assertEquals("Cute puppy\n\n[ИИ-Теги]: puppy playing tag", savedMeme.description());
-        assertEquals("puppy text ocr", savedMeme.ocrText());
-        assertEquals(0, savedMeme.groupIds().size());
-
-        verify(memeImageHasher, times(1)).computeHash(any(byte[].class));
-
-        verify(telegramService, atLeastOnce()).editMessageText(eq(chatId), eq(messageIdToEdit), anyString());
-        verify(telegramService, atLeastOnce())
-                .editMessageTextWithMarkdown(eq(chatId), eq(messageIdToEdit), anyString());
-    }
-
-    @Test
-    void saveMemeAsync_Success_NoDescription() {
-        long chatId = 111L;
-        long userId = 222L;
-        PhotoSize[] photo = new PhotoSize[] {mock(PhotoSize.class)};
-        String description = null;
-        String visibilityContext = "PUBLIC";
-        int messageIdToEdit = 500;
-
-        when(fileService.getImageFileId(photo)).thenReturn("file-123");
-        when(memeAnalyzerService.analyzeMemeDetails(any(byte[].class)))
-                .thenReturn(new MemeAnalyzerService.MemeAnalysis("cat text ocr", "AI generated description of a cat"));
-        when(memeAnalyzerService.checkCensorship(any(byte[].class)))
-                .thenReturn(new MemeAnalyzerService.CensorshipResult(true, ""));
-        when(memeRepository.findDuplicateMemeId(anyString(), anyDouble())).thenReturn(Optional.empty());
-        when(memeProcessor.save(any(Meme.class), any(OptionalLong.class))).thenReturn("meme-uuid-1");
-
-        asyncMemeService.saveMemeAsync(chatId, userId, photo, description, visibilityContext, messageIdToEdit);
-
-        ArgumentCaptor<Meme> memeCaptor = ArgumentCaptor.forClass(Meme.class);
-        verify(memeProcessor).save(memeCaptor.capture(), eq(OptionalLong.of(SAMPLE_HASH)));
-        Meme savedMeme = memeCaptor.getValue();
-        assertEquals("file-123", savedMeme.fileId());
-        assertEquals(MemeVisibility.PUBLIC, savedMeme.visibility());
-        assertEquals("AI generated description of a cat", savedMeme.description());
-        assertEquals("cat text ocr", savedMeme.ocrText());
-
-        verify(memeImageHasher, times(1)).computeHash(any(byte[].class));
-
-        verify(telegramService, atLeastOnce()).editMessageText(eq(chatId), eq(messageIdToEdit), anyString());
-        verify(telegramService, atLeastOnce())
-                .editMessageTextWithMarkdown(eq(chatId), eq(messageIdToEdit), anyString());
-    }
-
-    @Test
-    void saveMemeAsync_Success_WithDescription_AIEnrichmentFailure() {
-        long chatId = 111L;
-        long userId = 222L;
-        PhotoSize[] photo = new PhotoSize[] {mock(PhotoSize.class)};
-        String description = "Cute puppy";
-        String visibilityContext = "PUBLIC";
-        int messageIdToEdit = 500;
-
-        when(fileService.getImageFileId(photo)).thenReturn("file-123");
-        when(memeAnalyzerService.analyzeMemeDetails(any(byte[].class))).thenThrow(new RuntimeException("AI offline"));
-        when(memeAnalyzerService.checkCensorship(any(byte[].class)))
-                .thenReturn(new MemeAnalyzerService.CensorshipResult(true, ""));
-        when(memeRepository.findDuplicateMemeId(anyString(), anyDouble())).thenReturn(Optional.empty());
-        when(memeProcessor.save(any(Meme.class), any(OptionalLong.class))).thenReturn("meme-uuid-1");
-
-        asyncMemeService.saveMemeAsync(chatId, userId, photo, description, visibilityContext, messageIdToEdit);
-
-        ArgumentCaptor<Meme> memeCaptor = ArgumentCaptor.forClass(Meme.class);
-        verify(memeProcessor).save(memeCaptor.capture(), eq(OptionalLong.of(SAMPLE_HASH)));
-        Meme savedMeme = memeCaptor.getValue();
-        assertEquals("file-123", savedMeme.fileId());
-        assertEquals("Cute puppy", savedMeme.description());
-        assertEquals("", savedMeme.ocrText());
-
-        verify(memeImageHasher, times(1)).computeHash(any(byte[].class));
-
-        verify(telegramService, atLeastOnce()).editMessageText(eq(chatId), eq(messageIdToEdit), anyString());
-        verify(telegramService, atLeastOnce())
-                .editMessageTextWithMarkdown(eq(chatId), eq(messageIdToEdit), anyString());
+        verify(aiProcessingService)
+                .processAiAndFinalize(
+                        anyString(),
+                        any(byte[].class),
+                        eq("Cute puppy"),
+                        eq(222L),
+                        eq(MemeVisibility.PUBLIC),
+                        anyString());
+        verify(telegramService, atLeastOnce()).editMessageTextWithMarkdown(eq(111L), eq(500), anyString());
+        verify(aiProducer, never()).enqueueForProcessing(anyString());
     }
 
     @Test
     void saveMemeAsync_Success_Group() {
-        long chatId = 111L;
-        long userId = 222L;
-        PhotoSize[] photo = new PhotoSize[] {mock(PhotoSize.class)};
-        String description = "Funny cat";
-        String visibilityContext = "GROUP:10,20";
-        int messageIdToEdit = 500;
+        when(fileService.getImageFileId(any(PhotoSize[].class))).thenReturn("file-456");
+        when(aiProcessingService.processAiAndFinalize(
+                        anyString(), any(byte[].class), anyString(), anyLong(), any(), anyString()))
+                .thenReturn(MemeAiProcessingService.AiProcessingResult.APPROVED);
 
-        when(fileService.getImageFileId(photo)).thenReturn("file-456");
-        when(memeAnalyzerService.analyzeMemeDetails(any(byte[].class)))
-                .thenReturn(new MemeAnalyzerService.MemeAnalysis("cat text ocr", "cat jumping around"));
-        when(memeAnalyzerService.checkCensorship(any(byte[].class)))
-                .thenReturn(new MemeAnalyzerService.CensorshipResult(true, ""));
-        when(memeRepository.findDuplicateMemeId(anyString(), anyDouble())).thenReturn(Optional.empty());
-        when(memeProcessor.save(any(Meme.class), any(OptionalLong.class))).thenReturn("meme-uuid-2");
+        asyncMemeService.saveMemeAsync(
+                111L, 222L, new PhotoSize[] {mock(PhotoSize.class)}, "Funny cat", "GROUP:10,20", 500);
 
-        asyncMemeService.saveMemeAsync(chatId, userId, photo, description, visibilityContext, messageIdToEdit);
+        ArgumentCaptor<MemeModeration> pendingCaptor = ArgumentCaptor.forClass(MemeModeration.class);
+        verify(memeRepository).savePending(pendingCaptor.capture(), eq(OptionalLong.of(SAMPLE_HASH)));
+        MemeModeration pending = pendingCaptor.getValue();
+        assertEquals(MemeVisibility.GROUP, pending.getVisibility());
+        assertEquals("10,20", pending.getGroupIds());
 
-        ArgumentCaptor<Meme> memeCaptor = ArgumentCaptor.forClass(Meme.class);
-        verify(memeProcessor).save(memeCaptor.capture(), eq(OptionalLong.of(SAMPLE_HASH)));
-        Meme savedMeme = memeCaptor.getValue();
-        assertEquals("file-456", savedMeme.fileId());
-        assertEquals(MemeVisibility.GROUP, savedMeme.visibility());
-        assertEquals(List.of(10L, 20L), savedMeme.groupIds());
-        assertEquals("Funny cat\n\n[ИИ-Теги]: cat jumping around", savedMeme.description());
-        assertEquals("cat text ocr", savedMeme.ocrText());
-
-        verify(memeImageHasher, times(1)).computeHash(any(byte[].class));
-
-        verify(telegramService, atLeastOnce()).editMessageText(eq(chatId), eq(messageIdToEdit), anyString());
-        verify(telegramService, atLeastOnce())
-                .editMessageTextWithMarkdown(eq(chatId), eq(messageIdToEdit), anyString());
+        verify(aiProducer, never()).enqueueForProcessing(anyString());
     }
 
     @Test
-    void saveMemeAsync_Failure_CensorshipFlagged() {
-        long chatId = 111L;
-        long userId = 222L;
-        PhotoSize[] photo = new PhotoSize[] {mock(PhotoSize.class)};
-        String description = "Unsafe meme";
-        String visibilityContext = "PUBLIC";
-        int messageIdToEdit = 500;
+    void saveMemeAsync_CensorshipFlagged() {
+        when(fileService.getImageFileId(any(PhotoSize[].class))).thenReturn("file-unsafe");
+        when(aiProcessingService.processAiAndFinalize(
+                        anyString(), any(byte[].class), anyString(), anyLong(), any(), anyString()))
+                .thenReturn(MemeAiProcessingService.AiProcessingResult.QUARANTINED_CENSORSHIP);
 
-        when(fileService.getImageFileId(photo)).thenReturn("file-unsafe");
-        when(memeAnalyzerService.analyzeMemeDetails(any(byte[].class)))
-                .thenReturn(new MemeAnalyzerService.MemeAnalysis("unsafe text ocr", "unsafe image contents"));
-        when(memeAnalyzerService.checkCensorship(any(byte[].class)))
-                .thenReturn(new MemeAnalyzerService.CensorshipResult(false, "Подозрение на NSFW"));
+        asyncMemeService.saveMemeAsync(
+                111L, 222L, new PhotoSize[] {mock(PhotoSize.class)}, "Unsafe meme", "PUBLIC", 500);
 
-        asyncMemeService.saveMemeAsync(chatId, userId, photo, description, visibilityContext, messageIdToEdit);
-
-        verify(memeProcessor, never()).save(any(Meme.class), any(OptionalLong.class));
-        verify(memeImageHasher, times(1)).computeHash(any(byte[].class));
-
-        ArgumentCaptor<MemeModeration> moderationCaptor = ArgumentCaptor.forClass(MemeModeration.class);
-        verify(memeRepository).saveQuarantined(moderationCaptor.capture(), eq(OptionalLong.of(SAMPLE_HASH)));
-        MemeModeration moderation = moderationCaptor.getValue();
-        assertEquals(ModerationStatus.QUARANTINED, moderation.getStatus());
-        assertEquals("ИИ-цензура: Подозрение на NSFW", moderation.getModerationReason());
-        assertEquals("unsafe text ocr", moderation.getOcrText());
-
-        verify(telegramService, atLeastOnce()).editMessageText(eq(chatId), eq(messageIdToEdit), anyString());
-        verify(telegramService, atLeastOnce())
-                .editMessageTextWithMarkdown(eq(chatId), eq(messageIdToEdit), anyString());
+        verify(memeRepository).savePending(any(MemeModeration.class), eq(OptionalLong.of(SAMPLE_HASH)));
+        verify(telegramService, atLeastOnce()).editMessageTextWithMarkdown(eq(111L), eq(500), anyString());
+        verify(aiProducer, never()).enqueueForProcessing(anyString());
     }
 
     @Test
-    void saveMemeAsync_Failure_DuplicateFlagged() {
-        long chatId = 111L;
-        long userId = 222L;
-        PhotoSize[] photo = new PhotoSize[] {mock(PhotoSize.class)};
-        String description = "Duplicate meme";
-        String visibilityContext = "PUBLIC";
-        int messageIdToEdit = 500;
+    void saveMemeAsync_DuplicateFlagged() {
+        when(fileService.getImageFileId(any(PhotoSize[].class))).thenReturn("file-dup");
+        when(aiProcessingService.processAiAndFinalize(
+                        anyString(), any(byte[].class), anyString(), anyLong(), any(), anyString()))
+                .thenReturn(MemeAiProcessingService.AiProcessingResult.QUARANTINED_DUPLICATE);
 
-        when(fileService.getImageFileId(photo)).thenReturn("file-duplicate");
-        when(memeAnalyzerService.analyzeMemeDetails(any(byte[].class)))
-                .thenReturn(
-                        new MemeAnalyzerService.MemeAnalysis("duplicate text ocr", "duplicate content description"));
-        when(memeAnalyzerService.checkCensorship(any(byte[].class)))
-                .thenReturn(new MemeAnalyzerService.CensorshipResult(true, ""));
-        when(memeRepository.findDuplicateMemeId(anyString(), anyDouble()))
-                .thenReturn(Optional.of("existing-meme-id-999"));
+        asyncMemeService.saveMemeAsync(
+                111L, 222L, new PhotoSize[] {mock(PhotoSize.class)}, "Duplicate meme", "PUBLIC", 500);
 
-        asyncMemeService.saveMemeAsync(chatId, userId, photo, description, visibilityContext, messageIdToEdit);
-
-        verify(memeProcessor, never()).save(any(Meme.class), any(OptionalLong.class));
-
-        ArgumentCaptor<MemeModeration> moderationCaptor = ArgumentCaptor.forClass(MemeModeration.class);
-        verify(memeRepository).saveQuarantined(moderationCaptor.capture(), eq(OptionalLong.of(SAMPLE_HASH)));
-        MemeModeration moderation = moderationCaptor.getValue();
-        assertEquals(ModerationStatus.QUARANTINED, moderation.getStatus());
-        assertEquals("Дубликат мема: existing-meme-id-999", moderation.getModerationReason());
-        assertEquals("duplicate text ocr", moderation.getOcrText());
-
-        verify(telegramService, atLeastOnce()).editMessageText(eq(chatId), eq(messageIdToEdit), anyString());
-        verify(telegramService, atLeastOnce())
-                .editMessageTextWithMarkdown(eq(chatId), eq(messageIdToEdit), anyString());
+        verify(memeRepository).savePending(any(MemeModeration.class), eq(OptionalLong.of(SAMPLE_HASH)));
+        verify(aiProducer, never()).enqueueForProcessing(anyString());
     }
 
     @Test
-    void saveMemeAsync_Failure_VisualDuplicateFlagged() {
-        long chatId = 111L;
-        long userId = 222L;
-        PhotoSize[] photo = new PhotoSize[] {mock(PhotoSize.class)};
-        String description = "Visual duplicate";
-        String visibilityContext = "PUBLIC";
-        int messageIdToEdit = 500;
+    void saveMemeAsync_AiUnavailable_Enqueues() {
+        when(fileService.getImageFileId(any(PhotoSize[].class))).thenReturn("file-123");
+        when(aiProcessingService.processAiAndFinalize(
+                        anyString(), any(byte[].class), anyString(), anyLong(), any(), anyString()))
+                .thenReturn(MemeAiProcessingService.AiProcessingResult.AI_UNAVAILABLE);
 
-        when(fileService.getImageFileId(photo)).thenReturn("file-vis-dup");
+        asyncMemeService.saveMemeAsync(
+                111L, 222L, new PhotoSize[] {mock(PhotoSize.class)}, "Cute puppy", "PUBLIC", 500);
+
+        verify(memeRepository).savePending(any(MemeModeration.class), eq(OptionalLong.of(SAMPLE_HASH)));
+        verify(aiProducer).enqueueForProcessing(anyString());
+        verify(telegramService, atLeastOnce()).editMessageTextWithMarkdown(eq(111L), eq(500), anyString());
+    }
+
+    @Test
+    void saveMemeAsync_VisualDuplicateFlagged() {
+        when(fileService.getImageFileId(any(PhotoSize[].class))).thenReturn("file-vis-dup");
         when(memeImageHashRepository.findNearestApproved(anyLong(), anyInt()))
                 .thenReturn(Optional.of("existing-vis-id"));
 
-        asyncMemeService.saveMemeAsync(chatId, userId, photo, description, visibilityContext, messageIdToEdit);
+        asyncMemeService.saveMemeAsync(
+                111L, 222L, new PhotoSize[] {mock(PhotoSize.class)}, "Visual duplicate", "PUBLIC", 500);
 
-        verify(memeProcessor, never()).save(any(Meme.class), any(OptionalLong.class));
-        verify(memeAnalyzerService, never()).analyzeMemeDetails(any(byte[].class));
-        verify(memeAnalyzerService, never()).checkCensorship(any(byte[].class));
+        verify(memeRepository, never()).savePending(any(MemeModeration.class), any(OptionalLong.class));
+        verify(aiProcessingService, never())
+                .processAiAndFinalize(anyString(), any(byte[].class), anyString(), anyLong(), any(), anyString());
 
         ArgumentCaptor<MemeModeration> moderationCaptor = ArgumentCaptor.forClass(MemeModeration.class);
         verify(memeRepository).saveQuarantined(moderationCaptor.capture(), eq(OptionalLong.of(SAMPLE_HASH)));
         MemeModeration moderation = moderationCaptor.getValue();
         assertEquals(ModerationStatus.QUARANTINED, moderation.getStatus());
         assertEquals("Визуальный дубликат мема: existing-vis-id", moderation.getModerationReason());
-        assertEquals("", moderation.getOcrText());
-
-        verify(telegramService, atLeastOnce()).editMessageText(eq(chatId), eq(messageIdToEdit), anyString());
-        verify(telegramService, atLeastOnce())
-                .editMessageTextWithMarkdown(eq(chatId), eq(messageIdToEdit), anyString());
     }
 
     @Test
-    void saveMemeAsync_Failure_VisualDedupDbError() {
-        long chatId = 111L;
-        long userId = 222L;
-        PhotoSize[] photo = new PhotoSize[] {mock(PhotoSize.class)};
-        String description = "Cute puppy";
-        String visibilityContext = "PUBLIC";
-        int messageIdToEdit = 500;
-
-        when(fileService.getImageFileId(photo)).thenReturn("file-123");
+    void saveMemeAsync_VisualDedupDbError() {
+        when(fileService.getImageFileId(any(PhotoSize[].class))).thenReturn("file-123");
         when(memeImageHashRepository.findNearestApproved(anyLong(), anyInt()))
                 .thenThrow(new RuntimeException("db connection lost"));
 
-        asyncMemeService.saveMemeAsync(chatId, userId, photo, description, visibilityContext, messageIdToEdit);
+        asyncMemeService.saveMemeAsync(
+                111L, 222L, new PhotoSize[] {mock(PhotoSize.class)}, "Cute puppy", "PUBLIC", 500);
 
-        verify(memeProcessor, never()).save(any(Meme.class), any(OptionalLong.class));
-        verify(memeAnalyzerService, never()).analyzeMemeDetails(any(byte[].class));
-
-        ArgumentCaptor<MemeModeration> moderationCaptor = ArgumentCaptor.forClass(MemeModeration.class);
-        verify(memeRepository).saveQuarantined(moderationCaptor.capture(), eq(OptionalLong.of(SAMPLE_HASH)));
-        MemeModeration moderation = moderationCaptor.getValue();
-        assertEquals(ModerationStatus.QUARANTINED, moderation.getStatus());
-        assertEquals("Ошибка визуальной проверки дубликатов: db connection lost", moderation.getModerationReason());
-
-        verify(telegramService, atLeastOnce()).editMessageText(eq(chatId), eq(messageIdToEdit), anyString());
-        verify(telegramService, atLeastOnce())
-                .editMessageTextWithMarkdown(eq(chatId), eq(messageIdToEdit), anyString());
-    }
-
-    @Test
-    void saveMemeAsync_Failure_TextDedupDbError() {
-        long chatId = 111L;
-        long userId = 222L;
-        PhotoSize[] photo = new PhotoSize[] {mock(PhotoSize.class)};
-        String description = "Cute puppy";
-        String visibilityContext = "PUBLIC";
-        int messageIdToEdit = 500;
-
-        when(fileService.getImageFileId(photo)).thenReturn("file-123");
-        when(memeAnalyzerService.analyzeMemeDetails(any(byte[].class)))
-                .thenReturn(new MemeAnalyzerService.MemeAnalysis("puppy text ocr", "puppy playing tag"));
-        when(memeAnalyzerService.checkCensorship(any(byte[].class)))
-                .thenReturn(new MemeAnalyzerService.CensorshipResult(true, ""));
-        when(memeRepository.findDuplicateMemeId(anyString(), anyDouble()))
-                .thenThrow(new RuntimeException("vector store down"));
-
-        asyncMemeService.saveMemeAsync(chatId, userId, photo, description, visibilityContext, messageIdToEdit);
-
-        verify(memeProcessor, never()).save(any(Meme.class), any(OptionalLong.class));
+        verify(memeRepository, never()).savePending(any(MemeModeration.class), any(OptionalLong.class));
+        verify(aiProcessingService, never())
+                .processAiAndFinalize(anyString(), any(byte[].class), anyString(), anyLong(), any(), anyString());
 
         ArgumentCaptor<MemeModeration> moderationCaptor = ArgumentCaptor.forClass(MemeModeration.class);
         verify(memeRepository).saveQuarantined(moderationCaptor.capture(), eq(OptionalLong.of(SAMPLE_HASH)));
-        MemeModeration moderation = moderationCaptor.getValue();
-        assertEquals(ModerationStatus.QUARANTINED, moderation.getStatus());
-        assertEquals("Ошибка текстовой проверки дубликатов: vector store down", moderation.getModerationReason());
-
-        verify(telegramService, atLeastOnce()).editMessageText(eq(chatId), eq(messageIdToEdit), anyString());
-        verify(telegramService, atLeastOnce())
-                .editMessageTextWithMarkdown(eq(chatId), eq(messageIdToEdit), anyString());
+        assertEquals(ModerationStatus.QUARANTINED, moderationCaptor.getValue().getStatus());
+        assertEquals(
+                "Ошибка визуальной проверки дубликатов: db connection lost",
+                moderationCaptor.getValue().getModerationReason());
     }
 
     @Test
-    void saveMemeAsync_Failure_HashFails() {
-        long chatId = 111L;
-        long userId = 222L;
-        PhotoSize[] photo = new PhotoSize[] {mock(PhotoSize.class)};
-        String description = "Cute puppy";
-        String visibilityContext = "PUBLIC";
-        int messageIdToEdit = 500;
-
-        when(fileService.getImageFileId(photo)).thenReturn("file-123");
+    void saveMemeAsync_HashFails() {
+        when(fileService.getImageFileId(any(PhotoSize[].class))).thenReturn("file-123");
         when(memeImageHasher.computeHash(any(byte[].class))).thenReturn(OptionalLong.empty());
 
-        asyncMemeService.saveMemeAsync(chatId, userId, photo, description, visibilityContext, messageIdToEdit);
+        asyncMemeService.saveMemeAsync(
+                111L, 222L, new PhotoSize[] {mock(PhotoSize.class)}, "Cute puppy", "PUBLIC", 500);
 
-        verify(memeProcessor, never()).save(any(Meme.class), any(OptionalLong.class));
-        verify(memeRepository, never()).saveQuarantined(any(MemeModeration.class), any(OptionalLong.class));
-        verify(memeAnalyzerService, never()).analyzeMemeDetails(any(byte[].class));
-
-        verify(telegramService).editMessageTextWithMarkdown(eq(chatId), eq(messageIdToEdit), anyString());
+        verify(memeRepository, never()).savePending(any(MemeModeration.class), any(OptionalLong.class));
+        verify(aiProcessingService, never())
+                .processAiAndFinalize(anyString(), any(byte[].class), anyString(), anyLong(), any(), anyString());
+        verify(telegramService).editMessageTextWithMarkdown(eq(111L), eq(500), anyString());
     }
 
     @Test
-    void saveMemeAsync_Failure_DownloadFails() throws Exception {
-        long chatId = 111L;
-        long userId = 222L;
-        PhotoSize[] photo = new PhotoSize[] {mock(PhotoSize.class)};
-        String description = "Cute puppy";
-        String visibilityContext = "PUBLIC";
-        int messageIdToEdit = 500;
+    void saveMemeAsync_DownloadFails() throws Exception {
+        when(fileService.getImageFileId(any(PhotoSize[].class))).thenReturn("file-123");
+        lenient()
+                .doThrow(new RuntimeException("download failed"))
+                .when(fileService)
+                .downloadFileBytes(anyString());
 
-        when(fileService.getImageFileId(photo)).thenReturn("file-123");
-        when(fileService.downloadFileBytes(anyString())).thenThrow(new RuntimeException("download failed"));
-
-        asyncMemeService.saveMemeAsync(chatId, userId, photo, description, visibilityContext, messageIdToEdit);
+        asyncMemeService.saveMemeAsync(
+                111L, 222L, new PhotoSize[] {mock(PhotoSize.class)}, "Cute puppy", "PUBLIC", 500);
 
         verify(memeImageHasher, never()).computeHash(any(byte[].class));
-        verify(memeProcessor, never()).save(any(Meme.class), any(OptionalLong.class));
-        verify(memeRepository, never()).saveQuarantined(any(MemeModeration.class), any(OptionalLong.class));
-
-        verify(telegramService).editMessageTextWithMarkdown(eq(chatId), eq(messageIdToEdit), anyString());
+        verify(memeRepository, never()).savePending(any(MemeModeration.class), any(OptionalLong.class));
+        verify(telegramService).editMessageTextWithMarkdown(eq(111L), eq(500), anyString());
     }
 
     @Test
-    void saveMemeAsync_Failure_NullFileId() {
-        long chatId = 111L;
-        long userId = 222L;
-        PhotoSize[] photo = new PhotoSize[] {mock(PhotoSize.class)};
-        String description = "Funny cat";
-        String visibilityContext = "PUBLIC";
-        int messageIdToEdit = 500;
+    void saveMemeAsync_NullFileId() {
+        when(fileService.getImageFileId(any(PhotoSize[].class))).thenReturn(null);
 
-        when(fileService.getImageFileId(photo)).thenReturn(null);
+        asyncMemeService.saveMemeAsync(111L, 222L, new PhotoSize[] {mock(PhotoSize.class)}, "Funny cat", "PUBLIC", 500);
 
-        asyncMemeService.saveMemeAsync(chatId, userId, photo, description, visibilityContext, messageIdToEdit);
-
-        verify(memeProcessor, never()).save(any(Meme.class), any(OptionalLong.class));
-        verify(telegramService).editMessageTextWithMarkdown(eq(chatId), eq(messageIdToEdit), anyString());
+        verify(memeRepository, never()).savePending(any(MemeModeration.class), any(OptionalLong.class));
+        verify(telegramService).editMessageTextWithMarkdown(eq(111L), eq(500), anyString());
     }
 }

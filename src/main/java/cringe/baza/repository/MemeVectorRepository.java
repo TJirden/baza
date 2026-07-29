@@ -203,6 +203,33 @@ public class MemeVectorRepository implements IdRepository {
 
     @Transactional
     @Override
+    public void savePending(MemeModeration moderation, OptionalLong imageHash) {
+        memeModerationRepository.save(moderation);
+        if (imageHash.isPresent()) {
+            memeImageHashRepository.save(new MemeImageHash(moderation.getId(), imageHash.getAsLong()));
+        }
+    }
+
+    @Transactional
+    @Override
+    public void promoteToApproved(String id, Meme meme) {
+        Document document = new Document(id, meme.description(), Map.of());
+        vectorStore.add(List.of(document));
+        MemeModeration moderation = memeModerationRepository.findById(id).orElseThrow();
+        moderation.setStatus(ModerationStatus.APPROVED);
+        moderation.setDescription(meme.description());
+        moderation.setOcrText(meme.ocrText());
+        moderation.setModerationReason(null);
+        memeModerationRepository.save(moderation);
+    }
+
+    @Override
+    public Optional<MemeModeration> findModerationById(String id) {
+        return memeModerationRepository.findById(id);
+    }
+
+    @Transactional
+    @Override
     public void updateMeme(String id, Meme meme) {
         vectorStore.delete(List.of(id));
         persistMeme(id, meme);

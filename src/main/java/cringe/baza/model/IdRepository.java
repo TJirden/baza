@@ -17,6 +17,15 @@ public interface IdRepository {
     /** Сохраняет запись модерации (например, в карантин) и (опционально) визуальный хеш. */
     void saveQuarantined(MemeModeration moderation, OptionalLong imageHash);
 
+    /** Сохраняет запись модерации в статусе PENDING и (опционально) визуальный хеш. */
+    void savePending(MemeModeration moderation, OptionalLong imageHash);
+
+    /** Переводит существующую PENDING-запись в APPROVED: добавляет вектор и обновляет поля модерации. */
+    void promoteToApproved(String id, Meme meme);
+
+    /** Загружает запись модерации по ID независимо от статуса (для consumer'а очереди). */
+    Optional<MemeModeration> findModerationById(String id);
+
     /** Обновляет вектор и описание мема, не затрагивая визуальный хеш. */
     void updateMeme(String id, Meme meme);
 

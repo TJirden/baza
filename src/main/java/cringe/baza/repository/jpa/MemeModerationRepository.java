@@ -18,6 +18,12 @@ public interface MemeModerationRepository extends JpaRepository<MemeModeration, 
 
     List<MemeModeration> findByStatusAndCreatedAtAfter(ModerationStatus status, LocalDateTime threshold);
 
+    @Query(
+            value =
+                    "SELECT id FROM meme_moderation WHERE status = 'PENDING' AND created_at < :threshold ORDER BY created_at ASC LIMIT 100",
+            nativeQuery = true)
+    List<String> findPendingIdsOlderThan(@Param("threshold") LocalDateTime threshold);
+
     List<MemeModeration> findByStatusAndVisibility(ModerationStatus status, MemeVisibility visibility);
 
     List<MemeModeration> findByOwnerIdAndStatusAndVisibility(
