@@ -49,9 +49,6 @@ public interface IdRepository {
     /** Удаляет вектор из индекса и переводит запись БД в статус QUARANTINED. */
     void quarantine(String id);
 
-    /** Ищет ID одобренного мема, семантически близкого к описанию, в пределах порога схожести. */
-    Optional<String> findDuplicateMemeId(String description, double similarityThreshold);
-
     Optional<Meme> findById(String id);
 
     List<Meme> findAll(int limit, int offset);

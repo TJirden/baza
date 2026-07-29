@@ -6,10 +6,8 @@ import cringe.baza.model.Meme;
 import cringe.baza.model.MemeVisibility;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -20,9 +18,6 @@ public class MemeAiProcessingService {
     private final MemeAnalyzerService memeAnalyzerService;
     private final IdRepository idRepository;
     private final TelegramService telegramService;
-
-    @Value("${app.dedup.text-threshold}")
-    private double textDedupThreshold;
 
     public enum AiProcessingResult {
         APPROVED,
@@ -56,28 +51,6 @@ public class MemeAiProcessingService {
                 notifyUserQuarantined(userId, memeId, reason);
             }
             return AiProcessingResult.QUARANTINED_CENSORSHIP;
-        }
-
-        Optional<String> duplicateIdOpt;
-        try {
-            duplicateIdOpt = idRepository.findDuplicateMemeId(finalDescription, textDedupThreshold);
-        } catch (Exception e) {
-            log.warn("Ошибка при текстовой проверке дубликатов мема {}: {}", memeId, e.getMessage());
-            String reason = "Ошибка текстовой проверки дубликатов: " + e.getMessage();
-            if (updateToQuarantined(memeId, reason, finalDescription, ocrText)) {
-                notifyUserQuarantined(userId, memeId, null);
-            }
-            return AiProcessingResult.QUARANTINED_DUPLICATE;
-        }
-
-        if (duplicateIdOpt.isPresent()) {
-            String duplicateId = duplicateIdOpt.get();
-            log.warn("Обнаружен дубликат мема {}. Оригинал: {}", memeId, duplicateId);
-            String reason = "Дубликат мема: " + duplicateId;
-            if (updateToQuarantined(memeId, reason, finalDescription, ocrText)) {
-                notifyUserQuarantined(userId, memeId, null);
-            }
-            return AiProcessingResult.QUARANTINED_DUPLICATE;
         }
 
         List<Long> groupIds = parseGroupIds(groupIdsStr);

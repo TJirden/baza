@@ -253,19 +253,4 @@ public class MemeVectorRepository implements IdRepository {
         vectorStore.delete(List.of(id));
         persistMeme(id, meme);
     }
-
-    @Override
-    public Optional<String> findDuplicateMemeId(String description, double similarityThreshold) {
-        SearchRequest request = SearchRequest.builder()
-                .query(description)
-                .topK(1)
-                .similarityThreshold(similarityThreshold)
-                .build();
-
-        List<Document> results = vectorStore.similaritySearch(request);
-        if (results != null && !results.isEmpty()) {
-            return Optional.of(results.get(0).getId());
-        }
-        return Optional.empty();
-    }
 }
