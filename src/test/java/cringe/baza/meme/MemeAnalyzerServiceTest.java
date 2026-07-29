@@ -3,6 +3,9 @@ package cringe.baza.meme;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
+import java.time.Duration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -12,6 +15,7 @@ import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.core.retry.RetryPolicy;
 import org.springframework.core.retry.RetryTemplate;
 import org.springframework.core.retry.Retryable;
 
@@ -21,18 +25,27 @@ class MemeAnalyzerServiceTest {
     @Mock
     private ChatModel chatModel;
 
-    @Mock
     private RetryTemplate retryTemplate;
+
+    private CircuitBreaker circuitBreaker;
 
     private MemeAnalyzerService service;
 
     @BeforeEach
     void setUp() throws Exception {
-        service = new MemeAnalyzerService(chatModel, retryTemplate);
-        lenient().when(retryTemplate.execute(any(Retryable.class))).thenAnswer(invocation -> {
-            Retryable<?> retryable = invocation.getArgument(0);
-            return retryable.execute();
-        });
+        retryTemplate = new RetryTemplate(RetryPolicy.builder()
+                .maxRetries(2)
+                .delay(Duration.ofMillis(1))
+                .multiplier(1.0)
+                .maxDelay(Duration.ofMillis(1))
+                .build());
+        circuitBreaker = CircuitBreaker.of("test", CircuitBreakerConfig.custom()
+                .waitDurationInOpenState(Duration.ofSeconds(30))
+                .slidingWindowSize(1)
+                .minimumNumberOfCalls(1)
+                .failureRateThreshold(1.0f)
+                .build());
+        service = new MemeAnalyzerService(chatModel, retryTemplate, circuitBreaker);
     }
 
     private void mockReply(String reply) {
@@ -108,7 +121,7 @@ class MemeAnalyzerServiceTest {
     }
 
     @Test
-    void analyze_NullReply_ReturnsDefaults() {
+    void analyze_NullReply_ThrowsAiUnavailableException() {
         ChatResponse mockResponse = mock(ChatResponse.class);
         var generation = mock(org.springframework.ai.chat.model.Generation.class);
         var output = mock(AssistantMessage.class);
@@ -117,10 +130,33 @@ class MemeAnalyzerServiceTest {
         when(mockResponse.getResult()).thenReturn(generation);
         when(chatModel.call(any(Prompt.class))).thenReturn(mockResponse);
 
-        MemeAnalyzerService.MemeAnalysis result = service.analyze(new byte[] {1, 2, 3});
+        assertThrows(AiUnavailableException.class, () -> service.analyze(new byte[] {1, 2, 3}));
+    }
 
-        assertEquals("", result.ocrText());
-        assertEquals("Без описания", result.description());
-        assertTrue(result.safe());
+    @Test
+    void analyze_EmptyReply_ThrowsAiUnavailableException() {
+        mockReply("");
+
+        assertThrows(AiUnavailableException.class, () -> service.analyze(new byte[] {1, 2, 3}));
+    }
+
+    @Test
+    void analyze_ReplyWithoutSafeLine_ThrowsAiUnavailableException() {
+        mockReply("TEXT: Hello\nDESCRIPTION: Котик");
+
+        assertThrows(AiUnavailableException.class, () -> service.analyze(new byte[] {1, 2, 3}));
+    }
+
+    @Test
+    void analyze_CircuitBreakerOpen_ThrowsAiUnavailableWithoutRetries() {
+        circuitBreaker.transitionToOpenState();
+        RetryTemplate bigRetries = new RetryTemplate(RetryPolicy.builder()
+                .maxRetries(10)
+                .delay(Duration.ofMillis(1))
+                .build());
+        MemeAnalyzerService strictService = new MemeAnalyzerService(chatModel, bigRetries, circuitBreaker);
+
+        assertThrows(AiUnavailableException.class, () -> strictService.analyze(new byte[] {1, 2, 3}));
+        verify(chatModel, never()).call(any(Prompt.class));
     }
 }

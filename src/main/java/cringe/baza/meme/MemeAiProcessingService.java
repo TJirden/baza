@@ -4,8 +4,6 @@ import cringe.baza.bot.service.TelegramService;
 import cringe.baza.model.IdRepository;
 import cringe.baza.model.Meme;
 import cringe.baza.model.MemeVisibility;
-import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
-import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -22,7 +20,6 @@ public class MemeAiProcessingService {
     private final MemeAnalyzerService memeAnalyzerService;
     private final IdRepository idRepository;
     private final TelegramService telegramService;
-    private final CircuitBreaker aiCircuitBreaker;
 
     @Value("${app.dedup.text-threshold}")
     private double textDedupThreshold;
@@ -43,11 +40,7 @@ public class MemeAiProcessingService {
             String groupIdsStr) {
         MemeAnalyzerService.MemeAnalysis analysis;
         try {
-            analysis = CircuitBreaker.decorateSupplier(aiCircuitBreaker, () -> memeAnalyzerService.analyze(imageBytes))
-                    .get();
-        } catch (CallNotPermittedException e) {
-            log.warn("Circuit breaker открыт, AI-обработка мема {} отложена", memeId);
-            return AiProcessingResult.AI_UNAVAILABLE;
+            analysis = memeAnalyzerService.analyze(imageBytes);
         } catch (AiUnavailableException e) {
             log.warn("AI недоступен для мема {}: {}", memeId, e.getMessage());
             return AiProcessingResult.AI_UNAVAILABLE;
@@ -58,8 +51,10 @@ public class MemeAiProcessingService {
 
         if (!analysis.safe()) {
             log.warn("Мем {} не прошел цензуру ИИ. Причина: {}", memeId, analysis.censorshipReason());
-            updateToQuarantined(memeId, "ИИ-цензура: " + analysis.censorshipReason(), finalDescription, ocrText);
-            notifyUserQuarantined(userId, memeId, "ИИ-цензура: " + analysis.censorshipReason());
+            String reason = "ИИ-цензура: " + analysis.censorshipReason();
+            if (updateToQuarantined(memeId, reason, finalDescription, ocrText)) {
+                notifyUserQuarantined(userId, memeId, reason);
+            }
             return AiProcessingResult.QUARANTINED_CENSORSHIP;
         }
 
@@ -68,17 +63,20 @@ public class MemeAiProcessingService {
             duplicateIdOpt = idRepository.findDuplicateMemeId(finalDescription, textDedupThreshold);
         } catch (Exception e) {
             log.warn("Ошибка при текстовой проверке дубликатов мема {}: {}", memeId, e.getMessage());
-            updateToQuarantined(
-                    memeId, "Ошибка текстовой проверки дубликатов: " + e.getMessage(), finalDescription, ocrText);
-            notifyUserQuarantined(userId, memeId, null);
+            String reason = "Ошибка текстовой проверки дубликатов: " + e.getMessage();
+            if (updateToQuarantined(memeId, reason, finalDescription, ocrText)) {
+                notifyUserQuarantined(userId, memeId, null);
+            }
             return AiProcessingResult.QUARANTINED_DUPLICATE;
         }
 
         if (duplicateIdOpt.isPresent()) {
             String duplicateId = duplicateIdOpt.get();
             log.warn("Обнаружен дубликат мема {}. Оригинал: {}", memeId, duplicateId);
-            updateToQuarantined(memeId, "Дубликат мема: " + duplicateId, finalDescription, ocrText);
-            notifyUserQuarantined(userId, memeId, null);
+            String reason = "Дубликат мема: " + duplicateId;
+            if (updateToQuarantined(memeId, reason, finalDescription, ocrText)) {
+                notifyUserQuarantined(userId, memeId, null);
+            }
             return AiProcessingResult.QUARANTINED_DUPLICATE;
         }
 
@@ -104,11 +102,12 @@ public class MemeAiProcessingService {
         return userDescription;
     }
 
-    private void updateToQuarantined(String memeId, String reason, String description, String ocrText) {
+    private boolean updateToQuarantined(String memeId, String reason, String description, String ocrText) {
         boolean updated = idRepository.updateToQuarantinedIfPending(memeId, description, ocrText, reason);
         if (!updated) {
             log.warn("Мем {} уже не PENDING, перевод в QUARANTINED пропущен", memeId);
         }
+        return updated;
     }
 
     private List<Long> parseGroupIds(String groupIdsStr) {

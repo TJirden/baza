@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
+import cringe.baza.bot.service.TelegramService;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.model.IdRepository;
 import cringe.baza.model.MemeVisibility;
@@ -26,6 +27,9 @@ class MemeCleanupSchedulerTest {
     @Mock
     private IdRepository idRepository;
 
+    @Mock
+    private TelegramService telegramService;
+
     @InjectMocks
     private MemeCleanupScheduler scheduler;
 
@@ -39,6 +43,7 @@ class MemeCleanupSchedulerTest {
         scheduler.cleanExpiredMemes();
 
         verify(idRepository, never()).delete(anyString());
+        verify(telegramService, never()).sendMessageWithMarkdown(anyLong(), anyString());
     }
 
     @Test
@@ -73,10 +78,11 @@ class MemeCleanupSchedulerTest {
 
         verify(idRepository).delete("meme-1");
         verify(idRepository).delete("meme-2");
+        verify(telegramService, never()).sendMessageWithMarkdown(anyLong(), anyString());
     }
 
     @Test
-    void cleanExpiredMemes_WithExpiredPendingMemes() {
+    void cleanExpiredMemes_AbandonedPending_NotifiesUserAndDeletes() {
         MemeModeration pending = new MemeModeration(
                 "meme-pending",
                 "file-1",
@@ -95,6 +101,31 @@ class MemeCleanupSchedulerTest {
 
         scheduler.cleanExpiredMemes();
 
+        verify(telegramService).sendMessageWithMarkdown(eq(111L), anyString());
+        verify(idRepository).delete("meme-pending");
+    }
+
+    @Test
+    void cleanExpiredMemes_AbandonedPending_NullOwner_SkipsNotification() {
+        MemeModeration pending = new MemeModeration(
+                "meme-pending",
+                "file-1",
+                "Desc",
+                "",
+                null,
+                MemeVisibility.PUBLIC,
+                "",
+                ModerationStatus.PENDING,
+                "Ожидает");
+
+        when(repository.findByStatusAndCreatedAtBefore(eq(ModerationStatus.QUARANTINED), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+        when(repository.findByStatusAndCreatedAtBefore(eq(ModerationStatus.PENDING), any(LocalDateTime.class)))
+                .thenReturn(List.of(pending));
+
+        scheduler.cleanExpiredMemes();
+
+        verify(telegramService, never()).sendMessageWithMarkdown(anyLong(), anyString());
         verify(idRepository).delete("meme-pending");
     }
 

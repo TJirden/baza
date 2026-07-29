@@ -1,5 +1,6 @@
 package cringe.baza.meme;
 
+import cringe.baza.bot.service.TelegramService;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.model.IdRepository;
 import cringe.baza.model.ModerationStatus;
@@ -19,18 +20,19 @@ public class MemeCleanupScheduler {
 
     private final MemeModerationRepository repository;
     private final IdRepository idRepository;
+    private final TelegramService telegramService;
 
     @Value("${app.moderation.quarantine-ttl-days:7}")
     private int quarantineTtlDays;
 
-    @Value("${app.moderation.pending-ttl-days:30}")
-    private int pendingTtlDays;
+    @Value("${app.ai.give-up-hours:48}")
+    private int giveUpHours;
 
     @Scheduled(cron = "${app.moderation.cleanup-cron:0 0 2 * * ?}")
     public void cleanExpiredMemes() {
         log.info("Starting scheduled cleanup of expired memes...");
         cleanExpiredQuarantineMemes();
-        cleanExpiredPendingMemes();
+        giveUpAbandonedPendingMemes();
         log.info("Scheduled cleanup of expired memes finished.");
     }
 
@@ -50,18 +52,35 @@ public class MemeCleanupScheduler {
         }
     }
 
-    private void cleanExpiredPendingMemes() {
-        LocalDateTime threshold = LocalDateTime.now().minusDays(pendingTtlDays);
-        List<MemeModeration> expired = repository.findByStatusAndCreatedAtBefore(ModerationStatus.PENDING, threshold);
+    private void giveUpAbandonedPendingMemes() {
+        LocalDateTime threshold = LocalDateTime.now().minusHours(giveUpHours);
+        List<MemeModeration> abandoned =
+                repository.findByStatusAndCreatedAtBefore(ModerationStatus.PENDING, threshold);
 
-        if (expired.isEmpty()) {
-            log.info("No expired pending memes found.");
+        if (abandoned.isEmpty()) {
+            log.info("No abandoned pending memes to give up.");
             return;
         }
 
-        log.info("Found {} expired pending memes to delete.", expired.size());
-        for (MemeModeration meme : expired) {
+        log.info("Found {} abandoned pending memes older than {} hours to give up.", abandoned.size(), giveUpHours);
+        for (MemeModeration meme : abandoned) {
+            notifyGiveUp(meme);
             deleteMeme(meme);
+        }
+    }
+
+    private void notifyGiveUp(MemeModeration meme) {
+        if (meme.getOwnerId() == null) {
+            return;
+        }
+        try {
+            telegramService.sendMessageWithMarkdown(
+                    meme.getOwnerId(),
+                    "*Не удалось обработать мем.*\n\nМы пытались обработать ваш мем в течение "
+                            + giveUpHours
+                            + " часов, но AI сейчас недоступен. Мем удалён.\nПопробуйте загрузить его снова позже.");
+        } catch (Exception e) {
+            log.warn("Не удалось уведомить пользователя {} об удалении мема {}: {}", meme.getOwnerId(), meme.getId(), e.getMessage());
         }
     }
 

@@ -232,11 +232,14 @@ public class MemeVectorRepository implements IdRepository {
 
     @Transactional
     @Override
+    public int incrementRetryCount(String id) {
+        return memeModerationRepository.incrementRetryCount(id, LocalDateTime.now());
+    }
+
+    @Transactional
+    @Override
     public void markEnqueued(String id) {
-        memeModerationRepository.findById(id).ifPresent(m -> {
-            m.setLastEnqueuedAt(LocalDateTime.now());
-            memeModerationRepository.save(m);
-        });
+        memeModerationRepository.updateLastEnqueuedAt(id, LocalDateTime.now());
     }
 
     @Override

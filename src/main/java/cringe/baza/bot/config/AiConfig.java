@@ -4,6 +4,7 @@ import com.google.genai.Client;
 import com.google.genai.errors.ApiException;
 import com.google.genai.errors.GenAiIOException;
 import com.google.genai.types.HttpOptions;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import java.time.Duration;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -29,6 +30,7 @@ public class AiConfig {
                 .includes(ApiException.class)
                 .includes(GenAiIOException.class)
                 .includes(ResourceAccessException.class)
+                .excludes(CallNotPermittedException.class)
                 .delay(Duration.ofMillis(initialInterval))
                 .multiplier(multiplier)
                 .maxDelay(Duration.ofMillis(maxInterval))
@@ -57,6 +59,9 @@ public class AiConfig {
     static boolean isTransient(Throwable throwable) {
         Throwable current = throwable;
         while (current != null) {
+            if (current instanceof CallNotPermittedException) {
+                return false;
+            }
             if (current instanceof ApiException apiException) {
                 int code = apiException.code();
                 if (code >= 400 && code < 500 && code != 429) {

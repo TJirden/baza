@@ -45,6 +45,15 @@ public interface MemeModerationRepository extends JpaRepository<MemeModeration, 
             @Param("ocrText") String ocrText,
             @Param("reason") String reason);
 
+    @Modifying
+    @Query("UPDATE MemeModeration m SET m.retryCount = m.retryCount + 1, m.lastEnqueuedAt = :now "
+            + "WHERE m.id = :id AND m.status = 'PENDING'")
+    int incrementRetryCount(@Param("id") String id, @Param("now") LocalDateTime now);
+
+    @Modifying
+    @Query("UPDATE MemeModeration m SET m.lastEnqueuedAt = :now WHERE m.id = :id")
+    int updateLastEnqueuedAt(@Param("id") String id, @Param("now") LocalDateTime now);
+
     List<MemeModeration> findByStatusAndVisibility(ModerationStatus status, MemeVisibility visibility);
 
     List<MemeModeration> findByOwnerIdAndStatusAndVisibility(

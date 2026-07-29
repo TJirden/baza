@@ -26,6 +26,9 @@ public interface IdRepository {
     /** Условно переводит PENDING-запись в QUARANTINED. Возвращает false, если запись уже не PENDING. */
     boolean updateToQuarantinedIfPending(String id, String description, String ocrText, String reason);
 
+    /** Атомарно инкрементит счётчик ретраев PENDING-записи и обновляет время постановки в очередь. Возвращает 0, если запись уже не PENDING. */
+    int incrementRetryCount(String id);
+
     /** Отмечает время постановки мема в очередь (для предотвращения повторного enqueue). */
     void markEnqueued(String id);
 

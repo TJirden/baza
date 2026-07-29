@@ -12,6 +12,8 @@ import org.springframework.core.io.Resource;
 import org.springframework.core.retry.RetryTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.MimeTypeUtils;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 
 @Slf4j
 @Service
@@ -20,6 +22,7 @@ public class MemeAnalyzerService {
 
     private final ChatModel chatModel;
     private final RetryTemplate retryTemplate;
+    private final CircuitBreaker aiCircuitBreaker;
 
     public record MemeAnalysis(String ocrText, String description, boolean safe, String censorshipReason) {}
 
@@ -27,8 +30,14 @@ public class MemeAnalyzerService {
         log.info("Начало комбинированного анализа мема ИИ ({} байт)", imageBytes.length);
         try {
             Resource imageResource = toResource(imageBytes);
-            String reply = retryTemplate.execute(() -> callModel(imageResource));
+            String reply = retryTemplate.execute(() ->
+                    CircuitBreaker.decorateSupplier(aiCircuitBreaker, () -> callModel(imageResource)).get());
             return parseReply(reply);
+        } catch (CallNotPermittedException e) {
+            log.warn("Circuit breaker открыт, AI-анализ недоступен: {}", e.getMessage());
+            throw new AiUnavailableException("ИИ-анализ недоступен: circuit breaker открыт", e);
+        } catch (AiUnavailableException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Ошибка при анализе мема через ИИ: {}", e.getMessage(), e);
             throw new AiUnavailableException("ИИ-анализ недоступен: " + e.getMessage(), e);
@@ -59,41 +68,51 @@ public class MemeAnalyzerService {
     }
 
     private MemeAnalysis parseReply(String reply) {
+        if (reply == null || reply.isBlank()) {
+            throw new AiUnavailableException("ИИ вернул пустой ответ");
+        }
+
         String ocrText = "";
-        boolean safe = true;
+        boolean safe = false;
         String reason = "";
         String description = "";
+        boolean safeLineSeen = false;
 
-        if (reply != null) {
-            String[] lines = reply.split("\n");
-            StringBuilder descBuilder = new StringBuilder();
-            boolean buildingDesc = false;
+        String[] lines = reply.split("\n");
+        StringBuilder descBuilder = new StringBuilder();
+        boolean buildingDesc = false;
 
-            for (String line : lines) {
-                String trimmed = line.trim();
-                if (trimmed.toUpperCase().startsWith("TEXT:")) {
-                    ocrText = trimmed.substring(5).trim();
-                    buildingDesc = false;
-                } else if (trimmed.toUpperCase().startsWith("SAFE:")) {
-                    String val = trimmed.substring(5).trim().toUpperCase();
-                    if (val.contains("FALSE")) {
-                        safe = false;
-                    }
-                    buildingDesc = false;
-                } else if (trimmed.toUpperCase().startsWith("REASON:")) {
-                    reason = trimmed.substring(7).trim();
-                    buildingDesc = false;
-                } else if (trimmed.toUpperCase().startsWith("DESCRIPTION:")) {
-                    descBuilder.append(trimmed.substring(12).trim());
-                    buildingDesc = true;
-                } else if (buildingDesc) {
-                    if (!descBuilder.isEmpty()) {
-                        descBuilder.append("\n");
-                    }
-                    descBuilder.append(trimmed);
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if (trimmed.toUpperCase().startsWith("TEXT:")) {
+                ocrText = trimmed.substring(5).trim();
+                buildingDesc = false;
+            } else if (trimmed.toUpperCase().startsWith("SAFE:")) {
+                String val = trimmed.substring(5).trim().toUpperCase();
+                if (val.contains("TRUE")) {
+                    safe = true;
+                } else if (val.contains("FALSE")) {
+                    safe = false;
                 }
+                safeLineSeen = true;
+                buildingDesc = false;
+            } else if (trimmed.toUpperCase().startsWith("REASON:")) {
+                reason = trimmed.substring(7).trim();
+                buildingDesc = false;
+            } else if (trimmed.toUpperCase().startsWith("DESCRIPTION:")) {
+                descBuilder.append(trimmed.substring(12).trim());
+                buildingDesc = true;
+            } else if (buildingDesc) {
+                if (!descBuilder.isEmpty()) {
+                    descBuilder.append("\n");
+                }
+                descBuilder.append(trimmed);
             }
-            description = descBuilder.toString().trim();
+        }
+        description = descBuilder.toString().trim();
+
+        if (!safeLineSeen) {
+            throw new AiUnavailableException("ИИ вернул ответ без строки цензуры SAFE");
         }
 
         if ("EMPTY".equalsIgnoreCase(ocrText) || "<EMPTY>".equalsIgnoreCase(ocrText)) {
