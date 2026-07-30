@@ -17,7 +17,6 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.core.retry.RetryPolicy;
 import org.springframework.core.retry.RetryTemplate;
-import org.springframework.core.retry.Retryable;
 
 @ExtendWith(MockitoExtension.class)
 class MemeAnalyzerServiceTest {
@@ -39,12 +38,14 @@ class MemeAnalyzerServiceTest {
                 .multiplier(1.0)
                 .maxDelay(Duration.ofMillis(1))
                 .build());
-        circuitBreaker = CircuitBreaker.of("test", CircuitBreakerConfig.custom()
-                .waitDurationInOpenState(Duration.ofSeconds(30))
-                .slidingWindowSize(1)
-                .minimumNumberOfCalls(1)
-                .failureRateThreshold(1.0f)
-                .build());
+        circuitBreaker = CircuitBreaker.of(
+                "test",
+                CircuitBreakerConfig.custom()
+                        .waitDurationInOpenState(Duration.ofSeconds(30))
+                        .slidingWindowSize(1)
+                        .minimumNumberOfCalls(1)
+                        .failureRateThreshold(1.0f)
+                        .build());
         service = new MemeAnalyzerService(chatModel, retryTemplate, circuitBreaker);
     }
 
@@ -150,10 +151,8 @@ class MemeAnalyzerServiceTest {
     @Test
     void analyze_CircuitBreakerOpen_ThrowsAiUnavailableWithoutRetries() {
         circuitBreaker.transitionToOpenState();
-        RetryTemplate bigRetries = new RetryTemplate(RetryPolicy.builder()
-                .maxRetries(10)
-                .delay(Duration.ofMillis(1))
-                .build());
+        RetryTemplate bigRetries = new RetryTemplate(
+                RetryPolicy.builder().maxRetries(10).delay(Duration.ofMillis(1)).build());
         MemeAnalyzerService strictService = new MemeAnalyzerService(chatModel, bigRetries, circuitBreaker);
 
         assertThrows(AiUnavailableException.class, () -> strictService.analyze(new byte[] {1, 2, 3}));

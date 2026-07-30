@@ -37,6 +37,9 @@ public class MemeAiConsumer {
     @Value("${app.ai.queue.retry-max-delay-ms:3600000}")
     private long retryMaxDelayMs;
 
+    @Value("${app.ai.queue.max-retries:10}")
+    private int maxRetries;
+
     @RabbitListener(queues = MemeAiQueueConfig.AI_PROCESS_QUEUE, concurrency = "${app.ai.queue.concurrency:4}")
     public void processMeme(String memeId) {
         log.info("Получен мем {} из очереди на AI-обработку", memeId);
@@ -50,6 +53,11 @@ public class MemeAiConsumer {
         MemeModeration moderation = moderationOpt.get();
         if (moderation.getStatus() != ModerationStatus.PENDING) {
             log.info("Мем {} уже обработан (статус={}), пропускаем", memeId, moderation.getStatus());
+            return;
+        }
+
+        if (!idRepository.claimForProcessing(memeId)) {
+            log.info("Мем {} уже забран другим воркером, пропускаем", memeId);
             return;
         }
 
@@ -95,13 +103,33 @@ public class MemeAiConsumer {
         }
 
         imageBytesCache.invalidate(memeId);
+        notifyUserOfResult(memeId, userId, result);
         log.info("AI-обработка мема {} завершена: {}", memeId, result);
+    }
+
+    private void notifyUserOfResult(String memeId, long userId, MemeAiProcessingService.AiProcessingResult result) {
+        try {
+            switch (result) {
+                case APPROVED ->
+                    telegramService.sendMessageWithMarkdown(
+                            userId,
+                            "*Ваш мем успешно обработан и одобрен!*\n\n*ID мема:* `" + memeId
+                                    + "`\nТеперь он доступен в поиске.");
+                case QUARANTINED_CENSORSHIP, QUARANTINED_DUPLICATE ->
+                    telegramService.sendMessageWithMarkdown(
+                            userId,
+                            "*Мем помещен в карантин.*\n\n*ID мема:* `" + memeId
+                                    + "`\nМем будет доступен только после ручного одобрения модератором.");
+                case AI_UNAVAILABLE -> {}
+            }
+        } catch (Exception e) {
+            log.warn("Не удалось уведомить пользователя {} о результате мема {}: {}", userId, memeId, e.getMessage());
+        }
     }
 
     private void handlePermanentFailure(String memeId, MemeModeration moderation, String reason) {
         log.error("Мем {} отправлен в DLQ (permanent failure): {}", memeId, reason);
-        rabbitTemplate.convertAndSend(
-                MemeAiQueueConfig.AI_DLX_EXCHANGE, MemeAiQueueConfig.AI_PROCESS_DLQ, memeId);
+        rabbitTemplate.convertAndSend(MemeAiQueueConfig.AI_DLX_EXCHANGE, MemeAiQueueConfig.AI_PROCESS_DLQ, memeId);
         imageBytesCache.invalidate(memeId);
         try {
             idRepository.delete(memeId);
@@ -124,12 +152,24 @@ public class MemeAiConsumer {
     private void publishRetry(String memeId, String reason) {
         int updated = idRepository.incrementRetryCount(memeId);
         if (updated == 0) {
-            log.warn("Мем {} уже не PENDING, повторная постановка в очередь отменена", memeId);
+            log.warn("Мем {} уже не PROCESSING, повторная постановка в очередь отменена", memeId);
             return;
         }
 
         Optional<MemeModeration> fresh = idRepository.findModerationById(memeId);
-        int attempt = fresh.map(MemeModeration::getRetryCount).orElse(0);
+        if (fresh.isEmpty()) {
+            log.warn("Мем {} не найден после инкремента retry-счётчика, пропускаем", memeId);
+            return;
+        }
+
+        MemeModeration current = fresh.get();
+        int attempt = current.getRetryCount();
+        if (attempt > maxRetries) {
+            log.warn("Мем {} превысил лимит ретраев ({}/{}), отправляем в DLQ", memeId, attempt, maxRetries);
+            handlePermanentFailure(memeId, current, "превышен лимит ретраев: " + attempt + "/" + maxRetries);
+            return;
+        }
+
         long rawDelay = (long) (retryDelayMs * Math.pow(retryMultiplier, Math.max(0, attempt - 1)));
         long delay = Math.min(rawDelay, retryMaxDelayMs);
         log.info(

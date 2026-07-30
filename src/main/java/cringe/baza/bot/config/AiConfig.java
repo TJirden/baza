@@ -30,7 +30,6 @@ public class AiConfig {
                 .includes(ApiException.class)
                 .includes(GenAiIOException.class)
                 .includes(ResourceAccessException.class)
-                .excludes(CallNotPermittedException.class)
                 .delay(Duration.ofMillis(initialInterval))
                 .multiplier(multiplier)
                 .maxDelay(Duration.ofMillis(maxInterval))

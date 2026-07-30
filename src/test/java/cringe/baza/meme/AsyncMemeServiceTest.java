@@ -157,6 +157,21 @@ class AsyncMemeServiceTest {
     }
 
     @Test
+    void saveMemeAsync_TransientError_EnqueuesAndSoftMessage() {
+        when(fileService.getImageFileId(any(PhotoSize[].class))).thenReturn("file-123");
+        when(aiProcessingService.processAiAndFinalize(
+                        anyString(), any(byte[].class), anyString(), anyLong(), any(), anyString()))
+                .thenThrow(new TransientProcessingException("DB down", new RuntimeException("conn lost")));
+
+        asyncMemeService.saveMemeAsync(
+                111L, 222L, new PhotoSize[] {mock(PhotoSize.class)}, "Cute puppy", "PUBLIC", 500);
+
+        verify(memeRepository).savePending(any(MemeModeration.class), eq(OptionalLong.of(SAMPLE_HASH)));
+        verify(aiProducer).enqueueForProcessing(anyString());
+        verify(telegramService).editMessageTextWithMarkdown(eq(111L), eq(500), contains("поставлен в очередь"));
+    }
+
+    @Test
     void saveMemeAsync_VisualDuplicateFlagged() {
         when(fileService.getImageFileId(any(PhotoSize[].class))).thenReturn("file-vis-dup");
         when(memeImageHashRepository.findNearestApproved(anyLong(), anyInt()))

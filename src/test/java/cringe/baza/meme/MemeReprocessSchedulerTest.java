@@ -1,7 +1,6 @@
 package cringe.baza.meme;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import cringe.baza.repository.jpa.MemeModerationRepository;
@@ -60,6 +59,8 @@ class MemeReprocessSchedulerTest {
 
         scheduler.reenqueuePendingMemes();
 
+        verify(moderationRepository).resetToPendingIfProcessing("meme-1");
+        verify(moderationRepository).resetToPendingIfProcessing("meme-2");
         verify(aiProducer).enqueueForProcessing("meme-1");
         verify(aiProducer).enqueueForProcessing("meme-2");
     }
@@ -72,6 +73,8 @@ class MemeReprocessSchedulerTest {
 
         scheduler.reenqueuePendingMemes();
 
+        verify(moderationRepository).resetToPendingIfProcessing("meme-1");
+        verify(moderationRepository).resetToPendingIfProcessing("meme-2");
         verify(aiProducer).enqueueForProcessing("meme-1");
         verify(aiProducer).enqueueForProcessing("meme-2");
     }

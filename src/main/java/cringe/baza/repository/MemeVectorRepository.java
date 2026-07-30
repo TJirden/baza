@@ -225,6 +225,12 @@ public class MemeVectorRepository implements IdRepository {
 
     @Transactional
     @Override
+    public boolean claimForProcessing(String id) {
+        return memeModerationRepository.claimForProcessing(id) > 0;
+    }
+
+    @Transactional
+    @Override
     public boolean updateToQuarantinedIfPending(String id, String description, String ocrText, String reason) {
         int updated = memeModerationRepository.updateToQuarantinedIfPending(id, description, ocrText, reason);
         return updated > 0;

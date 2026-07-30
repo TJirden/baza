@@ -1,5 +1,6 @@
 package cringe.baza.meme;
 
+import cringe.baza.bot.config.MemeAiQueueConfig;
 import cringe.baza.bot.service.TelegramService;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.model.IdRepository;
@@ -9,6 +10,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -21,6 +23,7 @@ public class MemeCleanupScheduler {
     private final MemeModerationRepository repository;
     private final IdRepository idRepository;
     private final TelegramService telegramService;
+    private final RabbitTemplate rabbitTemplate;
 
     @Value("${app.moderation.quarantine-ttl-days:7}")
     private int quarantineTtlDays;
@@ -54,8 +57,7 @@ public class MemeCleanupScheduler {
 
     private void giveUpAbandonedPendingMemes() {
         LocalDateTime threshold = LocalDateTime.now().minusHours(giveUpHours);
-        List<MemeModeration> abandoned =
-                repository.findByStatusAndCreatedAtBefore(ModerationStatus.PENDING, threshold);
+        List<MemeModeration> abandoned = repository.findByStatusAndCreatedAtBefore(ModerationStatus.PENDING, threshold);
 
         if (abandoned.isEmpty()) {
             log.info("No abandoned pending memes to give up.");
@@ -64,6 +66,7 @@ public class MemeCleanupScheduler {
 
         log.info("Found {} abandoned pending memes older than {} hours to give up.", abandoned.size(), giveUpHours);
         for (MemeModeration meme : abandoned) {
+            sendToDlq(meme.getId());
             notifyGiveUp(meme);
             deleteMeme(meme);
         }
@@ -80,7 +83,11 @@ public class MemeCleanupScheduler {
                             + giveUpHours
                             + " часов, но AI сейчас недоступен. Мем удалён.\nПопробуйте загрузить его снова позже.");
         } catch (Exception e) {
-            log.warn("Не удалось уведомить пользователя {} об удалении мема {}: {}", meme.getOwnerId(), meme.getId(), e.getMessage());
+            log.warn(
+                    "Не удалось уведомить пользователя {} об удалении мема {}: {}",
+                    meme.getOwnerId(),
+                    meme.getId(),
+                    e.getMessage());
         }
     }
 
@@ -90,6 +97,14 @@ public class MemeCleanupScheduler {
             log.info("Successfully deleted expired meme: {} (status={})", meme.getId(), meme.getStatus());
         } catch (Exception e) {
             log.error("Failed to delete expired meme {}: {}", meme.getId(), e.getMessage());
+        }
+    }
+
+    private void sendToDlq(String memeId) {
+        try {
+            rabbitTemplate.convertAndSend(MemeAiQueueConfig.AI_DLX_EXCHANGE, MemeAiQueueConfig.AI_PROCESS_DLQ, memeId);
+        } catch (Exception e) {
+            log.warn("Не удалось отправить мем {} в DLQ: {}", memeId, e.getMessage());
         }
     }
 }

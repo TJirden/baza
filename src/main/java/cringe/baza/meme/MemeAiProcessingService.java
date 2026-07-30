@@ -1,6 +1,5 @@
 package cringe.baza.meme;
 
-import cringe.baza.bot.service.TelegramService;
 import cringe.baza.model.IdRepository;
 import cringe.baza.model.Meme;
 import cringe.baza.model.MemeVisibility;
@@ -18,7 +17,6 @@ public class MemeAiProcessingService {
 
     private final MemeAnalyzerService memeAnalyzerService;
     private final IdRepository idRepository;
-    private final TelegramService telegramService;
 
     public enum AiProcessingResult {
         APPROVED,
@@ -49,9 +47,7 @@ public class MemeAiProcessingService {
             log.warn("Мем {} не прошел цензуру ИИ. Причина: {}", memeId, analysis.censorshipReason());
             String reason = "ИИ-цензура: " + analysis.censorshipReason();
             try {
-                if (updateToQuarantined(memeId, reason, finalDescription, ocrText)) {
-                    notifyUserQuarantined(userId, memeId, reason);
-                }
+                updateToQuarantined(memeId, reason, finalDescription, ocrText);
             } catch (DataAccessException e) {
                 throw new TransientProcessingException("Ошибка БД при карантине мема " + memeId, e);
             }
@@ -67,11 +63,10 @@ public class MemeAiProcessingService {
             throw new TransientProcessingException("Ошибка БД при промоуте мема " + memeId, e);
         }
         if (!promoted) {
-            log.warn("Мем {} уже не PENDING, промоут пропущен", memeId);
+            log.warn("Мем {} уже не PENDING/PROCESSING, промоут пропущен", memeId);
             return AiProcessingResult.APPROVED;
         }
         log.info("Мем {} успешно одобрен после AI-обработки", memeId);
-        notifyUserApproved(userId, memeId);
         return AiProcessingResult.APPROVED;
     }
 
@@ -104,29 +99,5 @@ public class MemeAiProcessingService {
             }
         }
         return groupIds;
-    }
-
-    private void notifyUserApproved(long userId, String memeId) {
-        try {
-            telegramService.sendMessageWithMarkdown(
-                    userId,
-                    "*Ваш мем успешно обработан и одобрен!*\n\n*ID мема:* `" + memeId
-                            + "`\nТеперь он доступен в поиске.");
-        } catch (Exception e) {
-            log.warn("Не удалось уведомить пользователя {} об одобрении мема: {}", userId, e.getMessage());
-        }
-    }
-
-    private void notifyUserQuarantined(long userId, String memeId, String reason) {
-        try {
-            String text = "*Мем помещен в карантин.*\n\n*ID мема:* `" + memeId + "`";
-            if (reason != null && !reason.isBlank()) {
-                text += "\n*Причина:* " + reason;
-            }
-            text += "\nМем будет доступен только после ручного одобрения модератором.";
-            telegramService.sendMessageWithMarkdown(userId, text);
-        } catch (Exception e) {
-            log.warn("Не удалось уведомить пользователя {} о карантине мема: {}", userId, e.getMessage());
-        }
     }
 }

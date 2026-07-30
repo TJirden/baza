@@ -99,8 +99,20 @@ public class AsyncMemeService {
                     "Ожидает AI-обработки");
             memeRepository.savePending(pending, imageHash);
 
-            MemeAiProcessingService.AiProcessingResult result = aiProcessingService.processAiAndFinalize(
-                    memeId, imageBytes, description, userId, visibility, groupIdsStr);
+            MemeAiProcessingService.AiProcessingResult result;
+            try {
+                result = aiProcessingService.processAiAndFinalize(
+                        memeId, imageBytes, description, userId, visibility, groupIdsStr);
+            } catch (TransientProcessingException e) {
+                log.warn("Транзитная ошибка при AI-обработке мема {}: {}", memeId, e.getMessage());
+                aiProducer.enqueueForProcessing(memeId);
+                telegramService.editMessageTextWithMarkdown(
+                        chatId,
+                        messageIdToEdit,
+                        "*Мем сохранён и поставлен в очередь.*\n\nAI временно недоступен, обработаем позже.\n*ID мема:* `"
+                                + memeId + "`");
+                return;
+            }
 
             switch (result) {
                 case APPROVED -> {

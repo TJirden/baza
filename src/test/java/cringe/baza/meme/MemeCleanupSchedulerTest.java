@@ -17,6 +17,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 
 @ExtendWith(MockitoExtension.class)
 class MemeCleanupSchedulerTest {
@@ -29,6 +30,9 @@ class MemeCleanupSchedulerTest {
 
     @Mock
     private TelegramService telegramService;
+
+    @Mock
+    private RabbitTemplate rabbitTemplate;
 
     @InjectMocks
     private MemeCleanupScheduler scheduler;
@@ -44,6 +48,7 @@ class MemeCleanupSchedulerTest {
 
         verify(idRepository, never()).delete(anyString());
         verify(telegramService, never()).sendMessageWithMarkdown(anyLong(), anyString());
+        verify(rabbitTemplate, never()).convertAndSend(anyString(), anyString(), anyString());
     }
 
     @Test
@@ -79,10 +84,11 @@ class MemeCleanupSchedulerTest {
         verify(idRepository).delete("meme-1");
         verify(idRepository).delete("meme-2");
         verify(telegramService, never()).sendMessageWithMarkdown(anyLong(), anyString());
+        verify(rabbitTemplate, never()).convertAndSend(anyString(), anyString(), anyString());
     }
 
     @Test
-    void cleanExpiredMemes_AbandonedPending_NotifiesUserAndDeletes() {
+    void cleanExpiredMemes_AbandonedPending_SendsToDlqNotifiesAndDeletes() {
         MemeModeration pending = new MemeModeration(
                 "meme-pending",
                 "file-1",
@@ -101,12 +107,13 @@ class MemeCleanupSchedulerTest {
 
         scheduler.cleanExpiredMemes();
 
+        verify(rabbitTemplate).convertAndSend(eq("ai.dlx"), eq("ai.process.dlq"), eq("meme-pending"));
         verify(telegramService).sendMessageWithMarkdown(eq(111L), anyString());
         verify(idRepository).delete("meme-pending");
     }
 
     @Test
-    void cleanExpiredMemes_AbandonedPending_NullOwner_SkipsNotification() {
+    void cleanExpiredMemes_AbandonedPending_NullOwner_SkipsNotificationButSendsToDlq() {
         MemeModeration pending = new MemeModeration(
                 "meme-pending",
                 "file-1",
@@ -125,7 +132,35 @@ class MemeCleanupSchedulerTest {
 
         scheduler.cleanExpiredMemes();
 
+        verify(rabbitTemplate).convertAndSend(eq("ai.dlx"), eq("ai.process.dlq"), eq("meme-pending"));
         verify(telegramService, never()).sendMessageWithMarkdown(anyLong(), anyString());
+        verify(idRepository).delete("meme-pending");
+    }
+
+    @Test
+    void cleanExpiredMemes_DlqSendFailure_DoesNotBlockCleanup() {
+        MemeModeration pending = new MemeModeration(
+                "meme-pending",
+                "file-1",
+                "Desc",
+                "",
+                111L,
+                MemeVisibility.PUBLIC,
+                "",
+                ModerationStatus.PENDING,
+                "Ожидает");
+
+        when(repository.findByStatusAndCreatedAtBefore(eq(ModerationStatus.QUARANTINED), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+        when(repository.findByStatusAndCreatedAtBefore(eq(ModerationStatus.PENDING), any(LocalDateTime.class)))
+                .thenReturn(List.of(pending));
+        doThrow(new RuntimeException("rabbit down"))
+                .when(rabbitTemplate)
+                .convertAndSend(eq("ai.dlx"), eq("ai.process.dlq"), eq("meme-pending"));
+
+        scheduler.cleanExpiredMemes();
+
+        verify(telegramService).sendMessageWithMarkdown(eq(111L), anyString());
         verify(idRepository).delete("meme-pending");
     }
 

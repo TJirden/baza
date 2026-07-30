@@ -1,5 +1,7 @@
 package cringe.baza.meme;
 
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,8 +14,6 @@ import org.springframework.core.io.Resource;
 import org.springframework.core.retry.RetryTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.MimeTypeUtils;
-import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
-import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 
 @Slf4j
 @Service
@@ -30,8 +30,9 @@ public class MemeAnalyzerService {
         log.info("Начало комбинированного анализа мема ИИ ({} байт)", imageBytes.length);
         try {
             Resource imageResource = toResource(imageBytes);
-            String reply = retryTemplate.execute(() ->
-                    CircuitBreaker.decorateSupplier(aiCircuitBreaker, () -> callModel(imageResource)).get());
+            String reply = retryTemplate.execute(
+                    () -> CircuitBreaker.decorateSupplier(aiCircuitBreaker, () -> callModel(imageResource))
+                            .get());
             return parseReply(reply);
         } catch (CallNotPermittedException e) {
             log.warn("Circuit breaker открыт, AI-анализ недоступен: {}", e.getMessage());

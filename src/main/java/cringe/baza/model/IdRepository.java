@@ -20,7 +20,10 @@ public interface IdRepository {
     /** Сохраняет запись модерации в статусе PENDING и (опционально) визуальный хеш. */
     void savePending(MemeModeration moderation, OptionalLong imageHash);
 
-    /** Переводит существующую PENDING-запись в APPROVED: добавляет вектор и обновляет поля модерации. Возвращает false, если запись уже не PENDING. */
+    /** Атомарно переводит PENDING-запись в PROCESSING. Возвращает false, если запись уже не PENDING. */
+    boolean claimForProcessing(String id);
+
+    /** Переводит существующую PENDING- или PROCESSING-запись в APPROVED: добавляет вектор и обновляет поля модерации. Возвращает false, если запись уже не PENDING/PROCESSING. */
     boolean promoteToApproved(String id, Meme meme);
 
     /** Условно переводит PENDING-запись в QUARANTINED. Возвращает false, если запись уже не PENDING. */

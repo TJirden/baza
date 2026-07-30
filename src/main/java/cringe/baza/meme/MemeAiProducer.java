@@ -16,8 +16,8 @@ public class MemeAiProducer {
     private final IdRepository idRepository;
 
     public void enqueueForProcessing(String memeId) {
-        rabbitTemplate.convertAndSend(MemeAiQueueConfig.AI_PROCESS_QUEUE, memeId);
         idRepository.markEnqueued(memeId);
+        rabbitTemplate.convertAndSend(MemeAiQueueConfig.AI_PROCESS_QUEUE, memeId);
         log.info("Мем {} поставлен в очередь на AI-обработку", memeId);
     }
 }

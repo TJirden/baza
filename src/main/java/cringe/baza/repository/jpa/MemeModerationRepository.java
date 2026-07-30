@@ -20,7 +20,7 @@ public interface MemeModerationRepository extends JpaRepository<MemeModeration, 
     List<MemeModeration> findByStatusAndCreatedAtAfter(ModerationStatus status, LocalDateTime threshold);
 
     @Query(
-            value = "SELECT id FROM meme_moderation WHERE status = 'PENDING' "
+            value = "SELECT id FROM meme_moderation WHERE (status = 'PENDING' OR status = 'PROCESSING') "
                     + "AND created_at < :threshold "
                     + "AND (last_enqueued_at IS NULL OR last_enqueued_at < :enqueueThreshold) "
                     + "ORDER BY created_at ASC LIMIT 100",
@@ -29,16 +29,24 @@ public interface MemeModerationRepository extends JpaRepository<MemeModeration, 
             @Param("threshold") LocalDateTime threshold, @Param("enqueueThreshold") LocalDateTime enqueueThreshold);
 
     @Modifying
+    @Query("UPDATE MemeModeration m SET m.status = 'PROCESSING' " + "WHERE m.id = :id AND m.status = 'PENDING'")
+    int claimForProcessing(@Param("id") String id);
+
+    @Modifying
+    @Query("UPDATE MemeModeration m SET m.status = 'PENDING' " + "WHERE m.id = :id AND m.status = 'PROCESSING'")
+    int resetToPendingIfProcessing(@Param("id") String id);
+
+    @Modifying
     @Query("UPDATE MemeModeration m SET m.status = 'APPROVED', m.description = :description, "
             + "m.ocrText = :ocrText, m.moderationReason = NULL "
-            + "WHERE m.id = :id AND m.status = 'PENDING'")
+            + "WHERE m.id = :id AND m.status IN ('PENDING', 'PROCESSING')")
     int updateToApprovedIfPending(
             @Param("id") String id, @Param("description") String description, @Param("ocrText") String ocrText);
 
     @Modifying
     @Query("UPDATE MemeModeration m SET m.status = 'QUARANTINED', m.description = :description, "
             + "m.ocrText = :ocrText, m.moderationReason = :reason "
-            + "WHERE m.id = :id AND m.status = 'PENDING'")
+            + "WHERE m.id = :id AND m.status IN ('PENDING', 'PROCESSING')")
     int updateToQuarantinedIfPending(
             @Param("id") String id,
             @Param("description") String description,
@@ -46,8 +54,8 @@ public interface MemeModerationRepository extends JpaRepository<MemeModeration, 
             @Param("reason") String reason);
 
     @Modifying
-    @Query("UPDATE MemeModeration m SET m.retryCount = m.retryCount + 1, m.lastEnqueuedAt = :now "
-            + "WHERE m.id = :id AND m.status = 'PENDING'")
+    @Query("UPDATE MemeModeration m SET m.retryCount = m.retryCount + 1, m.lastEnqueuedAt = :now, "
+            + "m.status = 'PENDING' WHERE m.id = :id AND m.status = 'PROCESSING'")
     int incrementRetryCount(@Param("id") String id, @Param("now") LocalDateTime now);
 
     @Modifying
