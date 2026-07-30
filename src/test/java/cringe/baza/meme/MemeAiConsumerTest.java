@@ -229,7 +229,7 @@ class MemeAiConsumerTest {
         verify(rabbitTemplate)
                 .convertAndSend(eq("ai.dlx"), eq("ai.process.retry"), eq("meme-1"), any(MessagePostProcessor.class));
         verify(rabbitTemplate, never())
-                .convertAndSend(eq("ai.dlx"), eq("ai.process.retry"), any(), any(MessagePostProcessor.class));
+                .convertAndSend(eq("ai.dlx"), eq("ai.process.dlq"), eq("meme-1"));
         verify(idRepository, never()).delete(anyString());
         verify(telegramService, never()).sendMessageWithMarkdown(anyLong(), anyString());
     }
