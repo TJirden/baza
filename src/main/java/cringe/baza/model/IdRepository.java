@@ -17,6 +17,30 @@ public interface IdRepository {
     /** Сохраняет запись модерации (например, в карантин) и (опционально) визуальный хеш. */
     void saveQuarantined(MemeModeration moderation, OptionalLong imageHash);
 
+    /** Сохраняет запись модерации в статусе PENDING и (опционально) визуальный хеш. */
+    void savePending(MemeModeration moderation, OptionalLong imageHash);
+
+    /** Атомарно переводит PENDING-запись в PROCESSING (или перезахватывает зависший PROCESSING). Возвращает false, если запись уже в финальном статусе или PROCESSING обрабатывается активным воркером. */
+    boolean claimForProcessing(String id);
+
+    /** Переводит существующую PENDING- или PROCESSING-запись в APPROVED: добавляет вектор и обновляет поля модерации. Возвращает false, если запись уже не PENDING/PROCESSING. */
+    boolean promoteToApproved(String id, Meme meme);
+
+    /** Условно переводит PENDING-запись в QUARANTINED. Возвращает false, если запись уже не PENDING. */
+    boolean updateToQuarantinedIfPending(String id, String description, String ocrText, String reason);
+
+    /** Находит одобренный визуальный дубликат мема по его ID (исключая сам мем). Пусто, если дублей нет. */
+    Optional<String> findApprovedDuplicate(String id, int phashThreshold);
+
+    /** Атомарно инкрементит счётчик ретраев PROCESSING-записи, обновляет время постановки в очередь и сбрасывает processingStartedAt (сигнал «воркер завершил попытку, готов к перезахвату»). Возвращает 0, если запись уже не PROCESSING. */
+    int incrementRetryCount(String id);
+
+    /** Отмечает время постановки мема в очередь (для предотвращения повторного enqueue). */
+    void markEnqueued(String id);
+
+    /** Загружает запись модерации по ID независимо от статуса (для consumer'а очереди). */
+    Optional<MemeModeration> findModerationById(String id);
+
     /** Обновляет вектор и описание мема, не затрагивая визуальный хеш. */
     void updateMeme(String id, Meme meme);
 
@@ -30,9 +54,6 @@ public interface IdRepository {
 
     /** Удаляет вектор из индекса и переводит запись БД в статус QUARANTINED. */
     void quarantine(String id);
-
-    /** Ищет ID одобренного мема, семантически близкого к описанию, в пределах порога схожести. */
-    Optional<String> findDuplicateMemeId(String description, double similarityThreshold);
 
     Optional<Meme> findById(String id);
 

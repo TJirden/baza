@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
+import cringe.baza.bot.service.TelegramService;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.model.IdRepository;
 import cringe.baza.model.MemeVisibility;
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 
 @ExtendWith(MockitoExtension.class)
 class MemeCleanupSchedulerTest {
@@ -26,21 +28,34 @@ class MemeCleanupSchedulerTest {
     @Mock
     private IdRepository idRepository;
 
+    @Mock
+    private TelegramService telegramService;
+
+    @Mock
+    private RabbitTemplate rabbitTemplate;
+
     @InjectMocks
     private MemeCleanupScheduler scheduler;
 
     @Test
-    void cleanExpiredQuarantineMemes_NoExpiredMemes() {
+    void cleanExpiredMemes_NoExpiredMemes() {
         when(repository.findByStatusAndCreatedAtBefore(eq(ModerationStatus.QUARANTINED), any(LocalDateTime.class)))
                 .thenReturn(List.of());
+        when(repository.findByStatusAndCreatedAtBefore(eq(ModerationStatus.PENDING), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+        when(repository.findByStatusAndProcessingStartedAtBefore(
+                        eq(ModerationStatus.PROCESSING), any(LocalDateTime.class)))
+                .thenReturn(List.of());
 
-        scheduler.cleanExpiredQuarantineMemes();
+        scheduler.cleanExpiredMemes();
 
         verify(idRepository, never()).delete(anyString());
+        verify(telegramService, never()).sendMessageWithMarkdown(anyLong(), anyString());
+        verify(rabbitTemplate, never()).convertAndSend(anyString(), anyString(), anyString());
     }
 
     @Test
-    void cleanExpiredQuarantineMemes_WithExpiredMemes() {
+    void cleanExpiredMemes_WithExpiredQuarantineMemes() {
         MemeModeration meme1 = new MemeModeration(
                 "meme-1",
                 "file-1",
@@ -64,12 +79,169 @@ class MemeCleanupSchedulerTest {
 
         when(repository.findByStatusAndCreatedAtBefore(eq(ModerationStatus.QUARANTINED), any(LocalDateTime.class)))
                 .thenReturn(List.of(meme1, meme2));
+        when(repository.findByStatusAndCreatedAtBefore(eq(ModerationStatus.PENDING), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+        when(repository.findByStatusAndProcessingStartedAtBefore(
+                        eq(ModerationStatus.PROCESSING), any(LocalDateTime.class)))
+                .thenReturn(List.of());
 
-        scheduler.cleanExpiredQuarantineMemes();
+        scheduler.cleanExpiredMemes();
 
         verify(idRepository).delete("meme-1");
-        verify(repository).delete(meme1);
         verify(idRepository).delete("meme-2");
-        verify(repository).delete(meme2);
+        verify(telegramService, never()).sendMessageWithMarkdown(anyLong(), anyString());
+        verify(rabbitTemplate, never()).convertAndSend(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void cleanExpiredMemes_AbandonedPending_SendsToDlqNotifiesAndDeletes() {
+        MemeModeration pending = new MemeModeration(
+                "meme-pending",
+                "file-1",
+                "Desc",
+                "",
+                111L,
+                MemeVisibility.PUBLIC,
+                "",
+                ModerationStatus.PENDING,
+                "Ожидает");
+
+        when(repository.findByStatusAndCreatedAtBefore(eq(ModerationStatus.QUARANTINED), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+        when(repository.findByStatusAndCreatedAtBefore(eq(ModerationStatus.PENDING), any(LocalDateTime.class)))
+                .thenReturn(List.of(pending));
+        when(repository.findByStatusAndProcessingStartedAtBefore(
+                        eq(ModerationStatus.PROCESSING), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+
+        scheduler.cleanExpiredMemes();
+
+        verify(rabbitTemplate).convertAndSend(eq("ai.dlx"), eq("ai.process.dlq"), eq("meme-pending"));
+        verify(telegramService).sendMessageWithMarkdown(eq(111L), anyString());
+        verify(idRepository).delete("meme-pending");
+    }
+
+    @Test
+    void cleanExpiredMemes_AbandonedProcessing_SendsToDlqNotifiesAndDeletes() {
+        MemeModeration processing = new MemeModeration(
+                "meme-processing",
+                "file-1",
+                "Desc",
+                "",
+                111L,
+                MemeVisibility.PUBLIC,
+                "",
+                ModerationStatus.PROCESSING,
+                "В обработке");
+
+        when(repository.findByStatusAndCreatedAtBefore(eq(ModerationStatus.QUARANTINED), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+        when(repository.findByStatusAndCreatedAtBefore(eq(ModerationStatus.PENDING), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+        when(repository.findByStatusAndProcessingStartedAtBefore(
+                        eq(ModerationStatus.PROCESSING), any(LocalDateTime.class)))
+                .thenReturn(List.of(processing));
+
+        scheduler.cleanExpiredMemes();
+
+        verify(rabbitTemplate).convertAndSend(eq("ai.dlx"), eq("ai.process.dlq"), eq("meme-processing"));
+        verify(telegramService).sendMessageWithMarkdown(eq(111L), anyString());
+        verify(idRepository).delete("meme-processing");
+    }
+
+    @Test
+    void cleanExpiredMemes_AbandonedPending_NullOwner_SkipsNotificationButSendsToDlq() {
+        MemeModeration pending = new MemeModeration(
+                "meme-pending",
+                "file-1",
+                "Desc",
+                "",
+                null,
+                MemeVisibility.PUBLIC,
+                "",
+                ModerationStatus.PENDING,
+                "Ожидает");
+
+        when(repository.findByStatusAndCreatedAtBefore(eq(ModerationStatus.QUARANTINED), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+        when(repository.findByStatusAndCreatedAtBefore(eq(ModerationStatus.PENDING), any(LocalDateTime.class)))
+                .thenReturn(List.of(pending));
+        when(repository.findByStatusAndProcessingStartedAtBefore(
+                        eq(ModerationStatus.PROCESSING), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+
+        scheduler.cleanExpiredMemes();
+
+        verify(rabbitTemplate).convertAndSend(eq("ai.dlx"), eq("ai.process.dlq"), eq("meme-pending"));
+        verify(telegramService, never()).sendMessageWithMarkdown(anyLong(), anyString());
+        verify(idRepository).delete("meme-pending");
+    }
+
+    @Test
+    void cleanExpiredMemes_DlqSendFailure_DoesNotBlockCleanup() {
+        MemeModeration pending = new MemeModeration(
+                "meme-pending",
+                "file-1",
+                "Desc",
+                "",
+                111L,
+                MemeVisibility.PUBLIC,
+                "",
+                ModerationStatus.PENDING,
+                "Ожидает");
+
+        when(repository.findByStatusAndCreatedAtBefore(eq(ModerationStatus.QUARANTINED), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+        when(repository.findByStatusAndCreatedAtBefore(eq(ModerationStatus.PENDING), any(LocalDateTime.class)))
+                .thenReturn(List.of(pending));
+        when(repository.findByStatusAndProcessingStartedAtBefore(
+                        eq(ModerationStatus.PROCESSING), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+        doThrow(new RuntimeException("rabbit down"))
+                .when(rabbitTemplate)
+                .convertAndSend(eq("ai.dlx"), eq("ai.process.dlq"), eq("meme-pending"));
+
+        scheduler.cleanExpiredMemes();
+
+        verify(telegramService).sendMessageWithMarkdown(eq(111L), anyString());
+        verify(idRepository).delete("meme-pending");
+    }
+
+    @Test
+    void cleanExpiredMemes_DeleteFailure_DoesNotStopLoop() {
+        MemeModeration meme1 = new MemeModeration(
+                "meme-1",
+                "file-1",
+                "Desc 1",
+                "",
+                111L,
+                MemeVisibility.PUBLIC,
+                "",
+                ModerationStatus.QUARANTINED,
+                "Censorship");
+        MemeModeration meme2 = new MemeModeration(
+                "meme-2",
+                "file-2",
+                "Desc 2",
+                "",
+                222L,
+                MemeVisibility.PUBLIC,
+                "",
+                ModerationStatus.QUARANTINED,
+                "Duplicate");
+
+        when(repository.findByStatusAndCreatedAtBefore(eq(ModerationStatus.QUARANTINED), any(LocalDateTime.class)))
+                .thenReturn(List.of(meme1, meme2));
+        when(repository.findByStatusAndCreatedAtBefore(eq(ModerationStatus.PENDING), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+        when(repository.findByStatusAndProcessingStartedAtBefore(
+                        eq(ModerationStatus.PROCESSING), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+        doThrow(new RuntimeException("db error")).when(idRepository).delete("meme-1");
+
+        scheduler.cleanExpiredMemes();
+
+        verify(idRepository).delete("meme-1");
+        verify(idRepository).delete("meme-2");
     }
 }

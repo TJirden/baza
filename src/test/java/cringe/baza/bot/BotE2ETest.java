@@ -12,6 +12,7 @@ import com.pengrad.telegrambot.request.BaseRequest;
 import com.pengrad.telegrambot.request.SendMessage;
 import com.pengrad.telegrambot.response.SendResponse;
 import cringe.baza.bot.service.BotUpdateListener;
+import cringe.baza.test.AbstractIntegrationTest;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -20,7 +21,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @SpringBootTest
-class BotE2ETest {
+class BotE2ETest extends AbstractIntegrationTest {
 
     @Autowired
     private BotUpdateListener botUpdateListener;

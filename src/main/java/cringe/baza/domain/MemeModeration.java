@@ -51,6 +51,13 @@ public class MemeModeration {
 
     private LocalDateTime createdAt = LocalDateTime.now();
 
+    private LocalDateTime lastEnqueuedAt;
+
+    private LocalDateTime processingStartedAt;
+
+    @Column(nullable = false, columnDefinition = "integer default 0")
+    private int retryCount = 0;
+
     @OneToOne(mappedBy = "meme", cascade = CascadeType.ALL, orphanRemoval = true)
     private MemeRating rating;
 

@@ -8,6 +8,7 @@ import cringe.baza.model.MemeVisibility;
 import cringe.baza.model.ModerationStatus;
 import cringe.baza.repository.jpa.MemeImageHashRepository;
 import cringe.baza.repository.jpa.MemeModerationRepository;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -19,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +31,9 @@ public class MemeVectorRepository implements IdRepository {
     private final VectorStore vectorStore;
     private final MemeModerationRepository memeModerationRepository;
     private final MemeImageHashRepository memeImageHashRepository;
+
+    @Value("${app.ai.processing.stuck-threshold-minutes:120}")
+    private int stuckThresholdMinutes;
 
     @Override
     @Transactional
@@ -203,23 +208,69 @@ public class MemeVectorRepository implements IdRepository {
 
     @Transactional
     @Override
-    public void updateMeme(String id, Meme meme) {
-        vectorStore.delete(List.of(id));
-        persistMeme(id, meme);
+    public void savePending(MemeModeration moderation, OptionalLong imageHash) {
+        memeModerationRepository.save(moderation);
+        if (imageHash.isPresent()) {
+            memeImageHashRepository.save(new MemeImageHash(moderation.getId(), imageHash.getAsLong()));
+        }
+    }
+
+    @Transactional
+    @Override
+    public boolean promoteToApproved(String id, Meme meme) {
+        int updated = memeModerationRepository.updateToApprovedIfPending(id, meme.description(), meme.ocrText());
+        if (updated == 0) {
+            return false;
+        }
+        Document document = new Document(id, meme.description(), Map.of());
+        vectorStore.add(List.of(document));
+        return true;
+    }
+
+    @Transactional
+    @Override
+    public boolean claimForProcessing(String id) {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime stuckThreshold = now.minusMinutes(stuckThresholdMinutes);
+        return memeModerationRepository.claimForProcessing(id, now, stuckThreshold) > 0;
+    }
+
+    @Transactional
+    @Override
+    public boolean updateToQuarantinedIfPending(String id, String description, String ocrText, String reason) {
+        int updated = memeModerationRepository.updateToQuarantinedIfPending(id, description, ocrText, reason);
+        return updated > 0;
     }
 
     @Override
-    public Optional<String> findDuplicateMemeId(String description, double similarityThreshold) {
-        SearchRequest request = SearchRequest.builder()
-                .query(description)
-                .topK(1)
-                .similarityThreshold(similarityThreshold)
-                .build();
+    public Optional<String> findApprovedDuplicate(String id, int phashThreshold) {
+        return memeImageHashRepository
+                .findById(id)
+                .flatMap(hash ->
+                        memeImageHashRepository.findNearestApprovedExcluding(hash.getImageHash(), phashThreshold, id));
+    }
 
-        List<Document> results = vectorStore.similaritySearch(request);
-        if (results != null && !results.isEmpty()) {
-            return Optional.of(results.get(0).getId());
-        }
-        return Optional.empty();
+    @Transactional
+    @Override
+    public int incrementRetryCount(String id) {
+        return memeModerationRepository.incrementRetryCount(id, LocalDateTime.now());
+    }
+
+    @Transactional
+    @Override
+    public void markEnqueued(String id) {
+        memeModerationRepository.updateLastEnqueuedAt(id, LocalDateTime.now());
+    }
+
+    @Override
+    public Optional<MemeModeration> findModerationById(String id) {
+        return memeModerationRepository.findById(id);
+    }
+
+    @Transactional
+    @Override
+    public void updateMeme(String id, Meme meme) {
+        vectorStore.delete(List.of(id));
+        persistMeme(id, meme);
     }
 }

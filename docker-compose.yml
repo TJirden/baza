@@ -12,3 +12,15 @@ services:
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
+
+  rabbitmq:
+    build: ./docker/rabbitmq
+    container_name: baza_rabbitmq
+    network_mode: bridge
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: baza
+      RABBITMQ_DEFAULT_PASS: baza
+    restart: unless-stopped
