@@ -36,6 +36,7 @@ public class MemeCleanupScheduler {
         log.info("Starting scheduled cleanup of expired memes...");
         cleanExpiredQuarantineMemes();
         giveUpAbandonedPendingMemes();
+        giveUpAbandonedProcessingMemes();
         log.info("Scheduled cleanup of expired memes finished.");
     }
 
@@ -65,6 +66,24 @@ public class MemeCleanupScheduler {
         }
 
         log.info("Found {} abandoned pending memes older than {} hours to give up.", abandoned.size(), giveUpHours);
+        for (MemeModeration meme : abandoned) {
+            sendToDlq(meme.getId());
+            notifyGiveUp(meme);
+            deleteMeme(meme);
+        }
+    }
+
+    private void giveUpAbandonedProcessingMemes() {
+        LocalDateTime threshold = LocalDateTime.now().minusHours(giveUpHours);
+        List<MemeModeration> abandoned =
+                repository.findByStatusAndProcessingStartedAtBefore(ModerationStatus.PROCESSING, threshold);
+
+        if (abandoned.isEmpty()) {
+            log.info("No abandoned processing memes to give up.");
+            return;
+        }
+
+        log.info("Found {} abandoned processing memes (stuck > {} hours) to give up.", abandoned.size(), giveUpHours);
         for (MemeModeration meme : abandoned) {
             sendToDlq(meme.getId());
             notifyGiveUp(meme);

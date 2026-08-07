@@ -20,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +31,9 @@ public class MemeVectorRepository implements IdRepository {
     private final VectorStore vectorStore;
     private final MemeModerationRepository memeModerationRepository;
     private final MemeImageHashRepository memeImageHashRepository;
+
+    @Value("${app.ai.processing.stuck-threshold-minutes:120}")
+    private int stuckThresholdMinutes;
 
     @Override
     @Transactional
@@ -226,7 +230,9 @@ public class MemeVectorRepository implements IdRepository {
     @Transactional
     @Override
     public boolean claimForProcessing(String id) {
-        return memeModerationRepository.claimForProcessing(id) > 0;
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime stuckThreshold = now.minusMinutes(stuckThresholdMinutes);
+        return memeModerationRepository.claimForProcessing(id, now, stuckThreshold) > 0;
     }
 
     @Transactional
@@ -234,6 +240,14 @@ public class MemeVectorRepository implements IdRepository {
     public boolean updateToQuarantinedIfPending(String id, String description, String ocrText, String reason) {
         int updated = memeModerationRepository.updateToQuarantinedIfPending(id, description, ocrText, reason);
         return updated > 0;
+    }
+
+    @Override
+    public Optional<String> findApprovedDuplicate(String id, int phashThreshold) {
+        return memeImageHashRepository
+                .findById(id)
+                .flatMap(hash ->
+                        memeImageHashRepository.findNearestApprovedExcluding(hash.getImageHash(), phashThreshold, id));
     }
 
     @Transactional

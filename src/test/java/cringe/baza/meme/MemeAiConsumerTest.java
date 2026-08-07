@@ -135,6 +135,39 @@ class MemeAiConsumerTest {
     }
 
     @Test
+    void processMeme_AlreadyQuarantined_Skips() throws Exception {
+        MemeModeration moderation = new MemeModeration(
+                "meme-1", "file-1", "desc", "ocr", 111L, MemeVisibility.PUBLIC, "", ModerationStatus.QUARANTINED, null);
+        when(idRepository.findModerationById("meme-1")).thenReturn(Optional.of(moderation));
+
+        consumer.processMeme("meme-1");
+
+        verify(fileService, never()).downloadFileBytes(anyString());
+        verify(idRepository, never()).claimForProcessing(anyString());
+        verify(aiProcessingService, never())
+                .processAiAndFinalize(anyString(), any(byte[].class), anyString(), anyLong(), any(), anyString());
+    }
+
+    @Test
+    void processMeme_ProcessingMeme_NotSkipped() throws Exception {
+        MemeModeration moderation = new MemeModeration(
+                "meme-1", "file-1", "desc", "ocr", 111L, MemeVisibility.PUBLIC, "", ModerationStatus.PROCESSING, null);
+        when(idRepository.findModerationById("meme-1")).thenReturn(Optional.of(moderation));
+        stubClaimSuccess("meme-1");
+        when(imageBytesCache.getIfPresent("meme-1")).thenReturn(new byte[] {1, 2, 3});
+        when(aiProcessingService.processAiAndFinalize(
+                        eq("meme-1"), any(byte[].class), anyString(), eq(111L), eq(MemeVisibility.PUBLIC), anyString()))
+                .thenReturn(MemeAiProcessingService.AiProcessingResult.APPROVED);
+
+        consumer.processMeme("meme-1");
+
+        verify(idRepository).claimForProcessing("meme-1");
+        verify(aiProcessingService)
+                .processAiAndFinalize(
+                        eq("meme-1"), any(byte[].class), anyString(), eq(111L), eq(MemeVisibility.PUBLIC), anyString());
+    }
+
+    @Test
     void processMeme_NotFound_Skips() throws Exception {
         when(idRepository.findModerationById("meme-1")).thenReturn(Optional.empty());
 
@@ -178,7 +211,7 @@ class MemeAiConsumerTest {
                 .processAiAndFinalize(anyString(), any(byte[].class), anyString(), anyLong(), any(), anyString());
         verify(idRepository).incrementRetryCount("meme-1");
         verify(rabbitTemplate)
-                .convertAndSend(eq("ai.dlx"), eq("ai.process.retry"), eq("meme-1"), any(MessagePostProcessor.class));
+                .convertAndSend(eq("ai.retry"), eq("ai.process"), eq("meme-1"), any(MessagePostProcessor.class));
     }
 
     @Test
@@ -199,7 +232,7 @@ class MemeAiConsumerTest {
                 .processAiAndFinalize(anyString(), any(byte[].class), anyString(), anyLong(), any(), anyString());
         verify(idRepository).incrementRetryCount("meme-1");
         verify(rabbitTemplate)
-                .convertAndSend(eq("ai.dlx"), eq("ai.process.retry"), eq("meme-1"), any(MessagePostProcessor.class));
+                .convertAndSend(eq("ai.retry"), eq("ai.process"), eq("meme-1"), any(MessagePostProcessor.class));
     }
 
     @Test
@@ -221,7 +254,7 @@ class MemeAiConsumerTest {
         verify(idRepository, never()).promoteToApproved(anyString(), any());
         verify(idRepository).incrementRetryCount("meme-1");
         verify(rabbitTemplate)
-                .convertAndSend(eq("ai.dlx"), eq("ai.process.retry"), eq("meme-1"), any(MessagePostProcessor.class));
+                .convertAndSend(eq("ai.retry"), eq("ai.process"), eq("meme-1"), any(MessagePostProcessor.class));
         verify(imageBytesCache, never()).invalidate(anyString());
     }
 
@@ -243,13 +276,13 @@ class MemeAiConsumerTest {
 
         verify(idRepository).incrementRetryCount("meme-1");
         ArgumentCaptor<MessagePostProcessor> mppCaptor = ArgumentCaptor.forClass(MessagePostProcessor.class);
-        verify(rabbitTemplate).convertAndSend(eq("ai.dlx"), eq("ai.process.retry"), eq("meme-1"), mppCaptor.capture());
+        verify(rabbitTemplate).convertAndSend(eq("ai.retry"), eq("ai.process"), eq("meme-1"), mppCaptor.capture());
 
         Message message = new Message("meme-1".getBytes(), new MessageProperties());
         mppCaptor.getValue().postProcessMessage(message);
-        String expiration = message.getMessageProperties().getExpiration();
+        Long xDelay = (Long) message.getMessageProperties().getHeader("x-delay");
         long expectedDelay = 5000L * (long) Math.pow(2.0, 3 - 1);
-        assertEquals(String.valueOf(expectedDelay), expiration);
+        assertEquals(expectedDelay, xDelay);
     }
 
     @Test
@@ -270,7 +303,7 @@ class MemeAiConsumerTest {
         verify(imageBytesCache).invalidate("meme-1");
         verify(idRepository, never()).incrementRetryCount(anyString());
         verify(rabbitTemplate, never())
-                .convertAndSend(eq("ai.dlx"), eq("ai.process.retry"), any(), any(MessagePostProcessor.class));
+                .convertAndSend(eq("ai.retry"), eq("ai.process"), any(), any(MessagePostProcessor.class));
     }
 
     @Test
@@ -291,7 +324,7 @@ class MemeAiConsumerTest {
 
         verify(idRepository).incrementRetryCount("meme-1");
         verify(rabbitTemplate)
-                .convertAndSend(eq("ai.dlx"), eq("ai.process.retry"), eq("meme-1"), any(MessagePostProcessor.class));
+                .convertAndSend(eq("ai.retry"), eq("ai.process"), eq("meme-1"), any(MessagePostProcessor.class));
         verify(rabbitTemplate, never()).convertAndSend(eq("ai.dlx"), eq("ai.process.dlq"), eq("meme-1"));
         verify(idRepository, never()).delete(anyString());
         verify(telegramService, never()).sendMessageWithMarkdown(anyLong(), anyString());
@@ -355,6 +388,6 @@ class MemeAiConsumerTest {
         verify(idRepository).delete("meme-1");
         verify(telegramService).sendMessageWithMarkdown(eq(111L), anyString());
         verify(rabbitTemplate, never())
-                .convertAndSend(eq("ai.dlx"), eq("ai.process.retry"), any(), any(MessagePostProcessor.class));
+                .convertAndSend(eq("ai.retry"), eq("ai.process"), any(), any(MessagePostProcessor.class));
     }
 }

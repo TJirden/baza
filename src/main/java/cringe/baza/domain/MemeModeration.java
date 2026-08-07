@@ -53,6 +53,8 @@ public class MemeModeration {
 
     private LocalDateTime lastEnqueuedAt;
 
+    private LocalDateTime processingStartedAt;
+
     @Column(nullable = false, columnDefinition = "integer default 0")
     private int retryCount = 0;
 

@@ -5,8 +5,10 @@ import cringe.baza.model.Meme;
 import cringe.baza.model.MemeVisibility;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 
@@ -17,6 +19,9 @@ public class MemeAiProcessingService {
 
     private final MemeAnalyzerService memeAnalyzerService;
     private final IdRepository idRepository;
+
+    @Value("${app.dedup.image-phash-threshold}")
+    private int phashThreshold;
 
     public enum AiProcessingResult {
         APPROVED,
@@ -55,6 +60,19 @@ public class MemeAiProcessingService {
         }
 
         List<Long> groupIds = parseGroupIds(groupIdsStr);
+
+        Optional<String> duplicateId = idRepository.findApprovedDuplicate(memeId, phashThreshold);
+        if (duplicateId.isPresent()) {
+            log.warn("Мем {} заблокирован как визуальный дубликат одобренного мема {}", memeId, duplicateId.get());
+            String reason = "Визуальный дубликат мема: " + duplicateId.get();
+            try {
+                updateToQuarantined(memeId, reason, finalDescription, ocrText);
+            } catch (DataAccessException e) {
+                throw new TransientProcessingException("Ошибка БД при карантине мема (дубликат) " + memeId, e);
+            }
+            return AiProcessingResult.QUARANTINED_DUPLICATE;
+        }
+
         boolean promoted;
         try {
             promoted = idRepository.promoteToApproved(

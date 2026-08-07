@@ -25,29 +25,48 @@ public class MemeReprocessScheduler {
     @Value("${app.ai.queue.retry-max-delay-ms:3600000}")
     private long retryMaxDelayMs;
 
+    @Value("${app.ai.processing.stuck-threshold-minutes:120}")
+    private int stuckThresholdMinutes;
+
     @Scheduled(fixedDelayString = "${app.ai.reprocess.interval-ms:300000}")
     @Transactional
     public void reenqueuePendingMemes() {
-        LocalDateTime threshold = LocalDateTime.now().minusMinutes(minutesThreshold);
-        LocalDateTime enqueueThreshold = LocalDateTime.now().minus(Duration.ofMillis(retryMaxDelayMs * 2));
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime threshold = now.minusMinutes(minutesThreshold);
+        LocalDateTime enqueueThreshold = now.minus(Duration.ofMillis(retryMaxDelayMs * 2));
+
         List<String> pendingIds = moderationRepository.findPendingIdsOlderThan(threshold, enqueueThreshold);
-
-        if (pendingIds.isEmpty()) {
-            return;
-        }
-
-        log.info(
-                "Re-enqueueing {} PENDING/PROCESSING memes older than {} minutes (not enqueued in last {} ms)",
-                pendingIds.size(),
-                minutesThreshold,
-                retryMaxDelayMs * 2);
         for (String memeId : pendingIds) {
             try {
-                moderationRepository.resetToPendingIfProcessing(memeId);
                 aiProducer.enqueueForProcessing(memeId);
             } catch (Exception e) {
                 log.warn("Не удалось поставить мем {} в очередь: {}", memeId, e.getMessage());
             }
+        }
+        if (!pendingIds.isEmpty()) {
+            log.info(
+                    "Re-enqueueing {} PENDING memes older than {} minutes (not enqueued in last {} ms)",
+                    pendingIds.size(),
+                    minutesThreshold,
+                    retryMaxDelayMs * 2);
+        }
+
+        LocalDateTime stuckThreshold = now.minusMinutes(stuckThresholdMinutes);
+        List<String> stuckIds = moderationRepository.findStuckProcessingIds(stuckThreshold, enqueueThreshold);
+        for (String memeId : stuckIds) {
+            try {
+                aiProducer.enqueueForProcessing(memeId);
+            } catch (Exception e) {
+                log.warn("Не удалось поставить зависший мем {} в очередь: {}", memeId, e.getMessage());
+            }
+        }
+        if (!stuckIds.isEmpty()) {
+            log.info(
+                    "Re-enqueueing {} stuck PROCESSING memes (processing started > {} minutes ago, "
+                            + "not enqueued in last {} ms)",
+                    stuckIds.size(),
+                    stuckThresholdMinutes,
+                    retryMaxDelayMs * 2);
         }
     }
 }

@@ -14,7 +14,7 @@ services:
     restart: unless-stopped
 
   rabbitmq:
-    image: rabbitmq:3-management
+    build: ./docker/rabbitmq
     container_name: baza_rabbitmq
     network_mode: bridge
     ports:

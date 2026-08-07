@@ -19,8 +19,10 @@ public interface MemeModerationRepository extends JpaRepository<MemeModeration, 
 
     List<MemeModeration> findByStatusAndCreatedAtAfter(ModerationStatus status, LocalDateTime threshold);
 
+    List<MemeModeration> findByStatusAndProcessingStartedAtBefore(ModerationStatus status, LocalDateTime threshold);
+
     @Query(
-            value = "SELECT id FROM meme_moderation WHERE (status = 'PENDING' OR status = 'PROCESSING') "
+            value = "SELECT id FROM meme_moderation WHERE status = 'PENDING' "
                     + "AND created_at < :threshold "
                     + "AND (last_enqueued_at IS NULL OR last_enqueued_at < :enqueueThreshold) "
                     + "ORDER BY created_at ASC LIMIT 100",
@@ -28,13 +30,26 @@ public interface MemeModerationRepository extends JpaRepository<MemeModeration, 
     List<String> findPendingIdsOlderThan(
             @Param("threshold") LocalDateTime threshold, @Param("enqueueThreshold") LocalDateTime enqueueThreshold);
 
-    @Modifying
-    @Query("UPDATE MemeModeration m SET m.status = 'PROCESSING' " + "WHERE m.id = :id AND m.status = 'PENDING'")
-    int claimForProcessing(@Param("id") String id);
+    @Query(
+            value = "SELECT id FROM meme_moderation WHERE status = 'PROCESSING' "
+                    + "AND (processing_started_at IS NULL OR processing_started_at < :stuckThreshold) "
+                    + "AND (last_enqueued_at IS NULL OR last_enqueued_at < :enqueueThreshold) "
+                    + "ORDER BY created_at ASC LIMIT 100",
+            nativeQuery = true)
+    List<String> findStuckProcessingIds(
+            @Param("stuckThreshold") LocalDateTime stuckThreshold,
+            @Param("enqueueThreshold") LocalDateTime enqueueThreshold);
 
     @Modifying
-    @Query("UPDATE MemeModeration m SET m.status = 'PENDING' " + "WHERE m.id = :id AND m.status = 'PROCESSING'")
-    int resetToPendingIfProcessing(@Param("id") String id);
+    @Query("UPDATE MemeModeration m SET m.status = 'PROCESSING', m.processingStartedAt = :now "
+            + "WHERE m.id = :id AND ("
+            + "m.status = 'PENDING' "
+            + "OR (m.status = 'PROCESSING' AND m.processingStartedAt IS NULL) "
+            + "OR (m.status = 'PROCESSING' AND m.processingStartedAt < :stuckThreshold))")
+    int claimForProcessing(
+            @Param("id") String id,
+            @Param("now") LocalDateTime now,
+            @Param("stuckThreshold") LocalDateTime stuckThreshold);
 
     @Modifying
     @Query("UPDATE MemeModeration m SET m.status = 'APPROVED', m.description = :description, "
@@ -55,7 +70,7 @@ public interface MemeModerationRepository extends JpaRepository<MemeModeration, 
 
     @Modifying
     @Query("UPDATE MemeModeration m SET m.retryCount = m.retryCount + 1, m.lastEnqueuedAt = :now, "
-            + "m.status = 'PENDING' WHERE m.id = :id AND m.status = 'PROCESSING'")
+            + "m.processingStartedAt = NULL WHERE m.id = :id AND m.status = 'PROCESSING'")
     int incrementRetryCount(@Param("id") String id, @Param("now") LocalDateTime now);
 
     @Modifying

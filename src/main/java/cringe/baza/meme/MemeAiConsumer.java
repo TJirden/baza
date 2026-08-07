@@ -51,7 +51,8 @@ public class MemeAiConsumer {
         }
 
         MemeModeration moderation = moderationOpt.get();
-        if (moderation.getStatus() != ModerationStatus.PENDING) {
+        if (moderation.getStatus() == ModerationStatus.APPROVED
+                || moderation.getStatus() == ModerationStatus.QUARANTINED) {
             log.info("Мем {} уже обработан (статус={}), пропускаем", memeId, moderation.getStatus());
             return;
         }
@@ -179,8 +180,8 @@ public class MemeAiConsumer {
                 delay,
                 reason);
         rabbitTemplate.convertAndSend(
-                MemeAiQueueConfig.AI_DLX_EXCHANGE, MemeAiQueueConfig.AI_PROCESS_RETRY_QUEUE, memeId, message -> {
-                    message.getMessageProperties().setExpiration(String.valueOf(delay));
+                MemeAiQueueConfig.AI_RETRY_EXCHANGE, MemeAiQueueConfig.AI_PROCESS_QUEUE, memeId, message -> {
+                    message.getMessageProperties().setHeader("x-delay", delay);
                     return message;
                 });
     }

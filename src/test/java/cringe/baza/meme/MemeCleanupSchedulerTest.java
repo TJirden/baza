@@ -43,6 +43,9 @@ class MemeCleanupSchedulerTest {
                 .thenReturn(List.of());
         when(repository.findByStatusAndCreatedAtBefore(eq(ModerationStatus.PENDING), any(LocalDateTime.class)))
                 .thenReturn(List.of());
+        when(repository.findByStatusAndProcessingStartedAtBefore(
+                        eq(ModerationStatus.PROCESSING), any(LocalDateTime.class)))
+                .thenReturn(List.of());
 
         scheduler.cleanExpiredMemes();
 
@@ -78,6 +81,9 @@ class MemeCleanupSchedulerTest {
                 .thenReturn(List.of(meme1, meme2));
         when(repository.findByStatusAndCreatedAtBefore(eq(ModerationStatus.PENDING), any(LocalDateTime.class)))
                 .thenReturn(List.of());
+        when(repository.findByStatusAndProcessingStartedAtBefore(
+                        eq(ModerationStatus.PROCESSING), any(LocalDateTime.class)))
+                .thenReturn(List.of());
 
         scheduler.cleanExpiredMemes();
 
@@ -104,12 +110,43 @@ class MemeCleanupSchedulerTest {
                 .thenReturn(List.of());
         when(repository.findByStatusAndCreatedAtBefore(eq(ModerationStatus.PENDING), any(LocalDateTime.class)))
                 .thenReturn(List.of(pending));
+        when(repository.findByStatusAndProcessingStartedAtBefore(
+                        eq(ModerationStatus.PROCESSING), any(LocalDateTime.class)))
+                .thenReturn(List.of());
 
         scheduler.cleanExpiredMemes();
 
         verify(rabbitTemplate).convertAndSend(eq("ai.dlx"), eq("ai.process.dlq"), eq("meme-pending"));
         verify(telegramService).sendMessageWithMarkdown(eq(111L), anyString());
         verify(idRepository).delete("meme-pending");
+    }
+
+    @Test
+    void cleanExpiredMemes_AbandonedProcessing_SendsToDlqNotifiesAndDeletes() {
+        MemeModeration processing = new MemeModeration(
+                "meme-processing",
+                "file-1",
+                "Desc",
+                "",
+                111L,
+                MemeVisibility.PUBLIC,
+                "",
+                ModerationStatus.PROCESSING,
+                "В обработке");
+
+        when(repository.findByStatusAndCreatedAtBefore(eq(ModerationStatus.QUARANTINED), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+        when(repository.findByStatusAndCreatedAtBefore(eq(ModerationStatus.PENDING), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+        when(repository.findByStatusAndProcessingStartedAtBefore(
+                        eq(ModerationStatus.PROCESSING), any(LocalDateTime.class)))
+                .thenReturn(List.of(processing));
+
+        scheduler.cleanExpiredMemes();
+
+        verify(rabbitTemplate).convertAndSend(eq("ai.dlx"), eq("ai.process.dlq"), eq("meme-processing"));
+        verify(telegramService).sendMessageWithMarkdown(eq(111L), anyString());
+        verify(idRepository).delete("meme-processing");
     }
 
     @Test
@@ -129,6 +166,9 @@ class MemeCleanupSchedulerTest {
                 .thenReturn(List.of());
         when(repository.findByStatusAndCreatedAtBefore(eq(ModerationStatus.PENDING), any(LocalDateTime.class)))
                 .thenReturn(List.of(pending));
+        when(repository.findByStatusAndProcessingStartedAtBefore(
+                        eq(ModerationStatus.PROCESSING), any(LocalDateTime.class)))
+                .thenReturn(List.of());
 
         scheduler.cleanExpiredMemes();
 
@@ -154,6 +194,9 @@ class MemeCleanupSchedulerTest {
                 .thenReturn(List.of());
         when(repository.findByStatusAndCreatedAtBefore(eq(ModerationStatus.PENDING), any(LocalDateTime.class)))
                 .thenReturn(List.of(pending));
+        when(repository.findByStatusAndProcessingStartedAtBefore(
+                        eq(ModerationStatus.PROCESSING), any(LocalDateTime.class)))
+                .thenReturn(List.of());
         doThrow(new RuntimeException("rabbit down"))
                 .when(rabbitTemplate)
                 .convertAndSend(eq("ai.dlx"), eq("ai.process.dlq"), eq("meme-pending"));
@@ -190,6 +233,9 @@ class MemeCleanupSchedulerTest {
         when(repository.findByStatusAndCreatedAtBefore(eq(ModerationStatus.QUARANTINED), any(LocalDateTime.class)))
                 .thenReturn(List.of(meme1, meme2));
         when(repository.findByStatusAndCreatedAtBefore(eq(ModerationStatus.PENDING), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+        when(repository.findByStatusAndProcessingStartedAtBefore(
+                        eq(ModerationStatus.PROCESSING), any(LocalDateTime.class)))
                 .thenReturn(List.of());
         doThrow(new RuntimeException("db error")).when(idRepository).delete("meme-1");
 
