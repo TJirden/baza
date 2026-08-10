@@ -40,3 +40,5 @@ out/
 
 ollama_data
 postgres_data
+.env
+
