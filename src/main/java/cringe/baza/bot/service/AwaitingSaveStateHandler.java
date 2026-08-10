@@ -31,7 +31,7 @@ public class AwaitingSaveStateHandler {
 
         try {
             SendResponse response = bot.execute(new SendMessage(chatId, "Получаю мем и индексирую..."));
-            if (response == null || !response.isOk()) {
+            if (!response.isOk()) {
                 log.error("Не удалось отправить промежуточное сообщение в Telegram для chatId={}", chatId);
                 sessionService.setUserState(chatId, UserState.DEFAULT);
                 return new SendMessage(chatId, "Ошибка: не удалось запустить процесс сохранения мема.");

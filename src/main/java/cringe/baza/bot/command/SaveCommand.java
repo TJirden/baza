@@ -5,6 +5,7 @@ import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.Update;
 import com.pengrad.telegrambot.request.SendMessage;
 import com.pengrad.telegrambot.response.SendResponse;
+import cringe.baza.bot.model.SaveParseResult;
 import cringe.baza.bot.model.UserState;
 import cringe.baza.meme.AsyncMemeService;
 import cringe.baza.user.UserSessionService;

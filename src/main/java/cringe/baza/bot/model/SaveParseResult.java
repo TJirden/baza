@@ -1,4 +1,4 @@
-package cringe.baza.bot.command;
+package cringe.baza.bot.model;
 
 public record SaveParseResult(boolean success, String visibility, String description, String errorMessage) {
     public static SaveParseResult success(String visibility, String description) {
