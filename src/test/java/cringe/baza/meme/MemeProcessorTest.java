@@ -3,9 +3,9 @@ package cringe.baza.meme;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import cringe.baza.repository.IdRepository;
 import cringe.baza.model.Meme;
 import cringe.baza.model.MemeVisibility;
+import cringe.baza.repository.IdRepository;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;

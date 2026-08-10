@@ -1,8 +1,9 @@
 package cringe.baza.meme;
 
-import cringe.baza.repository.IdRepository;
 import cringe.baza.model.Meme;
 import cringe.baza.model.MemeVisibility;
+import cringe.baza.repository.MemeProcessingRepository;
+import cringe.baza.repository.MemeReadRepository;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -18,7 +19,8 @@ import org.springframework.stereotype.Service;
 public class MemeAiProcessingService {
 
     private final MemeAnalyzerService memeAnalyzerService;
-    private final IdRepository idRepository;
+    private final MemeReadRepository readRepository;
+    private final MemeProcessingRepository processingRepository;
 
     @Value("${app.dedup.image-phash-threshold}")
     private int phashThreshold;
@@ -61,7 +63,7 @@ public class MemeAiProcessingService {
 
         List<Long> groupIds = parseGroupIds(groupIdsStr);
 
-        Optional<String> duplicateId = idRepository.findApprovedDuplicate(memeId, phashThreshold);
+        Optional<String> duplicateId = readRepository.findApprovedDuplicate(memeId, phashThreshold);
         if (duplicateId.isPresent()) {
             log.warn("Мем {} заблокирован как визуальный дубликат одобренного мема {}", memeId, duplicateId.get());
             String reason = "Визуальный дубликат мема: " + duplicateId.get();
@@ -75,7 +77,7 @@ public class MemeAiProcessingService {
 
         boolean promoted;
         try {
-            promoted = idRepository.promoteToApproved(
+            promoted = processingRepository.promoteToApproved(
                     memeId, new Meme(memeId, finalDescription, ocrText, null, userId, visibility, groupIds));
         } catch (DataAccessException e) {
             throw new TransientProcessingException("Ошибка БД при промоуте мема " + memeId, e);
@@ -99,7 +101,7 @@ public class MemeAiProcessingService {
     }
 
     private boolean updateToQuarantined(String memeId, String reason, String description, String ocrText) {
-        boolean updated = idRepository.updateToQuarantinedIfPending(memeId, description, ocrText, reason);
+        boolean updated = processingRepository.updateToQuarantinedIfPending(memeId, description, ocrText, reason);
         if (!updated) {
             log.warn("Мем {} уже не PENDING, перевод в QUARANTINED пропущен", memeId);
         }

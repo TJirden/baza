@@ -3,8 +3,8 @@ package cringe.baza.meme;
 import cringe.baza.bot.config.MemeAiQueueConfig;
 import cringe.baza.bot.service.TelegramService;
 import cringe.baza.domain.MemeModeration;
-import cringe.baza.repository.IdRepository;
 import cringe.baza.model.ModerationStatus;
+import cringe.baza.repository.MemeWriteRepository;
 import cringe.baza.repository.jpa.MemeModerationRepository;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -21,7 +21,7 @@ import org.springframework.stereotype.Service;
 public class MemeCleanupScheduler {
 
     private final MemeModerationRepository repository;
-    private final IdRepository idRepository;
+    private final MemeWriteRepository idRepository;
     private final TelegramService telegramService;
     private final RabbitTemplate rabbitTemplate;
 

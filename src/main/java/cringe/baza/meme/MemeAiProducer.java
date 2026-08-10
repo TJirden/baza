@@ -1,7 +1,7 @@
 package cringe.baza.meme;
 
 import cringe.baza.bot.config.MemeAiQueueConfig;
-import cringe.baza.repository.IdRepository;
+import cringe.baza.repository.MemeProcessingRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
 public class MemeAiProducer {
 
     private final RabbitTemplate rabbitTemplate;
-    private final IdRepository idRepository;
+    private final MemeProcessingRepository idRepository;
 
     public void enqueueForProcessing(String memeId) {
         idRepository.markEnqueued(memeId);
