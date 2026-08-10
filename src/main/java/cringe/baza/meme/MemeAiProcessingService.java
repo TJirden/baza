@@ -1,6 +1,6 @@
 package cringe.baza.meme;
 
-import cringe.baza.model.IdRepository;
+import cringe.baza.repository.IdRepository;
 import cringe.baza.model.Meme;
 import cringe.baza.model.MemeVisibility;
 import java.util.ArrayList;

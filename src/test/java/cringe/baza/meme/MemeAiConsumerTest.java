@@ -7,7 +7,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 import cringe.baza.bot.service.TelegramFileService;
 import cringe.baza.bot.service.TelegramService;
 import cringe.baza.domain.MemeModeration;
-import cringe.baza.model.IdRepository;
+import cringe.baza.repository.IdRepository;
 import cringe.baza.model.MemeVisibility;
 import cringe.baza.model.ModerationStatus;
 import java.util.Optional;

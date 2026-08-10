@@ -1,6 +1,8 @@
-package cringe.baza.model;
+package cringe.baza.repository;
 
 import cringe.baza.domain.MemeModeration;
+import cringe.baza.model.Meme;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;

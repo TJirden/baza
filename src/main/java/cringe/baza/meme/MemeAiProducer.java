@@ -1,7 +1,7 @@
 package cringe.baza.meme;
 
 import cringe.baza.bot.config.MemeAiQueueConfig;
-import cringe.baza.model.IdRepository;
+import cringe.baza.repository.IdRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;

@@ -6,7 +6,7 @@ import cringe.baza.bot.service.TelegramFileService;
 import cringe.baza.bot.service.TelegramService;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.meme.phash.MemeImageHasher;
-import cringe.baza.model.IdRepository;
+import cringe.baza.repository.IdRepository;
 import cringe.baza.model.MemeVisibility;
 import cringe.baza.model.ModerationStatus;
 import cringe.baza.repository.jpa.MemeImageHashRepository;

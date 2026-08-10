@@ -3,7 +3,7 @@ package cringe.baza.meme;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
 
-import cringe.baza.model.IdRepository;
+import cringe.baza.repository.IdRepository;
 import cringe.baza.model.MemeVisibility;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
