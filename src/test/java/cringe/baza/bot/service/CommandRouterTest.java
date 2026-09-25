@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 import com.pengrad.telegrambot.model.Chat;
 import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.Update;
+import com.pengrad.telegrambot.model.User;
 import com.pengrad.telegrambot.request.BaseRequest;
 import com.pengrad.telegrambot.request.SendMessage;
 import cringe.baza.bot.command.Command;
@@ -48,14 +49,17 @@ class CommandRouterTest {
     }
 
     @Test
-    void route_UnsupportedCommand_ReturnsUnknownCommandMessage() {
+    void route_UnsupportedCommand_PrivateChat_ReturnsUnknownCommandMessage() {
         Update update = mock(Update.class);
         Message message = mock(Message.class);
         Chat chat = mock(Chat.class);
+        User user = mock(User.class);
 
         when(update.message()).thenReturn(message);
         when(message.chat()).thenReturn(chat);
         when(chat.id()).thenReturn(100L);
+        when(message.from()).thenReturn(user);
+        when(user.id()).thenReturn(100L);
         when(message.text()).thenReturn("/unknown");
 
         when(command1.supports("/unknown")).thenReturn(false);
@@ -69,5 +73,27 @@ class CommandRouterTest {
         assertEquals(
                 "Неизвестная команда. Используй /help для списка команд.",
                 result.getParameters().get("text"));
+    }
+
+    @Test
+    void route_UnsupportedCommand_GroupChat_StaysSilent() {
+        Update update = mock(Update.class);
+        Message message = mock(Message.class);
+        Chat chat = mock(Chat.class);
+        User user = mock(User.class);
+
+        when(update.message()).thenReturn(message);
+        when(message.chat()).thenReturn(chat);
+        when(chat.id()).thenReturn(-999L);
+        when(message.from()).thenReturn(user);
+        when(user.id()).thenReturn(100L);
+        when(message.text()).thenReturn("/unknown");
+
+        when(command1.supports("/unknown")).thenReturn(false);
+        when(command2.supports("/unknown")).thenReturn(false);
+
+        CommandRouter router = new CommandRouter(List.of(command1, command2));
+
+        assertNull(router.route(update));
     }
 }

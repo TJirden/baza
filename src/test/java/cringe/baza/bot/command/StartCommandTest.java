@@ -44,7 +44,9 @@ class StartCommandTest {
 
         assertNotNull(response);
         assertEquals(123L, response.getParameters().get("chat_id"));
-        assertEquals("Привет базированным!", response.getParameters().get("text"));
+        assertEquals(
+                "Привет базированным! /help — список команд.",
+                response.getParameters().get("text"));
         verify(sessionService).setUserState(123L, UserState.DEFAULT);
     }
 }
