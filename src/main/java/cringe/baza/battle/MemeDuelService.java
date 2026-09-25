@@ -1,6 +1,8 @@
 package cringe.baza.battle;
 
+import cringe.baza.bot.config.TelegramProperties;
 import cringe.baza.bot.model.DuelActionResult;
+import cringe.baza.bot.model.DuelCreateResult;
 import cringe.baza.bot.service.TelegramService;
 import cringe.baza.domain.MemeBattle;
 import cringe.baza.domain.MemeModeration;
@@ -10,6 +12,7 @@ import cringe.baza.model.ModerationStatus;
 import cringe.baza.repository.jpa.MemeBattleRepository;
 import cringe.baza.repository.jpa.MemeModerationRepository;
 import cringe.baza.repository.jpa.TelegramUserRepository;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +30,87 @@ public class MemeDuelService {
     private final MemeBattleRepository memeBattleRepository;
     private final TelegramUserRepository telegramUserRepository;
     private final MemeDuelLifecycleService memeDuelLifecycleService;
+    private final TelegramProperties telegramProperties;
+
+    @Transactional
+    public DuelCreateResult createDuel(long challengerId, String targetUsername, int bet, long chatId) {
+        Optional<TelegramUser> opponentOpt = telegramUserRepository.findByUsernameIgnoreCase(targetUsername);
+        if (opponentOpt.isEmpty()) {
+            return DuelCreateResult.OPPONENT_NOT_FOUND;
+        }
+        TelegramUser opponent = opponentOpt.get();
+        if (opponent.getId().equals(challengerId)) {
+            return DuelCreateResult.SELF_DUEL;
+        }
+
+        Optional<TelegramUser> challengerOpt = telegramUserRepository.findById(challengerId);
+        if (challengerOpt.isEmpty()) {
+            log.error("Challenger {} not found in DB during duel creation", challengerId);
+            return DuelCreateResult.ERROR;
+        }
+        TelegramUser challenger = challengerOpt.get();
+
+        int challengerPoints = challenger.getPoints() != null ? challenger.getPoints() : 0;
+        if (challengerPoints < bet) {
+            return DuelCreateResult.CHALLENGER_INSUFFICIENT_POINTS;
+        }
+        int opponentPoints = opponent.getPoints() != null ? opponent.getPoints() : 0;
+        if (opponentPoints < bet) {
+            return DuelCreateResult.OPPONENT_INSUFFICIENT_POINTS;
+        }
+
+        if (!hasApprovedPublicMemes(challenger.getId())) {
+            return DuelCreateResult.CHALLENGER_NO_MEMES;
+        }
+        if (!hasApprovedPublicMemes(opponent.getId())) {
+            return DuelCreateResult.OPPONENT_NO_MEMES;
+        }
+
+        challenger.setPoints(challengerPoints - bet);
+        telegramUserRepository.save(challenger);
+
+        MemeBattle battle = new MemeBattle();
+        battle.setBattleType("DUEL");
+        battle.setChallengerId(challenger.getId());
+        battle.setOpponentId(opponent.getId());
+        battle.setBet(bet);
+        battle.setStatus("PENDING");
+        battle.setTelegramChatId(chatId);
+        battle.setStartTime(LocalDateTime.now());
+        battle = memeBattleRepository.save(battle);
+
+        String challengerName =
+                challenger.getUsername() != null ? "@" + challenger.getUsername() : challenger.getFirstName();
+        String opponentName = "@" + opponent.getUsername();
+
+        String msgText = String.format(
+                "⚔️ *ВЫЗОВ НА ДУЭЛЬ!* ⚔️\n\n%s вызывает %s на дуэль мемов!\n"
+                        + "💰 Ставка: *%d очков*\n\n"
+                        + "%s, принимаешь ли ты вызов?\n"
+                        + "_(Для выбора мемов перейдите в диалог с ботом: @%s)_",
+                challengerName, opponentName, bet, opponentName, telegramProperties.getBotUsername());
+
+        Integer messageId = telegramService.sendDuelChallenge(chatId, msgText, battle.getId());
+        if (messageId != null) {
+            battle.setTelegramMessageId(messageId);
+            memeBattleRepository.save(battle);
+        } else {
+            log.error("Failed to send duel challenge message to chat {}", chatId);
+            battle.setStatus("FAILED");
+            memeBattleRepository.save(battle);
+            challenger.setPoints(challengerPoints);
+            telegramUserRepository.save(challenger);
+            return DuelCreateResult.ERROR;
+        }
+
+        return DuelCreateResult.SUCCESS;
+    }
+
+    private boolean hasApprovedPublicMemes(long userId) {
+        return !memeModerationRepository
+                .findByOwnerIdAndStatusAndVisibility(userId, ModerationStatus.APPROVED, MemeVisibility.PUBLIC)
+                .isEmpty();
+    }
 
     @Transactional
     public DuelActionResult acceptDuel(long battleId, long userId) {
@@ -54,22 +138,11 @@ public class MemeDuelService {
         }
 
         int bet = battle.getBet();
-        if (challenger.getPoints() == null || challenger.getPoints() < bet) {
-            battle.setStatus("FAILED");
-            memeBattleRepository.save(battle);
-            String text = "*Дуэль отменена!* У вызывающего игрока недостаточно очков.";
-            telegramService.editMessageTextWithMarkdown(
-                    battle.getTelegramChatId(), battle.getTelegramMessageId(), text);
-            return DuelActionResult.CHALLENGER_INSUFFICIENT_POINTS;
-        }
-
         if (opponent.getPoints() == null || opponent.getPoints() < bet) {
             return DuelActionResult.OPPONENT_INSUFFICIENT_POINTS;
         }
 
-        challenger.setPoints(challenger.getPoints() - bet);
         opponent.setPoints(opponent.getPoints() - bet);
-        telegramUserRepository.save(challenger);
         telegramUserRepository.save(opponent);
 
         battle.setStatus("MEME_SELECTION");
@@ -104,6 +177,8 @@ public class MemeDuelService {
 
         battle.setStatus("DECLINED");
         memeBattleRepository.save(battle);
+
+        refundBet(battle.getChallengerId(), battle.getBet());
 
         String text;
         if (battle.getOpponentId().equals(userId)) {
@@ -171,6 +246,17 @@ public class MemeDuelService {
         }
 
         return DuelActionResult.SUCCESS;
+    }
+
+    private void refundBet(long userId, Integer bet) {
+        if (bet == null || bet <= 0) {
+            return;
+        }
+        telegramUserRepository.findById(userId).ifPresent(user -> {
+            int points = user.getPoints() != null ? user.getPoints() : 0;
+            user.setPoints(points + bet);
+            telegramUserRepository.save(user);
+        });
     }
 
     private void sendMemeSelectionPrivateMessage(long userId, long battleId) {

@@ -106,6 +106,22 @@ public class TelegramServiceImpl implements TelegramService {
         bot.execute(new SendMessage(userId, text).parseMode(ParseMode.Markdown).replyMarkup(keyboard));
     }
 
+    @Override
+    public Integer sendDuelChallenge(long chatId, String text, long battleId) {
+        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup(
+                new InlineKeyboardButton("Принять ⚔️").callbackData("duel_accept:" + battleId),
+                new InlineKeyboardButton("Отклонить 👎").callbackData("duel_decline:" + battleId));
+
+        var response = bot.execute(
+                new SendMessage(chatId, text).parseMode(ParseMode.Markdown).replyMarkup(keyboard));
+
+        if (response != null && response.isOk() && response.message() != null) {
+            return response.message().messageId();
+        }
+        log.error("Не удалось отправить сообщение о вызове на дуэль в чат {}", chatId);
+        return null;
+    }
+
     private InlineKeyboardMarkup getBattleVoteKeyboard(long battleId) {
         return new InlineKeyboardMarkup(
                 new InlineKeyboardButton("👍 Вариант А").callbackData("vote:" + battleId + ":A"),
