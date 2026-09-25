@@ -2,6 +2,7 @@ package cringe.baza.bot.command;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import cringe.baza.bot.model.SaveParseResult;
 import org.junit.jupiter.api.Test;
 
 class SaveCommandParserTest {

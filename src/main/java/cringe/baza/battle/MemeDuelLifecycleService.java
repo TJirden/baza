@@ -38,6 +38,7 @@ public class MemeDuelLifecycleService {
             log.error("Memes not found for active duel {}", battle.getId());
             battle.setStatus("FAILED");
             memeBattleRepository.save(battle);
+            refundDuelists(battle);
             return;
         }
 
@@ -78,7 +79,28 @@ public class MemeDuelLifecycleService {
             log.error("Failed to send voting card for duel battle: {}", battle.getId());
             battle.setStatus("FAILED");
             memeBattleRepository.save(battle);
+            refundDuelists(battle);
         }
+    }
+
+    private void refundDuelists(MemeBattle battle) {
+        int bet = battle.getBet() != null ? battle.getBet() : 0;
+        if (bet <= 0) {
+            return;
+        }
+        refundBet(battle.getChallengerId(), bet);
+        refundBet(battle.getOpponentId(), bet);
+    }
+
+    private void refundBet(Long userId, int bet) {
+        if (userId == null) {
+            return;
+        }
+        telegramUserRepository.findById(userId).ifPresent(user -> {
+            int points = user.getPoints() != null ? user.getPoints() : 0;
+            user.setPoints(points + bet);
+            telegramUserRepository.save(user);
+        });
     }
 
     private String getVoteCardText(MemeBattle battle, MemeModeration memeA, MemeModeration memeB) {
@@ -110,39 +132,30 @@ public class MemeDuelLifecycleService {
         duel.setStatus("EXPIRED");
         memeBattleRepository.save(duel);
 
-        if ("MEME_SELECTION".equals(oldStatus)) {
-            TelegramUser challenger =
-                    telegramUserRepository.findById(duel.getChallengerId()).orElse(null);
-            TelegramUser opponent =
-                    telegramUserRepository.findById(duel.getOpponentId()).orElse(null);
-            int bet = duel.getBet() != null ? duel.getBet() : 0;
-            if (challenger != null) {
-                challenger.setPoints(challenger.getPoints() + bet);
-                telegramUserRepository.save(challenger);
-                try {
-                    telegramService.sendMessage(
-                            challenger.getId(),
-                            "Дуэль отменена (истекло время ожидания выбора мемов). Ставка возвращена.");
-                } catch (Exception e) {
-                    log.warn("Could not notify challenger user {}: {}", challenger.getId(), e.getMessage());
-                }
-            }
-            if (opponent != null) {
-                opponent.setPoints(opponent.getPoints() + bet);
-                telegramUserRepository.save(opponent);
-                try {
-                    telegramService.sendMessage(
-                            opponent.getId(),
-                            "Дуэль отменена (истекло время ожидания выбора мемов). Ставка возвращена.");
-                } catch (Exception e) {
-                    log.warn("Could not notify opponent user {}: {}", opponent.getId(), e.getMessage());
-                }
+        int bet = duel.getBet() != null ? duel.getBet() : 0;
+        if (bet > 0) {
+            refundAndNotify(duel.getChallengerId(), bet);
+            if ("MEME_SELECTION".equals(oldStatus)) {
+                refundAndNotify(duel.getOpponentId(), bet);
             }
         }
 
         if (duel.getTelegramChatId() != null && duel.getTelegramMessageId() != null) {
             String text = String.format("*Дуэль отменена!*%n_%s_", reason);
             telegramService.editMessageTextWithMarkdown(duel.getTelegramChatId(), duel.getTelegramMessageId(), text);
+        }
+    }
+
+    private void refundAndNotify(Long userId, int bet) {
+        if (userId == null) {
+            return;
+        }
+        refundBet(userId, bet);
+        try {
+            telegramService.sendMessage(
+                    userId, "Дуэль отменена (истекло время ожидания). Ставка возвращена на ваш баланс.");
+        } catch (Exception e) {
+            log.warn("Could not notify user {} about duel refund: {}", userId, e.getMessage());
         }
     }
 

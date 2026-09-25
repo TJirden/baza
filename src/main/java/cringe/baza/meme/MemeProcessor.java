@@ -1,7 +1,8 @@
 package cringe.baza.meme;
 
-import cringe.baza.model.IdRepository;
 import cringe.baza.model.Meme;
+import cringe.baza.model.MemeMutationResult;
+import cringe.baza.repository.IdRepository;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -69,10 +70,41 @@ public class MemeProcessor {
         return idRepository.findById(id);
     }
 
+    public Optional<Meme> getMemeByIdForUser(String id, Long userId, List<Long> userGroupIds) {
+        return idRepository.findById(id).filter(meme -> isVisibleTo(meme, userId, userGroupIds));
+    }
+
+    private boolean isVisibleTo(Meme meme, Long userId, List<Long> userGroupIds) {
+        return switch (meme.visibility()) {
+            case PUBLIC -> true;
+            case PRIVATE -> meme.ownerId() != null && meme.ownerId().equals(userId);
+            case GROUP ->
+                meme.groupIds() != null
+                        && userGroupIds != null
+                        && meme.groupIds().stream().anyMatch(userGroupIds::contains);
+        };
+    }
+
     @Transactional
     public boolean delete(String id) {
+        if (idRepository.findById(id).isEmpty()) {
+            return false;
+        }
         idRepository.delete(id);
         return true;
+    }
+
+    @Transactional
+    public MemeMutationResult deleteForOwner(String id, Long userId) {
+        Optional<Meme> memeOpt = idRepository.findById(id);
+        if (memeOpt.isEmpty()) {
+            return MemeMutationResult.NOT_FOUND;
+        }
+        if (!isOwner(memeOpt.get(), userId)) {
+            return MemeMutationResult.FORBIDDEN;
+        }
+        idRepository.delete(id);
+        return MemeMutationResult.DONE;
     }
 
     public boolean quarantine(String id) {
@@ -102,5 +134,22 @@ public class MemeProcessor {
                         meme.visibility(),
                         meme.groupIds()));
         return true;
+    }
+
+    @Transactional
+    public MemeMutationResult updateForOwner(String id, String newDescription, Long userId) {
+        Optional<Meme> memeOpt = idRepository.findById(id);
+        if (memeOpt.isEmpty()) {
+            return MemeMutationResult.NOT_FOUND;
+        }
+        if (!isOwner(memeOpt.get(), userId)) {
+            return MemeMutationResult.FORBIDDEN;
+        }
+        update(id, newDescription);
+        return MemeMutationResult.DONE;
+    }
+
+    private boolean isOwner(Meme meme, Long userId) {
+        return meme.ownerId() != null && meme.ownerId().equals(userId);
     }
 }

@@ -27,6 +27,9 @@ public class TelegramProperties {
     @NotEmpty
     private String token;
 
+    @NotEmpty
+    private String botUsername;
+
     @DurationUnit(ChronoUnit.MILLIS)
     private Duration updateListenerSleep = Duration.ofSeconds(1);
 

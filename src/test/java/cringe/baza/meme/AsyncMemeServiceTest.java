@@ -9,9 +9,9 @@ import cringe.baza.bot.service.TelegramFileService;
 import cringe.baza.bot.service.TelegramService;
 import cringe.baza.domain.MemeModeration;
 import cringe.baza.meme.phash.MemeImageHasher;
-import cringe.baza.model.IdRepository;
 import cringe.baza.model.MemeVisibility;
 import cringe.baza.model.ModerationStatus;
+import cringe.baza.repository.MemeWriteRepository;
 import cringe.baza.repository.jpa.MemeImageHashRepository;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -41,7 +41,7 @@ class AsyncMemeServiceTest {
     private MemeImageHashRepository memeImageHashRepository;
 
     @Mock
-    private IdRepository memeRepository;
+    private MemeWriteRepository memeRepository;
 
     @Mock
     private MemeAiProcessingService aiProcessingService;

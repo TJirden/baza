@@ -30,4 +30,6 @@ public interface TelegramService {
     void editBattleVoteCard(long chatId, int messageId, String text, long battleId);
 
     void sendDuelMemeSelection(long userId, String text, long battleId, List<MemeModeration> userMemes);
+
+    Integer sendDuelChallenge(long chatId, String text, long battleId);
 }

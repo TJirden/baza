@@ -1,5 +1,6 @@
 package cringe.baza.bot.command;
 
+import cringe.baza.bot.model.SaveParseResult;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;

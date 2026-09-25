@@ -3,7 +3,9 @@ package cringe.baza.battle;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import cringe.baza.bot.config.TelegramProperties;
 import cringe.baza.bot.model.DuelActionResult;
+import cringe.baza.bot.model.DuelCreateResult;
 import cringe.baza.bot.service.TelegramService;
 import cringe.baza.domain.MemeBattle;
 import cringe.baza.domain.MemeModeration;
@@ -17,6 +19,7 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -38,6 +41,9 @@ class MemeDuelServiceTest {
 
     @Mock
     private MemeDuelLifecycleService memeDuelLifecycleService;
+
+    @Mock
+    private TelegramProperties telegramProperties;
 
     @InjectMocks
     private MemeDuelService memeDuelService;
@@ -73,8 +79,9 @@ class MemeDuelServiceTest {
     }
 
     @Test
-    void acceptDuel_ChallengerInsufficientPoints() {
+    void acceptDuel_ChargesOnlyOpponent() {
         MemeBattle battle = new MemeBattle();
+        battle.setId(1L);
         battle.setStatus("PENDING");
         battle.setChallengerId(10L);
         battle.setOpponentId(20L);
@@ -84,19 +91,37 @@ class MemeDuelServiceTest {
 
         TelegramUser challenger = new TelegramUser();
         challenger.setId(10L);
+        challenger.setFirstName("Challenger");
         challenger.setPoints(10);
 
         TelegramUser opponent = new TelegramUser();
         opponent.setId(20L);
+        opponent.setFirstName("Opponent");
         opponent.setPoints(100);
 
         when(memeBattleRepository.findById(1L)).thenReturn(Optional.of(battle));
         when(telegramUserRepository.findById(10L)).thenReturn(Optional.of(challenger));
         when(telegramUserRepository.findById(20L)).thenReturn(Optional.of(opponent));
 
-        assertEquals(DuelActionResult.CHALLENGER_INSUFFICIENT_POINTS, memeDuelService.acceptDuel(1L, 20L));
-        assertEquals("FAILED", battle.getStatus());
-        verify(memeBattleRepository).save(battle);
+        MemeModeration meme = new MemeModeration(
+                "meme-1",
+                "file-1",
+                "description",
+                "ocr",
+                10L,
+                MemeVisibility.PUBLIC,
+                "tags",
+                ModerationStatus.APPROVED,
+                null);
+        when(memeModerationRepository.findByOwnerIdAndStatusAndVisibility(
+                        anyLong(), eq(ModerationStatus.APPROVED), eq(MemeVisibility.PUBLIC)))
+                .thenReturn(List.of(meme));
+
+        assertEquals(DuelActionResult.SUCCESS, memeDuelService.acceptDuel(1L, 20L));
+        assertEquals(10, challenger.getPoints());
+        assertEquals(50, opponent.getPoints());
+        verify(telegramUserRepository, never()).save(challenger);
+        verify(telegramUserRepository).save(opponent);
     }
 
     @Test
@@ -215,6 +240,160 @@ class MemeDuelServiceTest {
         when(telegramUserRepository.findById(10L)).thenReturn(Optional.of(challenger));
 
         assertEquals(DuelActionResult.SUCCESS, memeDuelService.declineDuel(2L, 10L));
+    }
+
+    @Test
+    void declineDuel_RefundsChallenger() {
+        MemeBattle battle = new MemeBattle();
+        battle.setStatus("PENDING");
+        battle.setChallengerId(10L);
+        battle.setOpponentId(20L);
+        battle.setBet(50);
+        battle.setTelegramChatId(123L);
+        battle.setTelegramMessageId(456);
+
+        TelegramUser challenger = new TelegramUser();
+        challenger.setId(10L);
+        challenger.setFirstName("Challenger");
+        challenger.setPoints(50);
+
+        TelegramUser opponent = new TelegramUser();
+        opponent.setId(20L);
+        opponent.setFirstName("Opponent");
+        opponent.setPoints(100);
+
+        when(memeBattleRepository.findById(1L)).thenReturn(Optional.of(battle));
+        when(telegramUserRepository.findById(10L)).thenReturn(Optional.of(challenger));
+        when(telegramUserRepository.findById(20L)).thenReturn(Optional.of(opponent));
+
+        assertEquals(DuelActionResult.SUCCESS, memeDuelService.declineDuel(1L, 20L));
+        assertEquals(100, challenger.getPoints());
+        assertEquals(100, opponent.getPoints());
+        verify(telegramUserRepository).save(challenger);
+        verify(telegramUserRepository, never()).save(opponent);
+    }
+
+    @Test
+    void createDuel_ChargesChallengerAndSendsChallenge() {
+        TelegramUser challenger = new TelegramUser();
+        challenger.setId(200L);
+        challenger.setUsername("challenger");
+        challenger.setPoints(100);
+
+        TelegramUser opponent = new TelegramUser();
+        opponent.setId(300L);
+        opponent.setUsername("opponent");
+        opponent.setPoints(100);
+
+        when(telegramUserRepository.findByUsernameIgnoreCase("opponent")).thenReturn(Optional.of(opponent));
+        when(telegramUserRepository.findById(200L)).thenReturn(Optional.of(challenger));
+        when(memeModerationRepository.findByOwnerIdAndStatusAndVisibility(
+                        anyLong(), eq(ModerationStatus.APPROVED), eq(MemeVisibility.PUBLIC)))
+                .thenReturn(List.of(new MemeModeration()));
+        when(memeBattleRepository.save(any(MemeBattle.class))).thenAnswer(inv -> {
+            MemeBattle b = inv.getArgument(0);
+            b.setId(1L);
+            return b;
+        });
+        when(telegramProperties.getBotUsername()).thenReturn("test_bot");
+        when(telegramService.sendDuelChallenge(eq(100L), anyString(), anyLong()))
+                .thenReturn(999);
+
+        assertEquals(DuelCreateResult.SUCCESS, memeDuelService.createDuel(200L, "opponent", 50, 100L));
+
+        assertEquals(50, challenger.getPoints());
+        verify(telegramUserRepository).save(challenger);
+        ArgumentCaptor<MemeBattle> battleCaptor = ArgumentCaptor.forClass(MemeBattle.class);
+        verify(memeBattleRepository, times(2)).save(battleCaptor.capture());
+        MemeBattle saved = battleCaptor.getValue();
+        assertEquals("PENDING", saved.getStatus());
+        assertEquals(999, saved.getTelegramMessageId());
+    }
+
+    @Test
+    void createDuel_SendFailure_FailsBattleAndRefundsChallenger() {
+        TelegramUser challenger = new TelegramUser();
+        challenger.setId(200L);
+        challenger.setUsername("challenger");
+        challenger.setPoints(100);
+
+        TelegramUser opponent = new TelegramUser();
+        opponent.setId(300L);
+        opponent.setUsername("opponent");
+        opponent.setPoints(100);
+
+        when(telegramUserRepository.findByUsernameIgnoreCase("opponent")).thenReturn(Optional.of(opponent));
+        when(telegramUserRepository.findById(200L)).thenReturn(Optional.of(challenger));
+        when(memeModerationRepository.findByOwnerIdAndStatusAndVisibility(
+                        anyLong(), eq(ModerationStatus.APPROVED), eq(MemeVisibility.PUBLIC)))
+                .thenReturn(List.of(new MemeModeration()));
+        when(memeBattleRepository.save(any(MemeBattle.class))).thenAnswer(inv -> {
+            MemeBattle b = inv.getArgument(0);
+            b.setId(1L);
+            return b;
+        });
+        when(telegramProperties.getBotUsername()).thenReturn("test_bot");
+        when(telegramService.sendDuelChallenge(eq(100L), anyString(), anyLong()))
+                .thenReturn(null);
+
+        assertEquals(DuelCreateResult.ERROR, memeDuelService.createDuel(200L, "opponent", 50, 100L));
+
+        assertEquals(100, challenger.getPoints());
+        ArgumentCaptor<MemeBattle> battleCaptor = ArgumentCaptor.forClass(MemeBattle.class);
+        verify(memeBattleRepository, times(2)).save(battleCaptor.capture());
+        assertEquals("FAILED", battleCaptor.getValue().getStatus());
+    }
+
+    @Test
+    void createDuel_ValidationFailures() {
+        when(telegramUserRepository.findByUsernameIgnoreCase("opponent")).thenReturn(Optional.empty());
+        assertEquals(DuelCreateResult.OPPONENT_NOT_FOUND, memeDuelService.createDuel(200L, "opponent", 50, 100L));
+
+        TelegramUser self = new TelegramUser();
+        self.setId(200L);
+        when(telegramUserRepository.findByUsernameIgnoreCase("self")).thenReturn(Optional.of(self));
+        assertEquals(DuelCreateResult.SELF_DUEL, memeDuelService.createDuel(200L, "self", 50, 100L));
+
+        TelegramUser opponent = new TelegramUser();
+        opponent.setId(300L);
+        opponent.setPoints(100);
+        TelegramUser poorChallenger = new TelegramUser();
+        poorChallenger.setId(200L);
+        poorChallenger.setPoints(10);
+        when(telegramUserRepository.findByUsernameIgnoreCase("opponent")).thenReturn(Optional.of(opponent));
+        when(telegramUserRepository.findById(200L)).thenReturn(Optional.of(poorChallenger));
+        assertEquals(
+                DuelCreateResult.CHALLENGER_INSUFFICIENT_POINTS,
+                memeDuelService.createDuel(200L, "opponent", 50, 100L));
+
+        TelegramUser richChallenger = new TelegramUser();
+        richChallenger.setId(200L);
+        richChallenger.setPoints(100);
+        TelegramUser poorOpponent = new TelegramUser();
+        poorOpponent.setId(300L);
+        poorOpponent.setPoints(10);
+        when(telegramUserRepository.findByUsernameIgnoreCase("poor")).thenReturn(Optional.of(poorOpponent));
+        when(telegramUserRepository.findById(200L)).thenReturn(Optional.of(richChallenger));
+        assertEquals(DuelCreateResult.OPPONENT_INSUFFICIENT_POINTS, memeDuelService.createDuel(200L, "poor", 50, 100L));
+
+        TelegramUser richOpponent = new TelegramUser();
+        richOpponent.setId(300L);
+        richOpponent.setPoints(100);
+        when(telegramUserRepository.findByUsernameIgnoreCase("rich")).thenReturn(Optional.of(richOpponent));
+        when(memeModerationRepository.findByOwnerIdAndStatusAndVisibility(
+                        eq(200L), eq(ModerationStatus.APPROVED), eq(MemeVisibility.PUBLIC)))
+                .thenReturn(List.of());
+        assertEquals(DuelCreateResult.CHALLENGER_NO_MEMES, memeDuelService.createDuel(200L, "rich", 50, 100L));
+
+        when(memeModerationRepository.findByOwnerIdAndStatusAndVisibility(
+                        eq(200L), eq(ModerationStatus.APPROVED), eq(MemeVisibility.PUBLIC)))
+                .thenReturn(List.of(new MemeModeration()));
+        when(memeModerationRepository.findByOwnerIdAndStatusAndVisibility(
+                        eq(300L), eq(ModerationStatus.APPROVED), eq(MemeVisibility.PUBLIC)))
+                .thenReturn(List.of());
+        assertEquals(DuelCreateResult.OPPONENT_NO_MEMES, memeDuelService.createDuel(200L, "rich", 50, 100L));
+
+        verify(memeBattleRepository, never()).save(any());
     }
 
     @Test

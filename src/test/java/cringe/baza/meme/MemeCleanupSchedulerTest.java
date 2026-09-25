@@ -6,9 +6,9 @@ import static org.mockito.Mockito.*;
 
 import cringe.baza.bot.service.TelegramService;
 import cringe.baza.domain.MemeModeration;
-import cringe.baza.model.IdRepository;
 import cringe.baza.model.MemeVisibility;
 import cringe.baza.model.ModerationStatus;
+import cringe.baza.repository.MemeWriteRepository;
 import cringe.baza.repository.jpa.MemeModerationRepository;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -26,7 +26,7 @@ class MemeCleanupSchedulerTest {
     private MemeModerationRepository repository;
 
     @Mock
-    private IdRepository idRepository;
+    private MemeWriteRepository idRepository;
 
     @Mock
     private TelegramService telegramService;

@@ -26,7 +26,13 @@ public class CommandRouter {
             }
         }
 
-        log.warn("Получена неизвестная команда от пользователя {}: {}", chatId, text);
+        Long fromId = update.message().from() != null ? update.message().from().id() : null;
+        boolean isPrivateChat = fromId != null && fromId.equals(chatId);
+        if (!isPrivateChat) {
+            return null;
+        }
+
+        log.info("Неизвестная команда от пользователя {}: {}", chatId, text);
         return new SendMessage(chatId, "Неизвестная команда. Используй /help для списка команд.");
     }
 }

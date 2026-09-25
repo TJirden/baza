@@ -2,7 +2,6 @@ package cringe.baza.repository;
 
 import cringe.baza.domain.MemeImageHash;
 import cringe.baza.domain.MemeModeration;
-import cringe.baza.model.IdRepository;
 import cringe.baza.model.Meme;
 import cringe.baza.model.MemeVisibility;
 import cringe.baza.model.ModerationStatus;

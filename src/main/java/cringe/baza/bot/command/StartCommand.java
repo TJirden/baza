@@ -26,6 +26,6 @@ public class StartCommand implements Command {
     public SendMessage handle(Update update) {
         long chatId = update.message().chat().id();
         sessionService.setUserState(chatId, UserState.DEFAULT);
-        return new SendMessage(chatId, "Привет базированным!");
+        return new SendMessage(chatId, "Привет базированным! /help — список команд.");
     }
 }

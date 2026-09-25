@@ -10,6 +10,8 @@ import org.springframework.stereotype.Repository;
 public interface MemeGroupRepository extends JpaRepository<MemeGroup, Long> {
     List<MemeGroup> findByMembersContains(TelegramUser member);
 
+    List<MemeGroup> findByMembers_Id(Long userId);
+
     List<MemeGroup> findByOwner(TelegramUser owner);
 
     List<MemeGroup> findByNameContainingIgnoreCase(String name);

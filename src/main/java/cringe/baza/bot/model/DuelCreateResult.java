@@ -1,0 +1,12 @@
+package cringe.baza.bot.model;
+
+public enum DuelCreateResult {
+    SUCCESS,
+    OPPONENT_NOT_FOUND,
+    SELF_DUEL,
+    CHALLENGER_INSUFFICIENT_POINTS,
+    OPPONENT_INSUFFICIENT_POINTS,
+    CHALLENGER_NO_MEMES,
+    OPPONENT_NO_MEMES,
+    ERROR
+}

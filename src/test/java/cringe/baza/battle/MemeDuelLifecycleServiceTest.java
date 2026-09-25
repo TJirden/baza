@@ -164,6 +164,72 @@ class MemeDuelLifecycleServiceTest {
     }
 
     @Test
+    void cancelPendingDuel_PendingStatus_RefundsOnlyChallenger() {
+        MemeBattle duel = new MemeBattle();
+        duel.setStatus("PENDING");
+        duel.setChallengerId(111L);
+        duel.setOpponentId(222L);
+        duel.setBet(50);
+        duel.setTelegramChatId(999L);
+        duel.setTelegramMessageId(888);
+
+        TelegramUser challenger = new TelegramUser();
+        challenger.setId(111L);
+        challenger.setPoints(100);
+
+        when(telegramUserRepository.findById(111L)).thenReturn(Optional.of(challenger));
+
+        memeDuelLifecycleService.cancelPendingDuel(duel, "Timeout");
+
+        assertEquals("EXPIRED", duel.getStatus());
+        assertEquals(150, challenger.getPoints());
+        verify(telegramUserRepository).save(challenger);
+        verify(telegramUserRepository, never()).findById(222L);
+        verify(telegramService).sendMessage(eq(111L), anyString());
+    }
+
+    @Test
+    void startActiveDuel_SendFails_RefundsBoth() {
+        MemeBattle battle = new MemeBattle();
+        battle.setId(100L);
+        battle.setMemeAId("meme-A");
+        battle.setMemeBId("meme-B");
+        battle.setChallengerId(111L);
+        battle.setOpponentId(222L);
+        battle.setBet(50);
+        battle.setTelegramChatId(999L);
+
+        MemeModeration memeA = new MemeModeration(
+                "meme-A", "file-A", "desc-A", "", 111L, MemeVisibility.PUBLIC, "", ModerationStatus.APPROVED, null);
+        MemeModeration memeB = new MemeModeration(
+                "meme-B", "file-B", "desc-B", "", 222L, MemeVisibility.PUBLIC, "", ModerationStatus.APPROVED, null);
+
+        TelegramUser challenger = new TelegramUser();
+        challenger.setId(111L);
+        challenger.setPoints(50);
+
+        TelegramUser opponent = new TelegramUser();
+        opponent.setId(222L);
+        opponent.setPoints(50);
+
+        when(memeModerationRepository.findById("meme-A")).thenReturn(Optional.of(memeA));
+        when(memeModerationRepository.findById("meme-B")).thenReturn(Optional.of(memeB));
+        when(telegramUserRepository.findById(111L)).thenReturn(Optional.of(challenger));
+        when(telegramUserRepository.findById(222L)).thenReturn(Optional.of(opponent));
+        when(telegramService.sendBattleStart(
+                        eq(999L), eq("file-A"), anyString(), eq("file-B"), anyString(), anyString(), eq(100L)))
+                .thenReturn(null);
+
+        memeDuelLifecycleService.startActiveDuel(battle);
+
+        assertEquals("FAILED", battle.getStatus());
+        assertEquals(100, challenger.getPoints());
+        assertEquals(100, opponent.getPoints());
+        verify(telegramUserRepository).save(challenger);
+        verify(telegramUserRepository).save(opponent);
+    }
+
+    @Test
     void completeDuel_ChallengerWins_EloAndStakesRewards() {
         MemeBattle battle = new MemeBattle();
         battle.setId(77L);
