@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import cringe.baza.model.Meme;
+import cringe.baza.model.MemeMutationResult;
 import cringe.baza.model.MemeVisibility;
 import cringe.baza.repository.IdRepository;
 import java.util.List;
@@ -123,12 +124,63 @@ class MemeProcessorTest {
     }
 
     @Test
-    void delete_CallsRepository() {
+    void delete_Found_CallsRepositoryAndReturnsTrue() {
         String memeId = "meme-123";
+        Meme meme = new Meme(memeId, "desc", "ocr", "file", 1L, MemeVisibility.PUBLIC, List.of());
+        when(idRepository.findById(memeId)).thenReturn(Optional.of(meme));
 
-        processor.delete(memeId);
+        assertTrue(processor.delete(memeId));
 
         verify(idRepository).delete(memeId);
+    }
+
+    @Test
+    void delete_NotFound_ReturnsFalseAndSkipsRepository() {
+        when(idRepository.findById("missing")).thenReturn(Optional.empty());
+
+        assertFalse(processor.delete("missing"));
+
+        verify(idRepository, never()).delete("missing");
+    }
+
+    @Test
+    void deleteForOwner_ChecksOwnership() {
+        Meme meme = new Meme("meme-1", "desc", "ocr", "file", 1L, MemeVisibility.PUBLIC, List.of());
+        when(idRepository.findById("meme-1")).thenReturn(Optional.of(meme));
+
+        assertEquals(MemeMutationResult.FORBIDDEN, processor.deleteForOwner("meme-1", 2L));
+        verify(idRepository, never()).delete("meme-1");
+
+        assertEquals(MemeMutationResult.DONE, processor.deleteForOwner("meme-1", 1L));
+        verify(idRepository).delete("meme-1");
+    }
+
+    @Test
+    void updateForOwner_ChecksOwnership() {
+        Meme meme = new Meme("meme-1", "desc", "ocr", "file", 1L, MemeVisibility.PUBLIC, List.of());
+        when(idRepository.findById("meme-1")).thenReturn(Optional.of(meme));
+
+        assertEquals(MemeMutationResult.FORBIDDEN, processor.updateForOwner("meme-1", "new", 2L));
+        verify(idRepository, never()).updateMeme(any(), any());
+
+        assertEquals(MemeMutationResult.DONE, processor.updateForOwner("meme-1", "new", 1L));
+        verify(idRepository).updateMeme(eq("meme-1"), any());
+    }
+
+    @Test
+    void getMemeByIdForUser_RespectsVisibility() {
+        Meme publicMeme = new Meme("p", "d", "o", "f", 1L, MemeVisibility.PUBLIC, List.of());
+        Meme privateMeme = new Meme("pr", "d", "o", "f", 1L, MemeVisibility.PRIVATE, List.of());
+        Meme groupMeme = new Meme("g", "d", "o", "f", 1L, MemeVisibility.GROUP, List.of(7L));
+        when(idRepository.findById("p")).thenReturn(Optional.of(publicMeme));
+        when(idRepository.findById("pr")).thenReturn(Optional.of(privateMeme));
+        when(idRepository.findById("g")).thenReturn(Optional.of(groupMeme));
+
+        assertTrue(processor.getMemeByIdForUser("p", 2L, List.of()).isPresent());
+        assertTrue(processor.getMemeByIdForUser("pr", 1L, List.of()).isPresent());
+        assertTrue(processor.getMemeByIdForUser("pr", 2L, List.of()).isEmpty());
+        assertTrue(processor.getMemeByIdForUser("g", 2L, List.of(7L)).isPresent());
+        assertTrue(processor.getMemeByIdForUser("g", 2L, List.of(8L)).isEmpty());
     }
 
     @Test

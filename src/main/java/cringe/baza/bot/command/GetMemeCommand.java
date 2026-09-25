@@ -8,6 +8,8 @@ import com.pengrad.telegrambot.request.SendMessage;
 import com.pengrad.telegrambot.request.SendPhoto;
 import cringe.baza.meme.MemeProcessor;
 import cringe.baza.model.Meme;
+import cringe.baza.user.TelegramUserService;
+import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +21,7 @@ import org.springframework.stereotype.Component;
 public class GetMemeCommand implements Command {
 
     private final MemeProcessor memeProcessor;
+    private final TelegramUserService userService;
 
     @Override
     public String command() {
@@ -33,6 +36,7 @@ public class GetMemeCommand implements Command {
     @Override
     public BaseRequest<?, ?> handle(Update update) {
         long chatId = update.message().chat().id();
+        long userId = update.message().from().id();
         String messageText = update.message().text();
 
         String memeId = extractText(messageText);
@@ -41,7 +45,8 @@ public class GetMemeCommand implements Command {
             return new SendMessage(chatId, "Нужно указать ID мема. Пример: /getmeme 123");
         }
 
-        Optional<Meme> memeOptional = memeProcessor.getMemeById(memeId);
+        List<Long> userGroupIds = userService.getUserGroupIds(userId);
+        Optional<Meme> memeOptional = memeProcessor.getMemeByIdForUser(memeId, userId, userGroupIds);
 
         if (memeOptional.isEmpty()) {
             return new SendMessage(chatId, "Мем с ID " + memeId + " не найден");

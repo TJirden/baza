@@ -6,8 +6,10 @@ import static org.mockito.Mockito.*;
 import com.pengrad.telegrambot.model.Chat;
 import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.Update;
+import com.pengrad.telegrambot.model.User;
 import com.pengrad.telegrambot.request.SendMessage;
 import cringe.baza.meme.MemeProcessor;
+import cringe.baza.model.MemeMutationResult;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -23,17 +25,23 @@ class EditCommandTest {
     @InjectMocks
     private EditCommand editCommand;
 
-    @Test
-    void handle_MissingArguments() {
+    private Update mockUpdate(String text) {
         Update update = mock(Update.class);
         Message message = mock(Message.class);
         Chat chat = mock(Chat.class);
+        User user = mock(User.class);
         when(update.message()).thenReturn(message);
         when(message.chat()).thenReturn(chat);
         when(chat.id()).thenReturn(123L);
-        when(message.text()).thenReturn("/edit");
+        when(message.from()).thenReturn(user);
+        when(user.id()).thenReturn(123L);
+        when(message.text()).thenReturn(text);
+        return update;
+    }
 
-        SendMessage response = (SendMessage) editCommand.handle(update);
+    @Test
+    void handle_MissingArguments() {
+        SendMessage response = (SendMessage) editCommand.handle(mockUpdate("/edit"));
 
         assertNotNull(response);
         assertEquals(
@@ -43,15 +51,7 @@ class EditCommandTest {
 
     @Test
     void handle_MissingDescription() {
-        Update update = mock(Update.class);
-        Message message = mock(Message.class);
-        Chat chat = mock(Chat.class);
-        when(update.message()).thenReturn(message);
-        when(message.chat()).thenReturn(chat);
-        when(chat.id()).thenReturn(123L);
-        when(message.text()).thenReturn("/edit meme-id");
-
-        SendMessage response = (SendMessage) editCommand.handle(update);
+        SendMessage response = (SendMessage) editCommand.handle(mockUpdate("/edit meme-id"));
 
         assertNotNull(response);
         assertEquals(
@@ -61,37 +61,38 @@ class EditCommandTest {
 
     @Test
     void handle_Success() {
-        Update update = mock(Update.class);
-        Message message = mock(Message.class);
-        Chat chat = mock(Chat.class);
-        when(update.message()).thenReturn(message);
-        when(message.chat()).thenReturn(chat);
-        when(chat.id()).thenReturn(123L);
-        when(message.text()).thenReturn("/edit meme-id cool new desc");
-        when(memeProcessor.update("meme-id", "cool new desc")).thenReturn(true);
+        Update update = mockUpdate("/edit meme-id cool new desc");
+        when(memeProcessor.updateForOwner("meme-id", "cool new desc", 123L)).thenReturn(MemeMutationResult.DONE);
 
         SendMessage response = (SendMessage) editCommand.handle(update);
 
         assertNotNull(response);
         assertEquals(
                 "Описание мема успешно обновлено.", response.getParameters().get("text"));
-        verify(memeProcessor).update("meme-id", "cool new desc");
+        verify(memeProcessor).updateForOwner("meme-id", "cool new desc", 123L);
     }
 
     @Test
     void handle_NotFound() {
-        Update update = mock(Update.class);
-        Message message = mock(Message.class);
-        Chat chat = mock(Chat.class);
-        when(update.message()).thenReturn(message);
-        when(message.chat()).thenReturn(chat);
-        when(chat.id()).thenReturn(123L);
-        when(message.text()).thenReturn("/edit meme-id cool new desc");
-        when(memeProcessor.update("meme-id", "cool new desc")).thenReturn(false);
+        Update update = mockUpdate("/edit meme-id cool new desc");
+        when(memeProcessor.updateForOwner("meme-id", "cool new desc", 123L)).thenReturn(MemeMutationResult.NOT_FOUND);
 
         SendMessage response = (SendMessage) editCommand.handle(update);
 
         assertNotNull(response);
         assertEquals("Мем с ID meme-id не найден.", response.getParameters().get("text"));
+    }
+
+    @Test
+    void handle_Forbidden() {
+        Update update = mockUpdate("/edit meme-id cool new desc");
+        when(memeProcessor.updateForOwner("meme-id", "cool new desc", 123L)).thenReturn(MemeMutationResult.FORBIDDEN);
+
+        SendMessage response = (SendMessage) editCommand.handle(update);
+
+        assertNotNull(response);
+        assertEquals(
+                "Вы не можете редактировать чужой мем.",
+                response.getParameters().get("text"));
     }
 }

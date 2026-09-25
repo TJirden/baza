@@ -4,6 +4,7 @@ import com.pengrad.telegrambot.model.Update;
 import com.pengrad.telegrambot.request.BaseRequest;
 import com.pengrad.telegrambot.request.SendMessage;
 import cringe.baza.meme.MemeProcessor;
+import cringe.baza.model.MemeMutationResult;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -26,6 +27,7 @@ public class EditCommand implements Command {
     @Override
     public BaseRequest<?, ?> handle(Update update) {
         long chatId = update.message().chat().id();
+        long userId = update.message().from().id();
         String text = extractText(update.message().text());
 
         if (text == null || text.isBlank()) {
@@ -40,12 +42,12 @@ public class EditCommand implements Command {
         String memeId = parts[0];
         String newDescription = parts[1];
 
-        boolean updated = memeProcessor.update(memeId, newDescription);
+        MemeMutationResult result = memeProcessor.updateForOwner(memeId, newDescription, userId);
 
-        if (updated) {
-            return new SendMessage(chatId, "Описание мема успешно обновлено.");
-        } else {
-            return new SendMessage(chatId, "Мем с ID " + memeId + " не найден.");
-        }
+        return switch (result) {
+            case DONE -> new SendMessage(chatId, "Описание мема успешно обновлено.");
+            case NOT_FOUND -> new SendMessage(chatId, "Мем с ID " + memeId + " не найден.");
+            case FORBIDDEN -> new SendMessage(chatId, "Вы не можете редактировать чужой мем.");
+        };
     }
 }
