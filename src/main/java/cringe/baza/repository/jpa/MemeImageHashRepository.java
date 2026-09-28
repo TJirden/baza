@@ -16,7 +16,7 @@ public interface MemeImageHashRepository extends JpaRepository<MemeImageHash, St
     //       при пороге T нужно T+1 полос), затем фильтровать полным bit_count.
     @Query(value = """
                     WITH candidates AS (
-                        SELECT h.meme_id AS meme_id, bit_count(h.image_hash::bit(64) # :queryHash::bit(64)) AS dist
+                        SELECT h.meme_id AS meme_id, bit_count(h.image_hash::bit(64) # CAST(:queryHash AS bit(64))) AS dist
                         FROM meme_image_hashes h
                         JOIN meme_moderation m ON h.meme_id = m.id
                         WHERE m.status = 'APPROVED'
@@ -30,7 +30,7 @@ public interface MemeImageHashRepository extends JpaRepository<MemeImageHash, St
 
     @Query(value = """
                     WITH candidates AS (
-                        SELECT h.meme_id AS meme_id, bit_count(h.image_hash::bit(64) # :queryHash::bit(64)) AS dist
+                        SELECT h.meme_id AS meme_id, bit_count(h.image_hash::bit(64) # CAST(:queryHash AS bit(64))) AS dist
                         FROM meme_image_hashes h
                         JOIN meme_moderation m ON h.meme_id = m.id
                         WHERE m.status = 'APPROVED'
